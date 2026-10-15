@@ -5,7 +5,7 @@ import MyPageFlow from './pages/mypage/MyPageFlow';
 import LoginPage from './pages/LoginPage';
 import SignupFlow from './pages/SignupFlow';
 import { updateProfile } from './api/user';
-import { saveUserProfile, getUserProfile } from './api/auth';
+import { saveUserProfile, getUserProfile, naverAuthCallback } from './api/auth';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -128,6 +128,53 @@ function App() {
   };
 
   // 로그인 상태 구독 및 소셜 로그인 콜백 처리
+  
+   // ─── [네이버 소셜 로그인 콜백 감지 및 백엔드 연동] ───
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const state = params.get('state');
+    // 주소창에 네이버가 준 code와 state가 있다면 백엔드로 전송!
+    if (code && state) {
+      console.log('🚀 [네이버 로그인 콜백 감지] code와 state를 백엔드로 전송합니다...');
+      
+      // 1. 주소창 깔끔하게 정리 (code 지우기)
+      window.history.replaceState({}, document.title, window.location.pathname);
+      // 2. 백엔드 API (/api/auth/naver) 호출
+      naverAuthCallback(code, state).then(async (res) => {
+        if (res?.success && res?.user) {
+          console.log('✅ [네이버 로그인 성공]:', res.user);
+          // 토큰 및 사용자 ID 브라우저에 저장
+          if (res.token) localStorage.setItem('soyo-jwt-token', res.token);
+          if (res.user.id) localStorage.setItem('soyo-current-user-id', res.user.id);
+          if (res.user.email) localStorage.setItem('soyo-current-email', res.user.email);
+          // 로그인 상태 활성화 및 화면 이동
+          setIsLoggedIn(true);
+          if (res.isNewUser) {
+            // 신규 가입자면 2단계 건강정보 프로필 입력 화면으로!
+            console.log('🌱 신규 회원 감지: 건강 프로필 설정으로 이동');
+            setSignupDraft({
+              loginId: res.user.email || res.user.userName,
+              name: res.user.userName,
+              email: res.user.email,
+              birthDate: res.user.birthDate,
+              supabaseUserId: res.user.id
+            });
+            navigateTo('auth', 'signup');
+          } else {
+            // 기존 회원이면 바로 메인(마이페이지)으로!
+            console.log('🎉 기존 회원 확인: 메인 화면으로 이동');
+            setActiveScreen('main');
+            setActiveTab('myPage');
+          }
+        } else {
+          console.error('❌ 네이버 로그인 실패:', res?.error);
+          setAuthNotice(res?.error || '네이버 로그인 중 오류가 발생했습니다.');
+        }
+      });
+    }
+  }, []);
+
   useEffect(() => {
     if (!supabase) return;
     supabase.auth.getSession().then(({ data: { session } }) => {

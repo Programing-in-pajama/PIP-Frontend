@@ -76,21 +76,18 @@ export default function LoginPage({ onSignup, onLogin, onSkip, initialNotice = '
     console.log(`📌 [${provider} 소셜 로그인 클릭]`);
 
     if (provider === 'naver') {
-      // 문서 알고리즘: 네이버는 백엔드 코드 및 Supabase 커스텀 설정 연동
-      console.log('🚀 [네이버 소셜 로그인] 백엔드 및 Supabase 네이버 연동 진행');
-      showNotice('네이버 로그인으로 이동 중...');
-      if (supabase) {
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: 'naver',
-          options: { redirectTo: window.location.origin }
-        });
-        if (error) {
-          console.warn('⚠️ [네이버 OAuth]:', error.message);
-          showNotice(`네이버 로그인: ${error.message}`);
-        }
-      } else {
-        showNotice('네이버 로그인 설정 확인 중입니다.');
-      }
+      showNotice('네이버 로그인 화면으로 이동합니다...');
+      // 1. .env 파일에 적어둔 설정값 가져오기
+      const clientId = import.meta.env.VITE_NAVER_CLIENT_ID;
+      const redirectUri = import.meta.env.VITE_NAVER_REDIRECT_URI || `${window.location.origin}/oauth/callback/naver`;
+      // 2. 해킹(위조) 방지용 랜덤 암호키(state) 생성
+      const state = Math.random().toString(36).substring(2, 15);
+      sessionStorage.setItem('naver_oauth_state', state);
+      // 3. 네이버 공식 로그인 주소 만들기
+      const naverAuthUrl = `https://nid.naver.com/oauth2.0/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`;
+      console.log('🚀 [네이버 이동 주소]:', naverAuthUrl);
+      // 4. 네이버 로그인 페이지로 브라우저 이동!
+      window.location.href = naverAuthUrl;
       return;
     }
 
