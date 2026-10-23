@@ -14,10 +14,21 @@ function MedicationSearchPage({ query, onQueryChange, selected, registeredIds, o
     if (!keyword) return setResults([]);
     let cancelled = false;
     setIsLoading(true);
+    console.log(`\n⏳ [화면 상태] "${keyword}" 약물 정보를 가져오는 중입니다... (로딩 시작)`);
     const timer = setTimeout(() => {
       searchMedications(keyword)
-        .then((list) => { if (!cancelled) setResults(list); })
-        .finally(() => { if (!cancelled) setIsLoading(false); });
+        .then((list) => {
+          if (!cancelled) {
+            setResults(list);
+            console.log(`📋 [화면 갱신] 검색 결과 ${list.length}건이 화면에 렌더링되었습니다.`);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setIsLoading(false);
+            console.log(`✨ [화면 상태] 약물 정보 로드 완료 (로딩 종료)`);
+          }
+        });
     }, 250);
     return () => { cancelled = true; clearTimeout(timer); };
   }, [keyword]);
@@ -47,6 +58,23 @@ function MedicationSearchPage({ query, onQueryChange, selected, registeredIds, o
           <SearchIcon />
         </span>
       </div>
+
+      {isLoading && (
+        <section className="mp-empty-state" style={{ padding: '32px 0 16px', color: '#16a34a' }}>
+          <div style={{
+            margin: '0 auto 12px',
+            width: '28px',
+            height: '28px',
+            border: '3px solid #e2e8f0',
+            borderTopColor: '#22c55e',
+            borderRadius: '50%',
+            animation: 'spin 0.8s linear infinite'
+          }} />
+          <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+          <strong style={{ fontSize: '15px', color: '#1e293b' }}>‘{keyword}’ 정보를 가져오는 중...</strong>
+          <span style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>식약처 공공데이터 및 DUR 안전정보를 조회하고 있어요.</span>
+        </section>
+      )}
 
       {noResults && (
         <section className="mp-empty-state mp-empty-search">
