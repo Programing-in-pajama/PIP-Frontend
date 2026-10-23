@@ -4,6 +4,26 @@ React + Vite 웹 앱입니다. 백엔드: [program-in-pazama](https://github.com
 
 > 🐣 **Git/GitHub 이 처음이라면 → [초보자 가이드](https://github.com/philip0613/program-in-pazama/blob/main/docs/GUIDE.md) 부터 보세요!** (명령어 없이 버튼으로만)
 
+---
+
+## 🚀 개발 및 구현 진행 상황 (2026-10-24 최신)
+
+### ✅ 네이버 소셜 로그인 연동 및 사용자 온보딩 플로우 완료
+1. **네이버 OAuth 2.0 공식 인증창 호출 (`src/pages/LoginPage.jsx`)**:
+   - 네이버 Client ID 기반 인증 URL 동적 생성 및 CSRF 방지용 `state` 보안 토큰 적용
+2. **리다이렉트 콜백 수신 및 백엔드 토큰 교환 (`src/App.jsx`)**:
+   - `window.location.search`에서 `code`와 `state` 파라미터 감지 후 `POST /api/auth/naver`로 자동 전송
+   - 발급된 JWT 토큰 및 유저 식별자 안전 저장
+3. **신규 가입자 온보딩 최적화 (`src/pages/SignupFlow.jsx`)**:
+   - 네이버/소셜 신규 유저는 1단계(비밀번호, 이메일 인증)를 건너뛰고 네이버 프로필(이름, 생년월일)이 자동 세팅된 **2단계 건강정보(알레르기, 기저질환, 복용약) 입력창으로 직행**
+   - 일반 가입자는 기존대로 1단계부터 차례대로 진행하도록 완벽 분기
+4. **기존 가입자 재로그인 프리패스**:
+   - 이미 가입된 네이버 회원은 온보딩 절차 없이 **곧바로 마이페이지(메인)로 화면 자동 전환**
+5. **로그아웃 세션 정리**:
+   - 로그아웃 시 로컬 스토리지의 모든 인증 키(`soyo-jwt-token`, 유저 ID, 이메일) 일괄 제거
+
+---
+
 ## 처음 실행하기
 **가장 쉬운 방법:** 폴더 안의 `실행하기.bat` 더블클릭 (맥은 `맥용/실행하기.command`). 설치부터 실행까지 자동으로 해줘요.
 
@@ -39,23 +59,22 @@ http://localhost:5173 을 열면 화면 위쪽에 백엔드 연결 상태가 보
 ## 폴더 구조
 ```
 src/
-  App.jsx             화면 조립 (컴포넌트 배치만)
+  App.jsx             화면 조립 및 라우팅 (네이버 소셜 로그인 콜백 처리)
   components/         ★ 화면 조각 — 대부분의 작업은 여기서
     AuthPanel.jsx       로그인/로그아웃
     PostForm.jsx        글 작성
     PostList.jsx        글 목록
     ApiHealthCheck.jsx  백엔드 연결 상태 표시
+  pages/              주요 페이지 컴포넌트
+    LoginPage.jsx       로그인 화면 (일반 로그인 및 네이버/카카오/구글 소셜 연동)
+    SignupFlow.jsx      회원가입 플로우 (1단계 계정 생성 / 2단계 건강 프로필 입력)
+    mypage/             마이페이지 플로우
   api/                ★ 백엔드 호출 함수 (fetch 는 여기서만)
     client.js           공통 요청 함수 apiFetch
+    auth.js             인증/프로필 API (naverAuthCallback, saveUserProfile 등)
     posts.js            게시글 API
   mocks/              목 모드용 가짜 데이터
 ```
-
-## 새 기능 추가하는 법 (예: 댓글)
-1. 백엔드 `docs/API.md` 에서 댓글 API 명세 확인 (없으면 백엔드 친구와 먼저 정하기)
-2. `src/api/comments.js` 에 호출 함수 작성 (`posts.js` 참고)
-3. 백엔드가 아직이면 `src/mocks/comments.js` 에 가짜 데이터 작성
-4. `src/components/CommentList.jsx` 같은 컴포넌트 만들고 `App.jsx` 에 배치
 
 ## 협업 규칙
 1. `main` 에서 바로 작업하지 말고 `작업시작.bat` 으로 작업 공간 만들기
