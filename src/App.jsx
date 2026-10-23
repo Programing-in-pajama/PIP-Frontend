@@ -158,7 +158,8 @@ function App() {
               name: res.user.userName,
               email: res.user.email,
               birthDate: res.user.birthDate,
-              supabaseUserId: res.user.id
+              supabaseUserId: res.user.id,
+              isSocial: true 
             });
             navigateTo('auth', 'signup');
           } else {
@@ -328,6 +329,7 @@ function App() {
   const handleLogout = async () => {
     localStorage.removeItem('soyo-current-user-id');
     localStorage.removeItem('soyo-current-email');
+    localStorage.removeItem('soyo-jwt-token');
     if (supabase) {
       try {
         await supabase.auth.signOut();

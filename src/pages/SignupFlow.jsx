@@ -11,20 +11,23 @@ const ALLERGY_OPTIONS = ['식품', '약물', '꽃가루·먼지', '기타']; // 
 const PASSWORD_RULE = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
 
 export default function SignupFlow({ onBack, onComplete, initialDraft = {} }) {
-  const [step, setStep] = useState(1);
+  // 1. 소셜 로그인(네이버/카카오/구글)으로 넘어온 경우: 이메일 인증이 이미 끝났으므로 2단계 건강정보로 바로 시작!
+  // 2. 일반 회원가입(직접 아이디/비번 입력): 1단계(계정 생성 및 이메일 인증)부터 정상 시작!
+  const isSocialUser = Boolean(initialDraft?.supabaseUserId || initialDraft?.isSocial);
+  const [step, setStep] = useState(isSocialUser ? 2 : 1);
   const [form, setForm] = useState({
-    loginId: initialDraft?.loginId || '',          // 로그인 화면에서 전달받은 아이디 자동 채움
-    password: initialDraft?.password || '',        // 로그인 화면에서 전달받은 비밀번호 자동 채움
-    passwordConfirm: '',                           // 보안 검증을 위해 비밀번호 확인은 빈 칸 유지
-    email: '',
-    code: '',             // 이메일 인증번호
-    termsAgreed: false,   // 필수 약관 동의
-    name: '',
-    birthDate: '',        // 생년월일 (DB birth_date)
-    allergies: [],        // 알레르기 (DB allergies)
-    diseaseIds: [],       // 선택한 질병 ID (data/chronicDiseases.js)
+    loginId: initialDraft?.loginId || '',
+    password: initialDraft?.password || (isSocialUser ? 'social_oauth_user' : ''),
+    passwordConfirm: initialDraft?.password || (isSocialUser ? 'social_oauth_user' : ''),
+    email: initialDraft?.email || '',
+    code: '',
+    termsAgreed: isSocialUser ? true : false,   // 소셜 유저는 소셜 로그인 시 약관 동의 완료
+    name: initialDraft?.name || '',              // 소셜에서 받아온 이름 자동 채움 (일반 가입은 빈 칸)
+    birthDate: initialDraft?.birthDate || '',    // 소셜에서 받아온 생년월일 자동 채움
+    allergies: [],
+    diseaseIds: [],
     medications: [],
-    healthConsent: false, // 건강 정보 이용 동의
+    healthConsent: false,
     noAllergy: false,
     noDisease: false,
     noMedication: false,
