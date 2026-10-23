@@ -1,35 +1,35 @@
 import React from 'react';
 
-// No.10 마이페이지
-// 변수: userName, email, profileImage, isLoggedIn, myMenuItems, diseaseIds, medications
+// No.10 마이페이지 (Figma: 로그인 162-571 / 비로그인 242-488)
+// 변수: userName, email, profileImage, isLoggedIn, myMenuItems, medications
 function MyPage({ profile, isLoggedIn, onNavigate, onLogout, onLogin }) {
   if (!isLoggedIn) {
     return (
       <div className="mp-page">
-        <h1 className="mp-title">마이페이지</h1>
-        <section className="mp-profile-card mp-logged-out">
-          <p>로그인하면 내 정보와 건강 정보를 관리할 수 있어요.</p>
-          <button type="button" className="mp-pill-button" onClick={onLogin}>로그인</button>
-        </section>
+        <h1 className="mp-title mp-title-main">마이페이지</h1>
+        {/* Figma: "이 안내를 누르면 로그인 화면으로 이동합니다" → 카드 전체를 누르면 로그인 화면으로 */}
+        <button type="button" className="mp-profile-card mp-plain-button" onClick={onLogin}>
+          <span className="mp-avatar" aria-hidden="true" />
+          <span className="mp-profile-text">
+            <strong>로그인이 필요합니다</strong>
+            <span>이 안내를 누르면 로그인 화면으로 이동합니다.</span>
+          </span>
+        </button>
       </div>
     );
   }
 
-  const { userName, email, profileImage, diseaseIds = [], medications = [] } = profile;
+  const { userName, email, profileImage, medications = [] } = profile;
 
   const myMenuItems = [
     { id: 'profileEdit', title: '회원정보 수정', description: '이름 · 생년월일' },
-    {
-      id: 'diseaseSelect',
-      title: '건강정보 관리',
-      description: diseaseIds.length > 0 ? `알레르기 · 기저질환 (${diseaseIds.length}개 선택)` : '알레르기 · 기저질환',
-    },
-    { id: 'medications', title: '복용 약물 관리', description: `등록 약물 ${medications.length}개` },
+    { id: 'healthManage', title: '건강정보 관리', description: '알레르기 · 기저질환' },
+    { id: 'medicationManage', title: '복용 약물 관리', description: `등록 약물 ${medications.length}개` },
   ];
 
   return (
     <div className="mp-page">
-      <h1 className="mp-title">마이페이지</h1>
+      <h1 className="mp-title mp-title-main">마이페이지</h1>
 
       <section className="mp-profile-card">
         {profileImage

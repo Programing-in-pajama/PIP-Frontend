@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import { PencilIcon } from './common';
 
-// No.11 회원정보 수정
+// N0.11 회원정보 수정 (Figma 166-680)
 // 변수: name(이름 입력값), birthDate(생년월일 — DB birth_date), isLoading
 function ProfileEditPage({ profile, isLoading, onSave }) {
   const [name, setName] = useState(profile.userName ?? '');
@@ -16,7 +17,7 @@ function ProfileEditPage({ profile, isLoading, onSave }) {
   return (
     <form className="mp-page mp-form" onSubmit={handleSubmit}>
       <h1 className="mp-title mp-title-left">회원정보 수정</h1>
-      <p className="mp-subtitle">저장한 회원·건강정보를 수정할 수 있어요</p>
+      <p className="mp-subtitle">저장한 회원정보를 수정할 수 있어요</p>
 
       <label className="mp-input-wrap">
         <span className="visually-hidden">이름</span>
@@ -27,6 +28,7 @@ function ProfileEditPage({ profile, isLoading, onSave }) {
           value={name}
           onChange={(e) => { setName(e.target.value); setNotice(''); }}
         />
+        <PencilIcon />
       </label>
 
       <label className="mp-input-wrap">
@@ -40,16 +42,18 @@ function ProfileEditPage({ profile, isLoading, onSave }) {
           value={birthDate}
           onChange={(e) => setBirthDate(e.target.value)}
         />
+        <PencilIcon />
       </label>
 
       {notice && <p className="mp-notice" role="status">{notice}</p>}
 
-      <button type="submit" className="mp-primary-button" disabled={isLoading}>
-        {isLoading ? '저장 중...' : '저장'}
-      </button>
+      <div className="mp-bottom-actions">
+        <button type="submit" className="mp-primary-button" disabled={isLoading}>
+          {isLoading ? '저장 중...' : '저장'}
+        </button>
+      </div>
     </form>
   );
 }
-
 
 export default ProfileEditPage;

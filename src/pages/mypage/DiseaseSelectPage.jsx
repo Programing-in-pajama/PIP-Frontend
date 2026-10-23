@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { DISEASE_CATEGORIES } from '../../data/chronicDiseases';
 
-// No.12 기저질환 선택
+// No.12 기저질환 선택 (Figma 204-784 — 질환 목록은 엑셀 만성질환 목록표 기준)
 // 변수: diseaseList(질병 선택 목록 — data/chronicDiseases.js), diseaseIds(선택한 질병), isLoading
 function DiseaseSelectPage({ profile, isLoading, onSave }) {
   const [diseaseIds, setDiseaseIds] = useState(profile.diseaseIds ?? []);
@@ -29,11 +29,8 @@ function DiseaseSelectPage({ profile, isLoading, onSave }) {
                 onClick={() => setOpenCategoryId(isOpen ? null : category.id)}
               >
                 <span className={`mp-category-icon ${isOpen || selectedCount > 0 ? 'active' : ''}`} aria-hidden="true" />
-                <span className="mp-category-name">
-                  {category.name}
-                  {selectedCount > 0 && <small>{selectedCount}개 선택</small>}
-                </span>
-                <span className={`mp-chevron ${isOpen ? 'open' : ''}`} aria-hidden="true">›</span>
+                <span className="mp-category-name">{category.name}</span>
+                <span className="mp-chevron mp-chevron-down" aria-hidden="true">⌄</span>
               </button>
 
               {isOpen && (

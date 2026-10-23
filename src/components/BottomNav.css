@@ -2,13 +2,13 @@
 .bottom-nav {
   position: sticky; bottom: 0; z-index: 10;
   display: flex; justify-content: space-around; align-items: center;
-  height: 60px; background: #b9e58a;
+  height: 60px; background: #B8E986;
 }
 .bottom-nav-item {
   width: 56px; height: 44px; border: 0; background: none; cursor: pointer;
   display: grid; place-items: center; border-radius: 10px;
 }
 .bottom-nav-item svg {
-  width: 20px; height: 20px; fill: none; stroke: #4a5a3c; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round;
+  width: 20px; height: 20px; fill: none; stroke: #6B6F6A; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round;
 }
-.bottom-nav-item.active svg { stroke: #111; stroke-width: 2.2; }
+.bottom-nav-item.active svg { stroke: #111111; stroke-width: 2.2; }

@@ -1,91 +1,258 @@
-/* 마이페이지 탭 (No.10 ~ No.12) — 클래스 이름은 mp- 로 시작해서 다른 화면과 겹치지 않게 */
+/* 마이페이지 탭 (Figma No.10 ~ no.19) — 색·글꼴은 Figma 시안 값 그대로
+   클래스 이름은 mp- 로 시작해서 다른 화면과 겹치지 않게 */
 .mp-screen {
+  /* Figma 색상 */
+  --mp-text: #111111;           /* 기본 글씨 */
+  --mp-text-sub: #6B6F6A;       /* 설명 글씨 (color/text/secondary) */
+  --mp-text-weak: #7A7E77;      /* 화살표 등 */
+  --mp-border: #E3E5E1;         /* 테두리 (color/border) */
+  --mp-surface: #FFFFFF;        /* 카드 바탕 (color/surface) */
+  --mp-gray-bg: #F7F8F5;        /* 회색 안내 카드 */
+  --mp-green: #82C94B;          /* 선택 테두리 · 약 아이콘 */
+  --mp-green-bg: #E8F5D5;       /* 선택 배경 · 약 아이콘 배경 */
+  --mp-green-text: #4D7F2A;     /* 선택 체크 · 선택 요약 글씨 */
+  --mp-avatar-bg: #E8F6D8;
+  --mp-avatar-text: #4E7A2F;
+  --mp-blue: #3182F6;           /* 로그아웃 버튼 */
+  --mp-button: #0C0C0C;         /* 검정 버튼 */
+  --mp-warn-bg: #FFF7E6;        /* 성분 중복 주의 카드 */
+  --mp-warn-border: #FADDA4;
+  --mp-warn-icon: #F59E0B;
+  --mp-warn-text: #A96509;
+
   position: relative;
   min-height: 100%;
-  padding: 24px 20px 32px;
-  font-family: "Apple SD Gothic Neo", "Malgun Gothic", Arial, sans-serif;
-  color: #171717;
+  padding: 20px 24px 28px;
+  font-family: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  color: var(--mp-text);
+  letter-spacing: 0;
 }
 
 .mp-page { display: flex; flex-direction: column; }
-.mp-form { min-height: calc(100vh - 140px); }
+.mp-form { min-height: calc(100vh - 128px); }
 
-.mp-title { margin: 8px 0 28px; font-size: 22px; font-weight: 700; }
-.mp-title-left { margin-bottom: 6px; }
-.mp-title-center { text-align: center; }
-.mp-subtitle { margin: 0 0 22px; font-size: 12px; color: #8a8a8a; }
-.mp-section-title { margin: 28px 0 10px; font-size: 13px; font-weight: 700; }
-.mp-state { margin-top: 60px; text-align: center; color: #8a8a8a; }
+/* 제목 */
+.mp-title { margin: 12px 0 6px; font-size: 22px; font-weight: 700; line-height: 1.2; }
+.mp-title-main { margin-bottom: 40px; }
+.mp-title-center { text-align: center; margin-bottom: 24px; }
+.mp-subtitle { margin: 0 0 24px; font-size: 12px; color: var(--mp-text-sub); line-height: 1.5; }
+.mp-subtitle-tight { margin-bottom: 14px; }
+.mp-section-title { display: block; margin: 28px 0 12px; font-size: 15px; font-weight: 700; }
+.mp-section-first { margin-top: 4px; }
+.mp-state { margin-top: 60px; text-align: center; color: var(--mp-text-sub); }
+.mp-gap-top { margin-top: 20px; }
 
+/* ‹ 제목 */
+.mp-header-row { display: flex; align-items: center; gap: 6px; }
+.mp-back {
+  flex: none; width: 16px; height: 28px; margin: 12px 0 6px; padding: 0;
+  border: 0; background: none; font-size: 26px; line-height: 1; color: var(--mp-text); cursor: pointer;
+}
 
 /* No.10 프로필 카드 */
 .mp-profile-card {
-  display: flex; align-items: center; gap: 14px;
-  padding: 18px 14px; border-radius: 12px; background: #f4f4f2;
+  width: 100%; display: flex; align-items: center; gap: 16px;
+  padding: 20px; border-radius: 16px; background: var(--mp-gray-bg); text-align: left;
 }
-.mp-logged-out { flex-direction: column; text-align: center; font-size: 13px; color: #555; }
 .mp-avatar {
-  flex: none; width: 44px; height: 44px; border-radius: 50%;
+  flex: none; width: 52px; height: 52px; border-radius: 50%;
   display: grid; place-items: center; object-fit: cover;
-  background: #e3f2d4; color: #3d7a1f; font-weight: 700;
+  background: var(--mp-avatar-bg); color: var(--mp-avatar-text); font-size: 17px; font-weight: 700;
 }
-.mp-profile-text { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.mp-profile-text strong { font-size: 15px; }
-.mp-profile-text span { font-size: 11px; color: #777; overflow: hidden; text-overflow: ellipsis; }
+.mp-profile-text { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.mp-profile-text strong { font-size: 16px; font-weight: 700; }
+.mp-profile-text span { font-size: 12px; color: var(--mp-text-sub); overflow: hidden; text-overflow: ellipsis; }
 .mp-pill-button {
-  flex: none; padding: 7px 12px; border: 0; border-radius: 999px;
-  background: #2f80ed; color: #fff; font-size: 11px; font-weight: 600; cursor: pointer;
+  flex: none; padding: 9px 14px; border: 0; border-radius: 999px;
+  background: var(--mp-blue); color: #fff; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer;
 }
 
-/* No.10 메뉴 / No.12 대분류 공통 카드 */
-.mp-menu, .mp-category-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+/* 메뉴 카드 / 기저질환 대분류 카드 */
+.mp-menu, .mp-category-list, .mp-card-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
 .mp-menu-item, .mp-category {
   width: 100%; display: flex; align-items: center; gap: 12px;
-  padding: 14px 12px; border: 1px solid #e3e3e3; border-radius: 10px;
-  background: #fff; text-align: left; font: inherit; color: inherit; cursor: pointer;
+  padding: 16px 18px; border: 1px solid var(--mp-border); border-radius: 12px;
+  background: var(--mp-surface); text-align: left; font: inherit; color: inherit; cursor: pointer;
 }
-.mp-menu-item > span:first-child { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-.mp-menu-item strong { font-size: 13px; }
-.mp-menu-item small { font-size: 10px; color: #8a8a8a; }
-.mp-chevron { margin-left: auto; color: #999; font-size: 18px; transition: transform 0.15s; }
-.mp-chevron.open { transform: rotate(90deg); }
+.mp-menu-item > span:first-child { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.mp-menu-item strong { font-size: 14px; font-weight: 700; }
+.mp-menu-item small { font-size: 11px; color: var(--mp-text-sub); }
+.mp-chevron { margin-left: auto; color: var(--mp-text-weak); font-size: 18px; }
+.mp-chevron-down { font-size: 16px; line-height: 1; }
 
-/* No.12 기저질환 */
-.mp-category-icon { flex: none; width: 28px; height: 28px; border-radius: 6px; background: #efefeb; }
-.mp-category-icon.active { background: #e3f2d4; }
-.mp-category-name { display: flex; flex-direction: column; gap: 3px; font-size: 13px; font-weight: 600; }
-.mp-category-name small { font-size: 10px; font-weight: 500; color: #4f9a2a; }
+/* No.12 건강정보 관리 */
+.mp-health-menu { margin-top: 18px; gap: 18px; }
+.mp-health-item { align-items: flex-start; padding: 20px 18px; border-radius: 16px; }
+.mp-health-item > span:first-child { gap: 10px; }
+.mp-health-item strong { font-size: 15px; }
+.mp-health-names { font-size: 13px; color: var(--mp-text-sub); }
+
+/* No.12 기저질환 선택 */
+.mp-category { padding: 12px 14px; }
+.mp-category-icon { flex: none; width: 28px; height: 28px; border-radius: 6px; background: #EFEFEB; }
+.mp-category-icon.active { background: var(--mp-green-bg); }
+.mp-category-name { font-size: 13px; font-weight: 700; }
 .mp-disease-box {
-  margin: 6px 0 2px; padding: 12px 14px; border: 0; border-radius: 10px;
-  background: #f4f4f2; display: flex; flex-direction: column; gap: 8px;
+  margin: 8px 0 2px; padding: 14px 16px; border: 0; border-radius: 12px;
+  background: var(--mp-gray-bg); display: flex; flex-direction: column; gap: 8px;
 }
 .mp-disease-box legend { float: left; width: 100%; margin-bottom: 4px; font-size: 12px; font-weight: 700; }
 .mp-check { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
-.mp-check input { width: 14px; height: 14px; accent-color: #333; }
+.mp-check input { width: 14px; height: 14px; accent-color: #555; }
 
-/* No.11 입력칸 */
-.mp-input-wrap { position: relative; display: block; margin-bottom: 8px; }
+/* 입력칸 */
+.mp-input-wrap { position: relative; display: block; margin-bottom: 10px; }
 .mp-input {
-  width: 100%; box-sizing: border-box; height: 42px; padding: 0 12px;
-  border: 1px solid #dcdcdc; border-radius: 8px; font: inherit; font-size: 13px; background: #fff;
+  width: 100%; box-sizing: border-box; height: 48px; padding: 0 44px 0 16px;
+  border: 1px solid var(--mp-border); border-radius: 12px; font: inherit; font-size: 13px;
+  background: var(--mp-surface); color: var(--mp-text);
 }
-.mp-input:focus { outline: 2px solid #b9e58a; border-color: #9bcf68; }
-.mp-notice { margin: 4px 0 0; font-size: 12px; color: #e74c3c; }
+.mp-input::placeholder { color: var(--mp-text-sub); }
+.mp-input:focus { outline: 2px solid var(--mp-green-bg); border-color: var(--mp-green); }
+.mp-input-large { height: 58px; padding-left: 18px; font-size: 14px; }
+.mp-input-icon {
+  position: absolute; top: 50%; right: 14px; width: 18px; height: 18px; transform: translateY(-50%);
+  fill: none; stroke: #555; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; pointer-events: none;
+}
+.mp-notice { margin: 8px 0 0; font-size: 12px; color: #e74c3c; }
 
+/* 버튼 */
 .mp-primary-button {
-  width: 100%; height: 44px; margin-top: 18px; border: 0; border-radius: 8px;
-  background: #111; color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  width: 100%; height: 52px; margin-top: 18px; border: 0; border-radius: 12px;
+  background: var(--mp-button); color: #fff; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
 }
-.mp-form .mp-primary-button { margin-top: auto; }
-.mp-primary-button:disabled { opacity: 0.6; cursor: default; }
+.mp-primary-button:disabled { opacity: 0.5; cursor: default; }
+.mp-outline-button {
+  height: 52px; border: 1px solid var(--mp-border); border-radius: 12px; background: var(--mp-surface);
+  font: inherit; font-size: 14px; font-weight: 700; color: var(--mp-text); cursor: pointer;
+}
+.mp-wide { width: 100%; margin-top: 18px; }
+.mp-text-button { flex: none; align-self: flex-start; border: 0; background: none; font: inherit; font-size: 12px; color: var(--mp-text-sub); cursor: pointer; padding: 2px; }
+.mp-link-button { align-self: flex-start; margin: 10px 0 0 16px; border: 0; background: none; padding: 0; font: inherit; font-size: 12px; font-weight: 700; color: var(--mp-warn-text); cursor: pointer; }
+.mp-plain-button { border: 0; background: none; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+button.mp-profile-card { border: 0; background: var(--mp-gray-bg); }
+
+/* 화면 아래에 붙는 버튼 영역 */
+.mp-bottom-actions { margin-top: auto; padding-top: 24px; display: flex; flex-direction: column; gap: 14px; }
+.mp-bottom-actions .mp-primary-button { margin-top: 0; }
+.mp-count-text { margin: 0; font-size: 14px; font-weight: 700; }
+
+/* 안내 상자 */
+.mp-gray-box, .mp-green-box, .mp-plain-box, .mp-caution-box {
+  display: flex; flex-direction: column; gap: 8px; padding: 18px; border-radius: 16px;
+}
+.mp-gray-box { background: var(--mp-gray-bg); }
+.mp-gray-box strong, .mp-plain-box strong { font-size: 15px; font-weight: 700; }
+.mp-gray-box span, .mp-plain-box span { font-size: 12px; color: var(--mp-text-sub); line-height: 1.6; }
+.mp-plain-box { padding: 0; }
+.mp-indent { padding-left: 18px; }
+.mp-green-box { margin-top: 72px; padding: 22px 18px; background: var(--mp-green-bg); }
+.mp-green-box strong { font-size: 19px; font-weight: 700; }
+.mp-green-box span { font-size: 13px; color: var(--mp-text-sub); line-height: 1.7; }
+.mp-check-box { flex-direction: row; align-items: center; gap: 6px; padding: 26px 18px; font-size: 14px; cursor: pointer; }
+.mp-check-box input { width: 15px; height: 15px; accent-color: #555; }
+.mp-outline-box { padding: 20px 18px; border: 1px solid var(--mp-border); border-radius: 12px; font-size: 13px; color: var(--mp-text-sub); }
+.mp-detail-name { padding: 24px 18px; }
+.mp-detail-name strong { font-size: 20px; }
+
+.mp-empty-state { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: 110px 0 48px; text-align: center; }
+.mp-empty-state strong { margin-top: 20px; font-size: 19px; font-weight: 700; }
+.mp-empty-state span { font-size: 12px; color: var(--mp-text-sub); line-height: 1.9; }
+.mp-empty-search { margin-top: 140px; }
+.mp-empty-search strong { margin-top: 0; }
+
+/* 목록 카드 (알레르기 · 약물) */
+.mp-item-card {
+  display: flex; align-items: flex-start; gap: 12px; padding: 16px;
+  border: 1px solid var(--mp-border); border-radius: 16px; background: var(--mp-surface);
+}
+.mp-item-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.mp-item-text strong { font-size: 14px; font-weight: 700; word-break: keep-all; }
+.mp-item-text small { font-size: 12px; color: var(--mp-text-sub); }
+.mp-allergy-card { padding: 20px 18px; }
+.mp-allergy-card .mp-item-text strong { font-size: 15px; }
+.mp-med-card { min-height: 84px; }
+.mp-selected-text { color: var(--mp-green-text) !important; font-weight: 500; margin-top: -4px; }
+.mp-badge { flex: none; align-self: flex-end; padding: 6px 12px; border-radius: 999px; background: var(--mp-gray-bg); font-size: 12px; color: var(--mp-text-sub); }
+.mp-select-button {
+  flex: none; align-self: flex-end; min-width: 112px; height: 30px; padding: 0 14px;
+  border: 1px solid var(--mp-border); border-radius: 999px; background: var(--mp-surface);
+  font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.mp-select-button.selected { border-color: var(--mp-button); background: var(--mp-button); color: #fff; }
+.mp-result-card { padding: 16px; }
+
+/* 약 아이콘 */
+.mp-pill-icon {
+  flex: none; display: grid; place-items: center; width: 32px; height: 32px;
+  border-radius: 8px; background: var(--mp-green-bg);
+}
+.mp-pill-icon svg { width: 20px; height: 20px; fill: none; stroke: var(--mp-green); stroke-width: 1.6; }
+.mp-pill-icon.large { width: 100px; height: 100px; border-radius: 50%; }
+.mp-pill-icon.large svg { width: 64px; height: 64px; stroke-width: 1.2; }
+
+/* 주의 (주황) */
+.mp-warning-icon { width: 15px; height: 15px; vertical-align: -3px; fill: none; stroke: var(--mp-warn-icon); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+.mp-caution { display: flex; align-items: center; gap: 4px; font-size: 11px !important; color: var(--mp-warn-text) !important; }
+.mp-warning-card {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-height: 92px; padding: 14px; border: 1px solid var(--mp-warn-border); border-radius: 16px; background: var(--mp-warn-bg);
+}
+.mp-warning-card strong { display: flex; align-items: center; gap: 10px; font-size: 30px; font-weight: 700; color: var(--mp-warn-text); line-height: 1.1; }
+.mp-warning-card strong .mp-warning-icon { width: 24px; height: 24px; }
+.mp-warning-card span { font-size: 11px; color: var(--mp-warn-text); }
+.mp-caution-box { margin-top: 28px; border: 1px solid var(--mp-warn-border); background: var(--mp-warn-bg); }
+.mp-caution-box strong { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: var(--mp-warn-text); }
+.mp-caution-box span { font-size: 12px; color: var(--mp-warn-text); line-height: 1.6; }
+
+/* no.14 알레르기 수정: 있어요/없어요 + 선택칩 */
+.mp-toggle-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.mp-toggle, .mp-chip {
+  display: flex; justify-content: space-between; align-items: center; padding: 0 14px;
+  border: 1px solid var(--mp-border); border-radius: 12px; background: var(--mp-surface);
+  font: inherit; font-size: 13px; text-align: left; color: var(--mp-text); cursor: pointer;
+}
+.mp-toggle { height: 46px; }
+.mp-toggle.selected, .mp-chip.selected { border-color: var(--mp-green); background: var(--mp-green-bg); font-weight: 700; }
+.mp-mark { color: var(--mp-text-sub); font-size: 16px; }
+.selected > .mp-mark { color: var(--mp-green-text); font-size: 18px; }
+.mp-chip-group { margin-top: 22px; }
+.mp-chip-group h3 { margin: 0 0 12px; font-size: 13px; font-weight: 700; }
+.mp-chip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.mp-chip { min-height: 70px; }
+.mp-chip-text { display: flex; flex-direction: column; gap: 4px; }
+.mp-chip-text small { font-size: 10px; font-weight: 400; color: var(--mp-text-sub); }
+.mp-selected-summary { margin: 20px 0 0; font-size: 13px; font-weight: 700; color: var(--mp-green-text); }
+
+/* no.15 약물 검색창 */
+.mp-search-bar { position: relative; }
+.mp-search-bar .mp-input { padding-right: 72px; }
+.mp-search-actions { position: absolute; top: 50%; right: 12px; transform: translateY(-50%); display: flex; align-items: center; gap: 4px; }
+.mp-clear { width: 24px; height: 24px; padding: 0; border: 0; background: none; font-size: 22px; line-height: 1; color: #555; cursor: pointer; }
+.mp-search-icon { width: 20px; height: 20px; fill: none; stroke: #555; stroke-width: 1.8; stroke-linecap: round; }
+
+/* 삭제 확인 팝업 */
+.mp-modal-backdrop {
+  position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 24px;
+  background: rgba(0, 0, 0, 0.28);
+}
+.mp-modal { width: min(100%, 340px); padding: 28px 24px 24px; border-radius: 22px; background: #fff; }
+.mp-modal h2 { margin: 0 0 22px; font-size: 18px; font-weight: 700; }
+.mp-modal-item { display: block; font-size: 14px; font-weight: 700; margin-bottom: 18px; }
+.mp-modal p { margin: 0 0 26px; font-size: 12px; color: var(--mp-text-sub); }
+.mp-modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.mp-modal-actions .mp-primary-button, .mp-modal-actions .mp-outline-button { margin-top: 0; height: 52px; }
 
 .mp-toast {
   position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%);
   padding: 9px 16px; border-radius: 999px; background: rgba(17, 17, 17, 0.88);
-  color: #fff; font-size: 12px; white-space: nowrap; z-index: 20;
+  color: #fff; font-size: 12px; white-space: nowrap; z-index: 40;
 }
 
 .visually-hidden {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
+
+/* 생년월일 칸: 브라우저 기본 달력 아이콘 대신 Figma 의 연필 아이콘만 보이게 (누르면 달력은 그대로 열림) */
+.mp-input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; position: absolute; right: 0; width: 48px; height: 100%; cursor: pointer; }
