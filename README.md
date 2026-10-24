@@ -8,6 +8,14 @@ React + Vite 웹 앱입니다. 백엔드: [program-in-pazama](https://github.com
 
 ## 🚀 개발 및 구현 진행 상황 (2026-10-24 최신)
 
+### ✅ 마이페이지 회원정보 수정 및 기저질환 DB 동기화 검증 완료
+1. **마이페이지 회원정보 수정 연동 (`src/pages/mypage/ProfileEditPage.jsx`)**:
+   - 사용자 이름 및 생년월일 수정 후 저장 시 백엔드 API를 거쳐 Supabase `user_profiles` 테이블에 실시간 `UPDATE` 반영.
+2. **기저질환 선택 및 관리 연동 (`src/pages/mypage/DiseaseSelectPage.jsx`)**:
+   - 기저질환 카테고리별 다중 선택/해제/초기화 시 `diseaseIds` 배열이 Supabase `chronic_conditions` 컬럼과 실시간 동기화.
+3. **프로필 로컬 캐시 및 DB 정합성 유지 (`src/api/user.js`, `src/api/auth.js`)**:
+   - 마이페이지 진입 시 Supabase DB로부터 최신 회원정보와 기저질환 목록을 로드하여 화면 상태 유지 및 토스트 피드백 제공.
+
 ### ✅ 네이버 소셜 로그인 연동 및 사용자 온보딩 플로우 완료
 1. **네이버 OAuth 2.0 공식 인증창 호출 (`src/pages/LoginPage.jsx`)**:
    - 네이버 Client ID 기반 인증 URL 동적 생성 및 CSRF 방지용 `state` 보안 토큰 적용
