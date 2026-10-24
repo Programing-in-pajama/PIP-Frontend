@@ -2,13 +2,13 @@ import React, { useEffect, useState } from 'react';
 import Icon from '../../components/Icons';
 import { ALLERGEN_CATEGORIES, getAllergen } from '../../data/allergens';
 
-export default function AllergyFlow({ profile, onSave, onBack }) {
+export default function AllergyFlow({ profile = {}, onSave, onBack }) {
   const [screen, setScreen] = useState('manage');
-  const [allergies, setAllergies] = useState(profile.allergies ?? []);
+  const [allergies, setAllergies] = useState(profile?.allergies ?? []);
 
   useEffect(() => {
-    setAllergies(profile.allergies ?? []);
-  }, [profile.allergies]);
+    setAllergies(profile?.allergies ?? []);
+  }, [profile?.allergies]);
 
   const deleteAllergy = async (name) => {
     const next = allergies.filter((item) => item !== name);

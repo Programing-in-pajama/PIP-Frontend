@@ -33,6 +33,9 @@ function MyPageFlow({ session, resetKey, isLoggedIn, onLogin, onLogout }) {
       setProfile(null);
       return;
     }
+    // 이미 프로필이 상태에 있으면 탭 전환 시 불필요한 네트워크 호출 및 로딩 스피너 방지
+    if (profile) return;
+
     let mounted = true;
     if (!profile) setIsLoading(true);
     setError(null);

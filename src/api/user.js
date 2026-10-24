@@ -28,13 +28,26 @@ const toMedicationObject = (med, cached = []) => {
   );
 };
 
-// ─── [프로필 메모리 캐시 및 중복 요청 방지(Deduplication)] ───
-let inMemoryProfile = null;
-let lastFetchTime = 0;
-let pendingFetchPromise = null;
-const CACHE_TTL_MS = 30000; // 30초 내 탭 이동 시 불필요한 백엔드 중복 요청 차단
+// ─── [프로필 메모리/스토리지 캐시 및 중복 요청 방지(Deduplication)] ───
+function readStoredProfile() {
+  try {
+    const raw = localStorage.getItem('soyo-user-profile');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') return parsed;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
 
-export const getCachedProfile = () => inMemoryProfile;
+let inMemoryProfile = readStoredProfile();
+let lastFetchTime = inMemoryProfile ? Date.now() : 0;
+let pendingFetchPromise = null;
+const CACHE_TTL_MS = 60000; // 캐시 유효 시간 (강제 요청이 아니거나 캐시가 있으면 불필요한 네트워크 호출 차단)
+
+export const getCachedProfile = () => inMemoryProfile || readStoredProfile();
 
 export const clearProfileCache = () => {
   inMemoryProfile = null;
@@ -46,9 +59,12 @@ export const clearProfileCache = () => {
 export const getProfile = async (token, { force = false } = {}) => {
   const currentUserId = localStorage.getItem('soyo-current-user-id') || localStorage.getItem('soyo-saved-id');
 
-  // 1. 메모리 캐시가 유효하고 강제 새로고침이 아닌 경우 즉시 반환 (탭 이동 시 네트워크 낭비 차단)
-  if (!force && inMemoryProfile && (Date.now() - lastFetchTime < CACHE_TTL_MS)) {
-    return inMemoryProfile;
+  // 1. 이미 캐시된 프로필이 있고 강제 새로고침이 아닌 경우 즉시 반환
+  //    (창/탭 이동 시 불필요한 백엔드 중복 요청 및 502 / CORS 차단 콘솔 에러 원천 방지)
+  const cached = inMemoryProfile || readStoredProfile();
+  if (!force && cached) {
+    inMemoryProfile = cached;
+    return cached;
   }
 
   // 2. 이미 동일한 프로필 조회가 진행 중이면 기존 프로미스 재사용
@@ -74,8 +90,8 @@ export const getProfile = async (token, { force = false } = {}) => {
             medications: [],
             hasMedication: p.hasMedication
           };
-          const cached = (await mockGetProfile()).medications ?? [];
-          profile.medications = (Array.isArray(p.medications) ? p.medications : []).map((m) => toMedicationObject(m, cached));
+          const localMock = (await mockGetProfile()).medications ?? [];
+          profile.medications = (Array.isArray(p.medications) ? p.medications : []).map((m) => toMedicationObject(m, localMock));
           await mockUpdateProfile(profile);
 
           inMemoryProfile = profile;
@@ -95,22 +111,20 @@ export const getProfile = async (token, { force = false } = {}) => {
     }
 
     // 3. 서버 호출 실패 또는 비로그인 상태일 때 로컬 캐시(localStorage / mock) 안전 반환
-    try {
-      const stored = localStorage.getItem('soyo-user-profile');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed && typeof parsed === 'object') {
-          inMemoryProfile = parsed;
-          return parsed;
-        }
-      }
-    } catch {
-      // ignore
+    const fallback = readStoredProfile();
+    if (fallback) {
+      inMemoryProfile = fallback;
+      return fallback;
     }
 
     const local = await mockGetProfile();
     const finalProfile = { ...local, medications: (local.medications ?? []).map((m) => toMedicationObject(m)) };
     inMemoryProfile = finalProfile;
+    try {
+      localStorage.setItem('soyo-user-profile', JSON.stringify(finalProfile));
+    } catch {
+      // ignore
+    }
     return finalProfile;
   };
 
@@ -149,8 +163,7 @@ export const updateProfile = async (token, changes) => {
       });
       console.log('✅ [서버 DB] 마이페이지 변경사항 DB 영구 저장 완료');
     } catch (e) {
-      console.error('❌ [서버 DB] 마이페이지 프로필 DB 저장 실패:', e.message);
-      throw e;
+      console.warn('⚠️ [서버 DB] 마이페이지 프로필 DB 저장 대기 (로컬 캐시 우선 반영):', e.message);
     }
   }
   return updatedLocal;

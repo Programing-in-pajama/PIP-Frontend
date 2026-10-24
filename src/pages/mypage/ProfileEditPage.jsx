@@ -3,9 +3,9 @@ import BirthDateInput from '../../components/BirthDateInput';
 import Icon from '../../components/Icons';
 import { isValidBirthDate } from '../../utils/format';
 
-export default function ProfileEditPage({ profile, isLoading, onSave, onBack }) {
-  const [name, setName] = useState(profile.userName ?? '');
-  const [birthDate, setBirthDate] = useState(profile.birthDate ?? '');
+export default function ProfileEditPage({ profile = {}, isLoading, onSave, onBack }) {
+  const [name, setName] = useState(profile?.userName ?? '');
+  const [birthDate, setBirthDate] = useState(profile?.birthDate ?? '');
   const [notice, setNotice] = useState('');
 
   const handleSubmit = (event) => {

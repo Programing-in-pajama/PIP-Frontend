@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import Icon from '../../components/Icons';
 import { DISEASE_CATEGORIES } from '../../data/chronicDiseases';
 
-export default function DiseaseSelectPage({ profile, isLoading, onSave, onBack }) {
-  const [diseaseIds, setDiseaseIds] = useState(profile.diseaseIds ?? []);
+export default function DiseaseSelectPage({ profile = {}, isLoading, onSave, onBack }) {
+  const [diseaseIds, setDiseaseIds] = useState(profile?.diseaseIds ?? []);
   const [openCategoryId, setOpenCategoryId] = useState(DISEASE_CATEGORIES[0]?.id ?? null);
 
   const toggleDisease = (id) => {

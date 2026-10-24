@@ -6,9 +6,9 @@ import {
   searchMedications,
 } from '../../data/medications';
 
-export default function MedicationFlow({ profile, onSave, onBack }) {
+export default function MedicationFlow({ profile = {}, onSave, onBack }) {
   const [screen, setScreen] = useState('manage');
-  const [medications, setMedications] = useState(profile.medications ?? []);
+  const [medications, setMedications] = useState(profile?.medications ?? []);
   const [selected, setSelected] = useState([]);
   const [detailMed, setDetailMed] = useState(null);
   const [query, setQuery] = useState('');
@@ -18,8 +18,8 @@ export default function MedicationFlow({ profile, onSave, onBack }) {
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    setMedications(profile.medications ?? []);
-  }, [profile.medications]);
+    setMedications(profile?.medications ?? []);
+  }, [profile?.medications]);
 
   useEffect(() => {
     if (screen !== 'search') return undefined;
