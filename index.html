@@ -3,9 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <meta name="theme-color" content="#5FB294" />
     <meta name="description" content="SOYO — 건강정보와 산책 코스를 연결하는 맞춤형 웰니스 산책 서비스" />
     <title>SOYO · 소요</title>
+    <!-- 신규 배포 시 브라우저 캐시 불일치로 인한 구 번들 JS 404 자동 복구 가드 -->
+    <script>
+      (function () {
+        window.addEventListener('error', function (e) {
+          var target = e.target || e.srcElement;
+          var isScript = target && target.tagName === 'SCRIPT';
+          var msg = (e.message || '').toLowerCase();
+          var isChunkErr = msg.indexOf('loading chunk') !== -1 || msg.indexOf('failed to fetch dynamically imported module') !== -1;
+          if (isScript || isChunkErr) {
+            var reloadKey = 'soyo_reload_ts';
+            var lastReload = parseInt(sessionStorage.getItem(reloadKey) || '0', 10);
+            var now = Date.now();
+            if (now - lastReload > 8000) {
+              sessionStorage.setItem(reloadKey, String(now));
+              console.warn('⚠️ [SOYO] 신규 배포 번들 감지: 최신 버전으로 자동 새로고침합니다.');
+              window.location.reload();
+            }
+          }
+        }, true);
+      })();
+    </script>
     <!-- 브라우저 탭 아이콘: 1:1 정사각형 캐릭터 (512×512). 가로로 긴 로고(SOYO.png)는 찌그러져서 교체 -->
     <link rel="icon" type="image/png" sizes="512x512" href="/pic/soyo-icon.png" />
     <link rel="apple-touch-icon" href="/pic/soyo-icon.png" />
