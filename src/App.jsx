@@ -49,6 +49,18 @@ function App() {
   const [walkKey, setWalkKey] = useState(0);
   const [navVisible, setNavVisible] = useState(true);
   const [myPageResetKey, setMyPageResetKey] = useState(0);
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true));
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const userId = localStorage.getItem('soyo-current-user-id') || 'guest';
 
@@ -418,7 +430,29 @@ function App() {
 
   return (
     <div className="app-shell">
-      <div className={`app-frame ${screen === 'auth' || screen === 'signup' || screen === 'find' ? 'app-frame--full' : ''}`}>
+      <div className={`app-frame ${screen === 'auth' || screen === 'signup' || screen === 'find' ? 'app-frame--full' : ''}`} style={{ position: 'relative' }}>
+        {!isOnline && (
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            background: '#dc2626',
+            color: '#ffffff',
+            padding: '8px 12px',
+            fontSize: '12px',
+            fontWeight: 600,
+            textAlign: 'center',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+          }}>
+            <span>⚡ 인터넷 연결이 끊겼습니다. 저장된 캐시 모드로 안전하게 작동합니다.</span>
+          </div>
+        )}
         {content}
         {showNav && <BottomNav activeTab={screen} onChange={handleTabChange} />}
       </div>

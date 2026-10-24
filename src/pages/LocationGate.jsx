@@ -9,20 +9,39 @@ export default function LocationGate({ onAllowed }) {
   );
 
   const requestLocation = () => {
-    if (!navigator.geolocation) {
+    let resolved = false;
+
+    const proceedWithFallback = () => {
+      if (resolved) return;
+      resolved = true;
       localStorage.setItem('soyo-location-allowed', 'true');
       sessionStorage.setItem('soyo-location-allowed', 'true');
-      sessionStorage.setItem('soyo-location-lat', '37.5665');
-      sessionStorage.setItem('soyo-location-lng', '126.9780');
+      sessionStorage.setItem('soyo-location-lat', '37.4851');
+      sessionStorage.setItem('soyo-location-lng', '126.8117');
       onAllowed();
+    };
+
+    if (!navigator.geolocation) {
+      proceedWithFallback();
       return;
     }
 
     setStatus('loading');
-    setMessage('현재 위치를 확인하고 있어요...');
+    setMessage('현재 위치를 확인하고 있어요...\n(잠시만 기다려 주세요)');
+
+    // 2.5초 이상 지연(데스크톱 브라우저 GPS 부재 등) 시 무한 로딩 방지 안전 타이머
+    const fallbackTimer = setTimeout(() => {
+      if (!resolved) {
+        console.log('⏱️ [위치 확인 타임아웃 가드] 기본 지역(역곡/서울)으로 안전하게 진입합니다.');
+        proceedWithFallback();
+      }
+    }, 2800);
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        clearTimeout(fallbackTimer);
+        if (resolved) return;
+        resolved = true;
         localStorage.setItem('soyo-location-allowed', 'true');
         sessionStorage.setItem('soyo-location-allowed', 'true');
         sessionStorage.setItem('soyo-location-lat', String(position.coords.latitude));
@@ -30,20 +49,17 @@ export default function LocationGate({ onAllowed }) {
         onAllowed();
       },
       (error) => {
+        clearTimeout(fallbackTimer);
         console.warn('⚠️ [위치 확인 결과]:', error.code, error.message);
         if (error.code === error.PERMISSION_DENIED) {
           setStatus('denied');
           setMessage('위치 정보 제공을 허용하지 않으면\n서비스를 이용할 수 없어요.');
         } else {
-          // 데스크톱 PC 등 GPS 센서가 없거나 브라우저 타임아웃된 경우 기본 위치(서울)로 안전하게 진입
-          localStorage.setItem('soyo-location-allowed', 'true');
-          sessionStorage.setItem('soyo-location-allowed', 'true');
-          sessionStorage.setItem('soyo-location-lat', '37.5665');
-          sessionStorage.setItem('soyo-location-lng', '126.9780');
-          onAllowed();
+          // 데스크톱 PC 등 GPS 센서가 없거나 브라우저 타임아웃된 경우 기본 위치로 안전하게 진입
+          proceedWithFallback();
         }
       },
-      { enableHighAccuracy: false, timeout: 5000, maximumAge: 600000 },
+      { enableHighAccuracy: false, timeout: 2500, maximumAge: 600000 },
     );
   };
 

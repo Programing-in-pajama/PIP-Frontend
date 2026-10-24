@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Icon from '../components/Icons';
 import Sheet from '../components/Sheet';
 import SoyoMap from '../components/SoyoMap';
+import { supabase } from '../supabaseClient';
 import { DEFAULT_REGION, REGIONS, WALK_MINUTES, getRoutes } from '../data/routes';
 import { formatClock, formatDistance } from '../utils/format';
 import {
@@ -21,6 +22,7 @@ export default function WalkFlow({
   const [region, setRegion] = useState(DEFAULT_REGION);
   const [regionQuery, setRegionQuery] = useState('');
   const [minutes, setMinutes] = useState(25);
+  const [includeRestaurant, setIncludeRestaurant] = useState('yes'); // 'yes' | 'no'
   const [routes, setRoutes] = useState(() => getRoutes(DEFAULT_REGION, 25));
   const [selectedRoute, setSelectedRoute] = useState(startRoute);
   const [walkSeconds, setWalkSeconds] = useState(0);
@@ -83,7 +85,15 @@ export default function WalkFlow({
   };
 
   const searchRoutes = () => {
-    setRoutes(getRoutes(region, minutes));
+    let list = getRoutes(region, minutes);
+    if (includeRestaurant === 'yes') {
+      const filtered = list.filter((r) => r.hasRestaurant);
+      if (filtered.length > 0) list = filtered;
+    } else if (includeRestaurant === 'no') {
+      const filtered = list.filter((r) => !r.hasRestaurant);
+      if (filtered.length > 0) list = filtered;
+    }
+    setRoutes(list);
     setStep('list');
   };
 
@@ -128,6 +138,24 @@ export default function WalkFlow({
     } catch {
       // 기록 저장 실패는 화면 흐름을 막지 않습니다.
     }
+
+    // Supabase DB walk_records 연동
+    const currentUserId = localStorage.getItem('soyo-current-user-id');
+    if (supabase && currentUserId && selectedRoute) {
+      try {
+        supabase.from('walk_records').insert([
+          {
+            user_id: currentUserId,
+            destination_name: selectedRoute.destPoint?.name || selectedRoute.title,
+            walk_duration_minutes: Math.max(1, Math.round(walkSeconds / 60)),
+            walk_distance_km: Number(movedKm.toFixed(2)) || 1.4,
+            perceived_difficulty: '보통'
+          }
+        ]).then(() => {});
+      } catch {
+        // ignore
+      }
+    }
     setShowComplete(false);
     setStep('home');
     setSelectedRoute(null);
@@ -161,6 +189,40 @@ export default function WalkFlow({
           <span className="map-hint-dot" />
           {region.short} 근처에서 산책 코스를 찾아보세요
         </div>
+
+        {!isLoggedIn && (
+          <div
+            className="guest-banner"
+            onClick={onRequireLogin}
+            role="button"
+            tabIndex={0}
+            style={{
+              position: 'absolute',
+              bottom: '24px',
+              left: '16px',
+              right: '16px',
+              background: 'rgba(17, 24, 39, 0.92)',
+              color: '#ffffff',
+              padding: '14px 18px',
+              borderRadius: '14px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              fontSize: '13px',
+              zIndex: 20,
+              cursor: 'pointer',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.18)'
+            }}
+          >
+            <div>
+              <strong style={{ fontSize: '14px', display: 'block', marginBottom: '2px' }}>비회원 둘러보기 중</strong>
+              <div style={{ fontSize: '11px', color: '#9ca3af' }}>로그인하면 건강 맞춤 코스 추천과 핀 저장이 가능해요.</div>
+            </div>
+            <span style={{ fontSize: '12px', fontWeight: 'bold', background: '#3b82f6', color: '#fff', padding: '6px 12px', borderRadius: '8px' }}>
+              로그인
+            </span>
+          </div>
+        )}
         {toast && <div className="toast">{toast}</div>}
       </div>
     );
@@ -271,6 +333,27 @@ export default function WalkFlow({
             </div>
             <p className="helper">예상 시간은 약 ±3분 차이가 날 수 있어요.</p>
           </div>
+
+          <div className="setup-group">
+            <span className="field-label">식당 포함 여부</span>
+            <div className="chip-row">
+              <button
+                type="button"
+                className={`chip ${includeRestaurant === 'yes' ? 'chip--active' : ''}`}
+                onClick={() => setIncludeRestaurant('yes')}
+              >
+                식당 포함 (Yes)
+              </button>
+              <button
+                type="button"
+                className={`chip ${includeRestaurant === 'no' ? 'chip--active' : ''}`}
+                onClick={() => setIncludeRestaurant('no')}
+              >
+                산책만 (No)
+              </button>
+            </div>
+            <p className="helper">산책 중 안심 식당 경유 여부를 선택할 수 있어요.</p>
+          </div>
         </div>
 
         <div className="bottom-cta">
@@ -299,6 +382,7 @@ export default function WalkFlow({
         <div className="filter-chips">
           <span className="chip chip--active">{region.short}</span>
           <span className="chip chip--active">약 {minutes}분</span>
+          <span className="chip chip--active">{includeRestaurant === 'yes' ? '식당 포함' : '산책만'}</span>
         </div>
 
         <div className="course-list">
