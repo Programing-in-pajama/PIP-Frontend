@@ -47,6 +47,10 @@ export async function naverAuthCallback(code, state) {
       body: JSON.stringify({ code, state })
     });
   } catch (err) {
-    return { success: true };
+    console.error('❌ [naverAuthCallback 통신 에러]:', err);
+    return {
+      success: false,
+      error: err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err))
+    };
   }
 }
