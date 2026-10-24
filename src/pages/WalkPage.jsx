@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import KakaoMap from '../components/KakaoMap';
+import { supabase } from '../supabaseClient';
 
 export default function WalkPage({ selectedRoute, onSelectRoute, onFinishWalk, onBackToHome }) {
   const [isSaved, setIsSaved] = useState(false);
@@ -12,11 +13,12 @@ export default function WalkPage({ selectedRoute, onSelectRoute, onFinishWalk, o
   };
 
   // 경로 북마크(핀) 저장 핸들러
-  const handleTogglePin = () => {
+  const handleTogglePin = async () => {
     if (!selectedRoute) return;
     const nextSaved = !isSaved;
     setIsSaved(nextSaved);
 
+    // 1. 로컬 스토리지 즉각 반영 (오프라인 지원)
     try {
       const savedList = JSON.parse(localStorage.getItem('soyo-saved-pins') || '[]');
       if (nextSaved) {
@@ -33,12 +35,49 @@ export default function WalkPage({ selectedRoute, onSelectRoute, onFinishWalk, o
     } catch (e) {
       console.warn('핀 저장 실패:', e);
     }
+
+    // 2. Supabase DB 연동 (saved_routes 테이블 영구 보관)
+    const currentUserId = localStorage.getItem('soyo-current-user-id');
+    if (supabase && currentUserId) {
+      try {
+        if (nextSaved) {
+          console.log('🚀 [Supabase DB] saved_routes 테이블에 핀 저장 시도:', selectedRoute.title);
+          const { error } = await supabase.from('saved_routes').insert([
+            {
+              user_id: currentUserId,
+              title: selectedRoute.title,
+              start_place_name: selectedRoute.startPoint?.name || '출발지',
+              start_lat: selectedRoute.startPoint?.lat || null,
+              start_lng: selectedRoute.startPoint?.lng || null,
+              dest_place_name: selectedRoute.destPoint?.name || '도착지',
+              dest_lat: selectedRoute.destPoint?.lat || null,
+              dest_lng: selectedRoute.destPoint?.lng || null,
+              has_restaurant: Boolean(selectedRoute.hasRestaurant),
+              duration_minutes: selectedRoute.durationMin || 0,
+              distance_meters: Math.round((selectedRoute.distanceKm || 0) * 1000),
+              route_geojson: {
+                type: 'LineString',
+                coordinates: selectedRoute.path?.map((p) => [p.lng, p.lat]) || []
+              }
+            }
+          ]);
+          if (error) {
+            console.warn('⚠️ [Supabase DB] saved_routes 저장 응답:', error.message);
+          } else {
+            console.log('✅ [Supabase DB] saved_routes 테이블에 핀 영구 저장 성공');
+          }
+        }
+      } catch (dbErr) {
+        console.warn('⚠️ [Supabase DB] 핀 저장 예외:', dbErr.message);
+      }
+    }
   };
 
   // 산책 완료하기 클릭
-  const handleCompleteWalk = () => {
+  const handleCompleteWalk = async () => {
     setShowCompleteModal(true);
-    // 완보 기록 로컬 및 스토어에 보관
+
+    // 1. 완보 기록 로컬 스토리지 보관
     try {
       const records = JSON.parse(localStorage.getItem('soyo-walk-records') || '[]');
       records.unshift({
@@ -52,6 +91,30 @@ export default function WalkPage({ selectedRoute, onSelectRoute, onFinishWalk, o
       localStorage.setItem('soyo-walk-records', JSON.stringify(records));
     } catch (e) {
       // ignore
+    }
+
+    // 2. Supabase DB 연동 (walk_records 테이블 영구 저장)
+    const currentUserId = localStorage.getItem('soyo-current-user-id');
+    if (supabase && currentUserId) {
+      try {
+        console.log('🚀 [Supabase DB] walk_records 완보 기록 저장 시도...');
+        const { error } = await supabase.from('walk_records').insert([
+          {
+            user_id: currentUserId,
+            destination_name: selectedRoute?.destPoint?.name || selectedRoute?.title || '산책 완료지',
+            walk_duration_minutes: selectedRoute?.durationMin || 20,
+            walk_distance_km: selectedRoute?.distanceKm || 1.2,
+            perceived_difficulty: selectedRoute?.difficulty || '초급(완만)'
+          }
+        ]);
+        if (error) {
+          console.warn('⚠️ [Supabase DB] walk_records 저장 응답:', error.message);
+        } else {
+          console.log('✅ [Supabase DB] walk_records 테이블에 완보 기록 저장 성공');
+        }
+      } catch (dbErr) {
+        console.warn('⚠️ [Supabase DB] 완보 기록 저장 예외:', dbErr.message);
+      }
     }
   };
 
