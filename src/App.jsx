@@ -178,8 +178,9 @@ function App() {
             setActiveTab('myPage');
           }
         } else {
-          console.error('❌ 네이버 로그인 실패:', res?.error);
+          console.error('❌ 네이버 로그인 실패 원인:', res?.error);
           setAuthNotice(res?.error || '네이버 로그인 중 오류가 발생했습니다.');
+          alert(`네이버 로그인 실패 안내:\n${res?.error || '알 수 없는 오류가 발생했습니다.'}`);
         }
       });
     }
