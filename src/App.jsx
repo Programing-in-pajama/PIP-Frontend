@@ -6,6 +6,8 @@ import LoginPage from './pages/LoginPage';
 import SignupFlow from './pages/SignupFlow';
 import { updateProfile } from './api/user';
 import { saveUserProfile, getUserProfile, naverAuthCallback } from './api/auth';
+import HomePage from './pages/HomePage';
+import WalkPage from './pages/WalkPage';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -18,6 +20,7 @@ function App() {
   // 하단 메뉴 선택 (변수 명세서 activeTab: walk / recommended / records / myPage)
   const [activeTab, setActiveTab] = useState('recommended');
   const [myPageResetKey, setMyPageResetKey] = useState(0);
+  const [selectedRoute, setSelectedRoute] = useState(null);
 
   // 브라우저 뒤로가기(Alt + ←, 브라우저 상단 뒤로가기 버튼) 히스토리 동기화
   useEffect(() => {
@@ -357,8 +360,27 @@ function App() {
           />
         )}
 
-        {activeTab === 'walk' && <ComingSoon name="산책" onBackToAuth={goToLogin} />}
-        {activeTab === 'recommended' && <ComingSoon name="홈" onBackToAuth={goToLogin} />}
+        {activeTab === 'walk' && (
+          <WalkPage
+            selectedRoute={selectedRoute}
+            onSelectRoute={setSelectedRoute}
+            onFinishWalk={() => {
+              setSelectedRoute(null);
+              handleTabChange('recommended');
+            }}
+            onBackToHome={() => handleTabChange('recommended')}
+          />
+        )}
+        {activeTab === 'recommended' && (
+          <HomePage
+            isLoggedIn={isLoggedIn}
+            onGoToLogin={goToLogin}
+            onSelectRoute={(route) => {
+              setSelectedRoute(route);
+              handleTabChange('walk');
+            }}
+          />
+        )}
       </main>
       <BottomNav activeTab={activeTab} onChange={handleTabChange} />
     </div>
