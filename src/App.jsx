@@ -8,6 +8,7 @@ import { updateProfile } from './api/user';
 import { saveUserProfile, getUserProfile, naverAuthCallback } from './api/auth';
 import HomePage from './pages/HomePage';
 import WalkPage from './pages/WalkPage';
+import WalkMapFlow from './pages/WalkMapFlow';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -361,25 +362,10 @@ function App() {
         )}
 
         {activeTab === 'walk' && (
-          <WalkPage
-            selectedRoute={selectedRoute}
-            onSelectRoute={setSelectedRoute}
-            onFinishWalk={() => {
-              setSelectedRoute(null);
-              handleTabChange('recommended');
-            }}
-            onBackToHome={() => handleTabChange('recommended')}
-          />
+          <WalkMapFlow onBackToAuth={goToLogin} />
         )}
         {activeTab === 'recommended' && (
-          <HomePage
-            isLoggedIn={isLoggedIn}
-            onGoToLogin={goToLogin}
-            onSelectRoute={(route) => {
-              setSelectedRoute(route);
-              handleTabChange('walk');
-            }}
-          />
+          <WalkMapFlow onBackToAuth={goToLogin} />
         )}
       </main>
       <BottomNav activeTab={activeTab} onChange={handleTabChange} />
