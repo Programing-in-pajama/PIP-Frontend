@@ -2904,3 +2904,71 @@ img {
 .disease-options .check-row.selected {
   background: var(--emerald-soft);
 }
+
+/* ── 핀 폴더 삭제 (폴더 상세 오른쪽 위 + 확인 창) ──────────── */
+.page-head--back .page-head-text { flex: 1; min-width: 0; }
+.folder-delete { flex: none; margin-top: 8px; white-space: nowrap; }
+.pin-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.32);
+}
+.pin-dialog {
+  width: min(100%, 320px);
+  padding: 26px 22px 22px;
+  border-radius: 20px;
+  background: #fff;
+}
+.pin-dialog h2 { font-size: 17px; font-weight: 800; letter-spacing: -0.4px; }
+.pin-dialog strong { display: block; margin-top: 14px; font-size: 14px; }
+.pin-dialog p { margin-top: 8px; font-size: 12px; line-height: 1.5; color: var(--muted); }
+.pin-dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 22px; }
+
+/* ── 아이디 찾기 / 비밀번호 찾기 (Figma No.1) — 제목 글자가 탭 ── */
+.find-head h1 { display: flex; align-items: baseline; gap: 6px; }
+.find-head h1 button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--muted);
+  cursor: pointer;
+}
+.find-head h1 button.active { color: var(--ink); }
+.find-form { flex: 1; }
+.find-form .auth-bottom { margin-top: auto; }
+
+/* ── 생년월일 달력 입력칸 (BirthDateInput) — 칸 어디를 눌러도 달력이 열림 ── */
+.birth-date { position: relative; display: block; }
+.birth-date-input { position: relative; cursor: pointer; caret-color: transparent; }
+/* 달력 버튼을 칸 전체로 늘리고 투명하게 */
+.birth-date-input::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+/* 비어 있을 때 '연도-월-일' 대신 '생년월일' 안내 글자 */
+.birth-date.is-empty .birth-date-input::-webkit-datetime-edit { opacity: 0; }
+/* 연/월/일 칸이 파랗게 선택되는 표시 없애기 (직접 입력이 아니라서) */
+.birth-date-input::-webkit-datetime-edit-year-field:focus,
+.birth-date-input::-webkit-datetime-edit-month-field:focus,
+.birth-date-input::-webkit-datetime-edit-day-field:focus { background: transparent; color: inherit; }
+.birth-date-placeholder {
+  position: absolute;
+  top: 50%;
+  left: 16px;
+  transform: translateY(-50%);
+  color: #a2aca6;
+  font-size: 14.5px;
+  pointer-events: none;
+}

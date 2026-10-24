@@ -12,7 +12,7 @@ export default function ProfileEditPage({ profile = {}, isLoading, onSave, onBac
     event.preventDefault();
     if (!name.trim()) return setNotice('이름을 입력해 주세요.');
     if (!isValidBirthDate(birthDate)) {
-      return setNotice('생년월일 8자리를 정확히 입력해 주세요. (예: 20070305)');
+      return setNotice('생년월일을 달력에서 다시 선택해 주세요.');
     }
     onSave({ userName: name.trim(), birthDate });
   };
@@ -57,7 +57,7 @@ export default function ProfileEditPage({ profile = {}, isLoading, onSave, onBac
           />
           <span className="input-icon-static"><Icon name="edit" size={17} /></span>
         </label>
-        <p className="input-hint">숫자 8자리로 입력하면 2007-03-05 형식으로 바뀌어요.</p>
+        <p className="input-hint">칸을 누르면 달력이 열려요.</p>
 
         {notice && <p className="form-message" role="status">{notice}</p>}
 

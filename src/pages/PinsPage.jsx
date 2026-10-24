@@ -5,6 +5,8 @@ import { REGIONS } from '../data/routes';
 import { formatDistance } from '../utils/format';
 import {
   createPinFolder,
+  deletePinFolder,
+  DEFAULT_FOLDER_ID,
   getPinFolders,
   removeRoutePin,
   reorderPins,
@@ -31,6 +33,7 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
   const [filter, setFilter] = useState('all');
   const [selectedPinId, setSelectedPinId] = useState(null);
   const [confirmPin, setConfirmPin] = useState(null);
+  const [confirmDeleteFolder, setConfirmDeleteFolder] = useState(false);
   const [dragId, setDragId] = useState(null);
   const [toast, setToast] = useState('');
   const [folderName, setFolderName] = useState('');
@@ -73,6 +76,7 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
     setSort('latest');
     setFilter('all');
     setSelectedPinId(null);
+    setConfirmDeleteFolder(false);
     setView('folder');
   };
 
@@ -81,6 +85,16 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
     setFolders(removeRoutePin(userId, activeFolder.id, pin.id));
     setSelectedPinId(null);
     setToast('핀을 삭제했어요');
+  };
+
+  const deleteFolder = () => {
+    if (!activeFolder) return;
+    const name = activeFolder.name;
+    setFolders(deletePinFolder(userId, activeFolder.id));
+    setConfirmDeleteFolder(false);
+    setFolderId(null);
+    setView('list');
+    setToast(`‘${name}’ 폴더를 삭제했어요`);
   };
 
   const handleDrop = (targetPin) => {
@@ -215,10 +229,16 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
           <button type="button" className="back-btn" onClick={() => setView('list')} aria-label="뒤로">
             <Icon name="chevron-left" size={22} />
           </button>
-          <div>
+          <div className="page-head-text">
             <h1>{activeFolder.name}</h1>
             <p>저장한 코스 {activeFolder.pins.length}개</p>
           </div>
+          {/* 기본 '내 핀' 폴더는 핀 저장 기본 위치라 삭제 버튼을 숨김 */}
+          {activeFolder.id !== DEFAULT_FOLDER_ID && (
+            <button type="button" className="danger-link folder-delete" onClick={() => setConfirmDeleteFolder(true)}>
+              폴더 삭제
+            </button>
+          )}
         </header>
 
         <div className="control-row">
@@ -313,6 +333,30 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
             저장 코스 선택
           </button>
         </div>
+
+        {confirmDeleteFolder && (
+          <div className="pin-dialog-backdrop" role="presentation" onClick={() => setConfirmDeleteFolder(false)}>
+            <section
+              className="pin-dialog"
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="folder-delete-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <h2 id="folder-delete-title">폴더를 삭제할까요?</h2>
+              <strong>{activeFolder.name}</strong>
+              <p>
+                {activeFolder.pins.length > 0
+                  ? `폴더 안의 저장 코스 ${activeFolder.pins.length}개도 함께 삭제돼요.`
+                  : '삭제한 폴더는 되돌릴 수 없어요.'}
+              </p>
+              <div className="pin-dialog-actions">
+                <button type="button" className="btn btn-ghost" onClick={() => setConfirmDeleteFolder(false)}>취소</button>
+                <button type="button" className="btn btn-primary" onClick={deleteFolder}>삭제</button>
+              </div>
+            </section>
+          </div>
+        )}
 
         {toast && <div className="toast">{toast}</div>}
       </div>
