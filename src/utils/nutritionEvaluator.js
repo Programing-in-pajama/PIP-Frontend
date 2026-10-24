@@ -1,5 +1,5 @@
 // 🌿 만성질환 26종 맞춤형 3색 신호등 판정 엔진 (SOYO 공식 기술 명세서 v1.0)
-import { DISEASE_RULES, DEFAULT_HEALTH_THRESHOLD } from '../data/diseaseRules';
+import { DISEASE_RULES, DEFAULT_HEALTH_THRESHOLD } from '../data/diseaseRules.js';
 
 /**
  * 질환 ID(D01~D26) 또는 한글 질환명으로 해당 규칙을 찾습니다.
