@@ -251,7 +251,9 @@ function App() {
     setScreen('main');
   };
 
-  if (!locationAllowed) {
+  // 비로그인 상태(로그인/회원가입/아이디찾기)에서는 로그인 화면을 먼저 보여주고,
+  // 위치 권한은 메인/산책 화면 진입 시 요청하도록 개선
+  if (!locationAllowed && screen !== 'auth' && screen !== 'signup' && screen !== 'find') {
     return (
       <div className="app-shell">
         <div className="app-frame app-frame--full">

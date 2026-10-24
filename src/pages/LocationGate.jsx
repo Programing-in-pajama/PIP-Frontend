@@ -10,8 +10,11 @@ export default function LocationGate({ onAllowed }) {
 
   const requestLocation = () => {
     if (!navigator.geolocation) {
-      setStatus('error');
-      setMessage('이 브라우저에서는 위치 서비스를 사용할 수 없어요.');
+      localStorage.setItem('soyo-location-allowed', 'true');
+      sessionStorage.setItem('soyo-location-allowed', 'true');
+      sessionStorage.setItem('soyo-location-lat', '37.5665');
+      sessionStorage.setItem('soyo-location-lng', '126.9780');
+      onAllowed();
       return;
     }
 
@@ -27,15 +30,20 @@ export default function LocationGate({ onAllowed }) {
         onAllowed();
       },
       (error) => {
+        console.warn('⚠️ [위치 확인 결과]:', error.code, error.message);
         if (error.code === error.PERMISSION_DENIED) {
           setStatus('denied');
           setMessage('위치 정보 제공을 허용하지 않으면\n서비스를 이용할 수 없어요.');
         } else {
-          setStatus('error');
-          setMessage('위치를 확인하지 못했어요.\n잠시 후 다시 시도해 주세요.');
+          // 데스크톱 PC 등 GPS 센서가 없거나 브라우저 타임아웃된 경우 기본 위치(서울)로 안전하게 진입
+          localStorage.setItem('soyo-location-allowed', 'true');
+          sessionStorage.setItem('soyo-location-allowed', 'true');
+          sessionStorage.setItem('soyo-location-lat', '37.5665');
+          sessionStorage.setItem('soyo-location-lng', '126.9780');
+          onAllowed();
         }
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 600000 },
     );
   };
 
@@ -74,6 +82,17 @@ export default function LocationGate({ onAllowed }) {
         >
           {status === 'loading' ? '위치 확인 중...' : status === 'prompt' ? '위치 허용' : '다시 허용하기'}
         </button>
+
+        {status === 'denied' && (
+          <button
+            type="button"
+            className="btn"
+            style={{ marginTop: '10px', background: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', padding: '12px', borderRadius: '8px', fontSize: '14px', width: '100%', cursor: 'pointer' }}
+            onClick={allowWithoutLocation}
+          >
+            기본 위치(서울)로 계속하기
+          </button>
+        )}
 
         {(status === 'denied' || status === 'error') && (
           <p className="location-help">
