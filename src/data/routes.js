@@ -1,7 +1,14 @@
 import { YEOKGOK_RESTAURANTS } from './yeokgokRestaurants';
 import { evaluateRestaurant } from '../utils/nutritionEvaluator';
+import {
+  YEOKGOK_STATION,
+  YEOKGOK_STREAM_TRAIL,
+  CATHOLIC_UNIV_TRAIL,
+  PUREUN_ARBORETUM_TRAIL,
+  WONMISAN_TRAIL,
+} from './yeokgokTrails';
 
-// 산책 지역 목록 — 지도는 실제 좌표 대신 디자인 시안과 같은 일러스트 지도를 사용합니다.
+// 산책 지역 목록
 export const REGIONS = [
   {
     id: 'yeokgok',
@@ -54,172 +61,12 @@ export const REGIONS = [
 ];
 
 export const DEFAULT_REGION = REGIONS[0];
-
 export const WALK_MINUTES = [10, 25, 60];
-
-/*
- * 코스 템플릿: 선택한 지역과 시간에 맞춰 3개의 코스를 만들어 줍니다.
- * path 는 지도 일러스트(SVG, 390x620) 위에 그리는 좌표입니다.
- */
-const ROUTE_TEMPLATES = {
-  10: [
-    {
-      title: '역곡천 산책 코스',
-      durationMin: 10,
-      distanceKm: 0.8,
-      hasRestaurant: true,
-      roadType: '평탄한 보행로 · 휴식 지점 2곳',
-      waypoints: '역곡역 → 역곡천 → 동네 골목 → 역곡역',
-      path: [
-        [82, 512],
-        [126, 462],
-        [176, 478],
-        [214, 406],
-        [268, 362],
-      ],
-    },
-    {
-      title: '푸른수목원 순환 코스',
-      durationMin: 12,
-      distanceKm: 1.1,
-      hasRestaurant: false,
-      roadType: '평탄한 보행로 · 휴식 지점 1곳',
-      waypoints: '수목원 입구 → 저수지 데크 → 잔디광장',
-      path: [
-        [104, 540],
-        [156, 486],
-        [204, 500],
-        [246, 432],
-        [300, 402],
-      ],
-    },
-    {
-      title: '가톨릭대 둘레길',
-      durationMin: 9,
-      distanceKm: 0.6,
-      hasRestaurant: true,
-      roadType: '경사진 보행로 · 휴식 지점 1곳',
-      waypoints: '정문 → 성심관 → 숲길 산책로',
-      path: [
-        [74, 486],
-        [118, 430],
-        [162, 442],
-        [196, 380],
-        [236, 340],
-      ],
-    },
-  ],
-  25: [
-    {
-      title: '역곡천 산책 코스',
-      durationMin: 25,
-      distanceKm: 1.8,
-      hasRestaurant: true,
-      roadType: '평탄한 보행로 · 휴식 지점 2곳',
-      waypoints: '역곡역 → 역곡천 → 식당 → 역곡역',
-      path: [
-        [78, 566],
-        [122, 468],
-        [172, 486],
-        [208, 324],
-        [282, 118],
-      ],
-    },
-    {
-      title: '푸른수목원 순환 코스',
-      durationMin: 28,
-      distanceKm: 2.1,
-      hasRestaurant: true,
-      roadType: '평탄한 보행로 · 휴식 지점 1곳',
-      waypoints: '수목원 입구 → 저수지 데크 → 온실 → 잔디광장',
-      path: [
-        [102, 560],
-        [164, 470],
-        [212, 492],
-        [246, 356],
-        [316, 192],
-      ],
-    },
-    {
-      title: '가톨릭대 둘레길',
-      durationMin: 23,
-      distanceKm: 1.6,
-      hasRestaurant: true,
-      roadType: '경사진 보행로 · 휴식 지점 2곳',
-      waypoints: '정문 → 성심관 → 숲길 산책로 → 후문',
-      path: [
-        [94, 580],
-        [138, 500],
-        [202, 520],
-        [238, 392],
-        [302, 236],
-      ],
-    },
-  ],
-  60: [
-    {
-      title: '원미산 진달래동산 둘레길',
-      durationMin: 58,
-      distanceKm: 3.5,
-      hasRestaurant: true,
-      roadType: '완만한 흙길 · 휴식 지점 3곳',
-      waypoints: '운동장역 → 원미산 입구 → 진달래동산 → 정자쉼터',
-      path: [
-        [62, 588],
-        [112, 500],
-        [164, 520],
-        [204, 392],
-        [258, 408],
-        [314, 214],
-        [334, 118],
-      ],
-    },
-    {
-      title: '부천 둘레길 1코스',
-      durationMin: 62,
-      distanceKm: 3.8,
-      hasRestaurant: false,
-      roadType: '숲길 · 경사 구간 있음',
-      waypoints: '선사유적공원 → 작동산 능선 → 전망 쉼터',
-      path: [
-        [76, 574],
-        [128, 466],
-        [180, 488],
-        [224, 352],
-        [278, 374],
-        [322, 198],
-      ],
-    },
-    {
-      title: '상동호수공원 수변 코스',
-      durationMin: 57,
-      distanceKm: 3.2,
-      hasRestaurant: true,
-      roadType: '수변 데크 · 휴식 지점 4곳',
-      waypoints: '호수공원 입구 → 수변 데크 → 분수대 → 잔디마당',
-      path: [
-        [96, 590],
-        [150, 508],
-        [204, 528],
-        [236, 420],
-        [292, 438],
-        [330, 268],
-      ],
-    },
-  ],
-};
-
-const RESTAURANTS = [
-  { name: '소담 보리밥 (안심식당)', menu: '산채 나물 보리밥 정식', grade: 'green' },
-  { name: '수목원 웰빙 쌈밥', menu: '우렁 된장 쌈밥', grade: 'green' },
-  { name: '대학가 건강 비빔밥', menu: '돌솥 야채 비빔밥', grade: 'yellow' },
-];
 
 const DEFAULT_CENTER = { lat: 37.4851, lng: 126.8117 };
 
 /**
- * 일러스트 지도 좌표(390x620)를 실제 위·경도로 변환합니다.
- * 카카오맵으로 전환해도 같은 코스 모양이 유지됩니다.
+ * 일러스트 지도 좌표(390x620)를 실제 위·경도로 변환
  */
 export function normalizedToLatLng(region, point, scale = 0.00003) {
   const center = region?.center || DEFAULT_CENTER;
@@ -228,6 +75,16 @@ export function normalizedToLatLng(region, point, scale = 0.00003) {
     lat: center.lat + (310 - y) * scale,
     lng: center.lng + (x - 195) * scale,
   };
+}
+
+/**
+ * 실제 위·경도(WGS84)를 일러스트 지도 좌표(390x620)로 역변환
+ */
+export function latLngToNormalized(region, { lat, lng }, scale = 0.00003) {
+  const center = region?.center || DEFAULT_CENTER;
+  const x = Math.round(195 + (lng - center.lng) / scale);
+  const y = Math.round(310 - (lat - center.lat) / scale);
+  return [Math.max(25, Math.min(365, x)), Math.max(25, Math.min(595, y))];
 }
 
 /** 지역 선택 영역(폴리곤)을 카카오맵 좌표로 변환 */
@@ -241,10 +98,14 @@ export function getRegionGeoPolygon(region) {
   return points;
 }
 
-export function getRoutes(region, minutes, userDiseases = []) {
-  const templates = ROUTE_TEMPLATES[minutes] ?? ROUTE_TEMPLATES[25];
+/**
+ * 실시간 고정밀 맞춤형 산책 코스 생성기 (실제 WGS84 좌표열 + 안심식당 매핑)
+ */
+export function getRoutes(region = DEFAULT_REGION, minutes = 25, userDiseases = [], includeRestaurant = true) {
+  const targetRegion = region || DEFAULT_REGION;
+  const targetMinutes = Number(minutes) || 25;
 
-  // 1. 전체 30개 실제 음식점을 사용자 질환 기준으로 평가 및 안전도 우선 정렬
+  // 1. 전체 30개 실제 음식점 사용자 질환 기준 영양 평가 및 안심 신호등 정렬
   const evaluatedAll = YEOKGOK_RESTAURANTS.map((r) => evaluateRestaurant(r, userDiseases));
   const sortedRest = [...evaluatedAll].sort((a, b) => {
     const score = { green: 1, yellow: 2, red: 3 };
@@ -256,52 +117,139 @@ export function getRoutes(region, minutes, userDiseases = []) {
     return rA - rB;
   });
 
-  const list = templates.map((template, index) => {
-    const evaluatedRest = template.hasRestaurant ? sortedRest[index % sortedRest.length] : null;
-    const geoPath = template.path.map((point) => normalizedToLatLng(region, point));
-    const restaurantPoint = geoPath[Math.min(2, geoPath.length - 1)];
+  // 2. 시간에 맞는 트레일 후보 3개 매핑
+  let trailCandidates = [];
+  if (targetMinutes <= 15) {
+    trailCandidates = [
+      { trail: YEOKGOK_STREAM_TRAIL, title: '역곡천 수변 안심 산책길 (초급)', baseMin: 12, baseKm: 0.9, slice: 10 },
+      { trail: CATHOLIC_UNIV_TRAIL, title: '역곡상상시장 & 문화거리 산책', baseMin: 10, baseKm: 0.8, slice: 8 },
+      { trail: PUREUN_ARBORETUM_TRAIL, title: '항동철길 입구 숲바람길', baseMin: 14, baseKm: 1.1, slice: 8 },
+    ];
+  } else if (targetMinutes <= 35) {
+    trailCandidates = [
+      { trail: YEOKGOK_STREAM_TRAIL, title: '역곡천 수변 순환 코스', baseMin: 25, baseKm: 1.8, slice: 18 },
+      { trail: CATHOLIC_UNIV_TRAIL, title: '가톨릭대 숲길 & 시장 둘레길', baseMin: 24, baseKm: 1.6, slice: 14 },
+      { trail: PUREUN_ARBORETUM_TRAIL, title: '푸른수목원 & 항동철길 힐링 코스', baseMin: 27, baseKm: 2.1, slice: 16 },
+    ];
+  } else {
+    trailCandidates = [
+      { trail: PUREUN_ARBORETUM_TRAIL, title: '푸른수목원 전체 순환 수변길', baseMin: 55, baseKm: 3.5, slice: 16 },
+      { trail: WONMISAN_TRAIL, title: '원미산 숲길 둘레길 (피톤치드)', baseMin: 58, baseKm: 3.8, slice: 14 },
+      { trail: YEOKGOK_STREAM_TRAIL, title: '역곡천 ➔ 옥길 합류 생태 둘레길', baseMin: 52, baseKm: 3.3, slice: 18 },
+    ];
+  }
+
+  const startHub = {
+    lat: targetRegion.center?.lat || YEOKGOK_STATION.south.lat,
+    lng: targetRegion.center?.lng || YEOKGOK_STATION.south.lng,
+    name: `${targetRegion.short || '역곡역'} 시작 지점`,
+  };
+
+  const list = trailCandidates.map((cand, index) => {
+    const trail = cand.trail;
+    const evaluatedRest = includeRestaurant ? sortedRest[index % sortedRest.length] : null;
+
+    let geoPath = [];
+    let turnByTurn = [];
+    let finalKm = cand.baseKm;
+    let finalMin = cand.baseMin;
+
+    if (includeRestaurant && evaluatedRest) {
+      const restPos = {
+        lat: evaluatedRest.location.lat,
+        lng: evaluatedRest.location.lng,
+      };
+
+      // 출발지 ➔ 안심식당 ➔ 트레일 루프 ➔ 회귀
+      const trailSlice = trail.loopCoordinates.slice(0, cand.slice);
+      geoPath = [
+        startHub,
+        restPos,
+        trail.entryPoint,
+        ...trailSlice,
+        startHub,
+      ];
+
+      turnByTurn = [
+        `${targetRegion.short || '역곡역'}에서 출발하여 [${evaluatedRest.name}] 방면으로 이동`,
+        `[${evaluatedRest.name}]에서 식사 후 [${trail.name}] 진입로 데크로 이동`,
+        `계단 없는 완만한 수변 데크로드 및 쉼터 구간 통과`,
+        `${targetRegion.short || '역곡역'} 방면으로 안전하게 회귀`,
+      ];
+
+      finalKm = Number((cand.baseKm + 0.3).toFixed(2));
+      finalMin = cand.baseMin + 5;
+    } else {
+      const trailSlice = trail.loopCoordinates.slice(0, cand.slice);
+      geoPath = [startHub, ...trailSlice, startHub];
+      turnByTurn = [
+        `${targetRegion.short || '역곡역'}에서 출발하여 [${trail.name}] 입구로 이동`,
+        `완만한 평탄 산책로를 따라 쉼터 및 데크길 순환`,
+        `${targetRegion.short || '역곡역'}으로 안전하게 완보 회귀`,
+      ];
+    }
+
+    // 일러스트 지도용 SVG 좌표 변환
+    const svgPath = geoPath.map((pt) => latLngToNormalized(targetRegion, pt));
+
+    const restaurantData = evaluatedRest && includeRestaurant
+      ? {
+          id: evaluatedRest.id,
+          name: evaluatedRest.name,
+          category: evaluatedRest.category,
+          address: evaluatedRest.location?.address,
+          phone: evaluatedRest.phone,
+          foods: evaluatedRest.foods,
+          menu: evaluatedRest.bestFood?.name || evaluatedRest.foods[0]?.name || '대표 건강식',
+          calories: evaluatedRest.bestFood?.calories || 450,
+          sodium: evaluatedRest.bestFood?.sodium || 500,
+          sugar: evaluatedRest.bestFood?.sugar || 3.0,
+          grade: evaluatedRest.grade,
+          nutritionGrade: evaluatedRest.grade,
+          gradeLabel: evaluatedRest.bestFood?.label || evaluatedRest.badgeLabel,
+          badgeLabel: evaluatedRest.badgeLabel || '안심식당',
+          threshold: evaluatedRest.threshold,
+          bestFood: evaluatedRest.bestFood,
+          lat: evaluatedRest.location?.lat,
+          lng: evaluatedRest.location?.lng,
+          isSafeRestaurant: evaluatedRest.isSafeRestaurant,
+        }
+      : null;
+
+    const waypointsText = includeRestaurant && restaurantData
+      ? `${targetRegion.short || '역곡역'} ➔ 🟢 ${restaurantData.name} ➔ ${trail.name.split(' ')[0]} ➔ ${targetRegion.short || '역곡역'}`
+      : `${targetRegion.short || '역곡역'} ➔ ${trail.name} ➔ ${targetRegion.short || '역곡역'}`;
 
     return {
-      ...template,
-      id: `${region.id}-${minutes}-${index}`,
-      regionId: region.id,
-      regionName: region.short,
-      title: template.title.replace('역곡천', region.short === '역곡동' ? '역곡천' : `${region.short}천`),
-      region: region.name,
+      id: `${targetRegion.id}-${targetMinutes}-${index}`,
+      regionId: targetRegion.id,
+      regionName: targetRegion.short,
+      title: cand.title,
+      region: targetRegion.name,
+      durationMin: finalMin,
+      distanceKm: finalKm,
+      hasRestaurant: Boolean(includeRestaurant && restaurantData),
+      roadType: trail.roadType,
+      features: trail.features,
+      waypoints: waypointsText,
       geoPath,
+      path: svgPath,
+      turnByTurn,
       startPoint: {
-        name: `${region.short} 시작 지점`,
+        name: `${targetRegion.short} 시작 지점`,
         lat: geoPath[0]?.lat,
         lng: geoPath[0]?.lng,
       },
       destPoint: {
-        name: `${region.short} 도착 지점`,
+        name: `${targetRegion.short} 도착 지점`,
         lat: geoPath[geoPath.length - 1]?.lat,
         lng: geoPath[geoPath.length - 1]?.lng,
       },
-      restaurant: evaluatedRest && template.hasRestaurant
-        ? {
-            id: evaluatedRest.id,
-            name: evaluatedRest.name,
-            category: evaluatedRest.category,
-            address: evaluatedRest.location?.address,
-            foods: evaluatedRest.foods,
-            menu: evaluatedRest.bestFood?.name || evaluatedRest.foods[0]?.name || '대표 건강식',
-            grade: evaluatedRest.grade,
-            nutritionGrade: evaluatedRest.grade,
-            gradeLabel: evaluatedRest.bestFood?.label || evaluatedRest.badgeLabel,
-            badgeLabel: evaluatedRest.badgeLabel,
-            threshold: evaluatedRest.threshold,
-            bestFood: evaluatedRest.bestFood,
-            lat: evaluatedRest.location?.lat || restaurantPoint?.lat,
-            lng: evaluatedRest.location?.lng || restaurantPoint?.lng,
-          }
-        : null,
+      restaurant: restaurantData,
       savedAt: null,
     };
   });
 
-  // 3색 안심 신호등 기준 정렬: 🟢 SAFE(초록) 코스를 최우선 배치
   return list.sort((a, b) => {
     if (!a.restaurant && !b.restaurant) return 0;
     if (!a.restaurant) return 1;

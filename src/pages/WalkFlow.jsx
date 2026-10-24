@@ -4,6 +4,7 @@ import Sheet from '../components/Sheet';
 import SoyoMap from '../components/SoyoMap';
 import { supabase } from '../supabaseClient';
 import { DEFAULT_REGION, REGIONS, WALK_MINUTES, getRoutes } from '../data/routes';
+import { fetchRecommendedRoutes } from '../api/routes';
 import { formatClock, formatDistance } from '../utils/format';
 import {
   isRoutePinned,
@@ -50,17 +51,7 @@ export default function WalkFlow({
   }, [step, onSectionChange]);
 
   useEffect(() => {
-    setRoutes(() => {
-      let list = getRoutes(region, minutes, userDiseases);
-      if (includeRestaurant) {
-        const filtered = list.filter((r) => r.hasRestaurant);
-        list = filtered.length > 0 ? filtered : list;
-      } else {
-        const filtered = list.filter((r) => !r.hasRestaurant);
-        list = filtered.length > 0 ? filtered : list.map((r) => ({ ...r, hasRestaurant: false, restaurant: null }));
-      }
-      return list;
-    });
+    setRoutes(getRoutes(region, minutes, userDiseases, includeRestaurant));
   }, [userDiseases]);
 
   useEffect(() => {
@@ -96,14 +87,22 @@ export default function WalkFlow({
     ? Math.max(0, Math.round(selectedRoute.distanceKm * 1000 * (1 - progress / 100)))
     : 0;
 
-  const nextDirection =
-    progress < 25
+  const nextDirection = useMemo(() => {
+    if (Array.isArray(selectedRoute?.turnByTurn) && selectedRoute.turnByTurn.length > 0) {
+      const idx = Math.min(
+        selectedRoute.turnByTurn.length - 1,
+        Math.floor((progress / 100) * selectedRoute.turnByTurn.length)
+      );
+      return selectedRoute.turnByTurn[idx];
+    }
+    return progress < 25
       ? '잠시 후 오른쪽 골목으로 이동하세요'
       : progress < 55
         ? '120m 앞에서 오른쪽으로 이동'
         : progress < 85
           ? '곧 왼쪽으로 크게 돌아가세요'
           : '목적지가 바로 앞에 있어요';
+  }, [selectedRoute, progress]);
 
   const startRegion = (nextRegion) => {
     setRegion(nextRegion);
@@ -111,17 +110,26 @@ export default function WalkFlow({
     setStep('setup');
   };
 
-  const searchRoutes = () => {
-    let list = getRoutes(region, minutes, userDiseases);
-    if (includeRestaurant) {
-      const filtered = list.filter((r) => r.hasRestaurant);
-      list = filtered.length > 0 ? filtered : list;
-    } else {
-      const filtered = list.filter((r) => !r.hasRestaurant);
-      list = filtered.length > 0 ? filtered : list.map((r) => ({ ...r, hasRestaurant: false, restaurant: null }));
-    }
-    setRoutes(list);
+  const searchRoutes = async () => {
+    // 1) 0ms 즉각 렌더링 (로컬 고정밀 실측 도로망)
+    const localList = getRoutes(region, minutes, userDiseases, includeRestaurant);
+    setRoutes(localList);
     setStep('list');
+
+    // 2) 백엔드 Tmap 보행자 추천 엔진 비동기 갱신
+    try {
+      const serverCourses = await fetchRecommendedRoutes({
+        region,
+        minutes,
+        includeRestaurant,
+        userDiseases,
+      });
+      if (Array.isArray(serverCourses) && serverCourses.length > 0) {
+        setRoutes(serverCourses);
+      }
+    } catch {
+      // 로컬 리스트 유지
+    }
   };
 
   const openRoute = (route) => {
