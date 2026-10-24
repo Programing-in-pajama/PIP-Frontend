@@ -18,6 +18,7 @@ export default function SignupFlow({ onBack, onComplete, initialDraft = {} }) {
     password: initialDraft?.password || (isSocialUser ? 'social_oauth_user' : ''),
     passwordConfirm: initialDraft?.password || (isSocialUser ? 'social_oauth_user' : ''),
     email: initialDraft?.email || '',
+    supabaseUserId: initialDraft?.supabaseUserId || null,
     code: '',
     termsAgreed: isSocialUser,
     name: initialDraft?.name || '',

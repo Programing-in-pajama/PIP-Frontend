@@ -107,7 +107,10 @@ function App() {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     const state = params.get('state');
-    if (!code || !state) return;
+    const naverSavedState = sessionStorage.getItem('naver_oauth_state');
+    // 네이버 로그인 시 발급한 state와 일치할 때만 처리 (타 OAuth 충돌 방지)
+    if (!code || !state || !naverSavedState || naverSavedState !== state) return;
+    sessionStorage.removeItem('naver_oauth_state');
     window.history.replaceState({}, '', window.location.pathname);
     naverAuthCallback(code, state)
       .then((res) => {
@@ -125,20 +128,86 @@ function App() {
       });
   }, [finishLogin]);
 
-  // Supabase Auth 세션 감지
+  // Supabase Auth 세션 감지 및 소셜 로그인 연동
   useEffect(() => {
     if (!supabase) return;
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      setSession(currentSession);
-      if (currentSession?.user) {
-        setIsLoggedIn(true);
+
+    const handleSupabaseSession = async (sessionUser, event) => {
+      if (!sessionUser) return;
+
+      const userMeta = sessionUser.user_metadata || {};
+      const userName = userMeta.full_name || userMeta.name || userMeta.user_name || sessionUser.email?.split('@')[0] || '소요 여행자';
+      const email = sessionUser.email || '';
+      const userId = sessionUser.id;
+
+      console.log('📌 [Supabase/소셜 로그인 세션 확인]:', { id: userId, email, userName, event });
+
+      localStorage.setItem('soyo-current-user-id', userId);
+      if (email) localStorage.setItem('soyo-current-email', email);
+
+      // AWS RDS에서 사용자 기존 프로필 조회
+      let isNewUser = false;
+      let existingProfile = null;
+      try {
+        console.log('🚀 [AWS RDS 백엔드] 소셜 사용자 프로필 조회:', userId);
+        const res = await getUserProfile(userId);
+        if (res?.success && res.profile) {
+          const p = res.profile;
+          const bDate = p.birthDate ? String(p.birthDate).split('T')[0] : '';
+          const hasCustomBirth = bDate && !bDate.startsWith('1970-01-01');
+          const hasDiseases = Array.isArray(p.chronicConditions) && p.chronicConditions.length > 0;
+          const hasAllergies = Array.isArray(p.allergies) && p.allergies.length > 0;
+          const hasMedications = Array.isArray(p.medications) && p.medications.length > 0;
+
+          // DB에 자동 생성된 기본 더미값(1970-01-01, 건강정보 없음)만 있는 경우 최초 가입자로 판정
+          if (!p.age && !hasCustomBirth && !hasDiseases && !hasAllergies && !hasMedications) {
+            isNewUser = true;
+          } else {
+            existingProfile = profileFromServer({ ...res.profile, userId });
+          }
+        } else {
+          isNewUser = true;
+        }
+      } catch (e) {
+        console.warn('⚠️ [AWS RDS 백엔드] 프로필 조회 대기:', e.message);
+        isNewUser = true;
       }
-    });
+
+      if (isNewUser) {
+        console.log('🌱 [신규 소셜 회원 감지] 2단계 건강정보 프로필 입력 화면으로 이동');
+        setSignupDraft({
+          loginId: email || userName,
+          name: userName,
+          email,
+          birthDate: '',
+          supabaseUserId: userId,
+          isSocial: true,
+        });
+        setAuthNotice('');
+        setScreen('signup');
+      } else {
+        console.log('🎉 [기존 소셜 회원 확인] 로그인 완료 및 메인 화면 이동');
+        if (existingProfile) {
+          storeProfile({
+            ...existingProfile,
+            email: existingProfile.email || email,
+          });
+          await updateProfile(null, existingProfile);
+        }
+        setIsLoggedIn(true);
+        setAuthNotice('');
+        setWalkStart(null);
+        setWalkKey((key) => key + 1);
+        setNavVisible(true);
+        setScreen('main');
+      }
+    };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+      console.log('🔔 [Supabase Auth 상태 변경 알림]:', event, newSession?.user?.email);
       setSession(newSession);
       if (newSession?.user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
-        setIsLoggedIn(true);
+        handleSupabaseSession(newSession.user, event);
       }
     });
 
