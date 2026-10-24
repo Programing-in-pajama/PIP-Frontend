@@ -20,6 +20,7 @@ export default function LocationGate({ onAllowed }) {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        localStorage.setItem('soyo-location-allowed', 'true');
         sessionStorage.setItem('soyo-location-allowed', 'true');
         sessionStorage.setItem('soyo-location-lat', String(position.coords.latitude));
         sessionStorage.setItem('soyo-location-lng', String(position.coords.longitude));
@@ -39,6 +40,7 @@ export default function LocationGate({ onAllowed }) {
   };
 
   const allowWithoutLocation = () => {
+    localStorage.setItem('soyo-location-allowed', 'true');
     sessionStorage.setItem('soyo-location-allowed', 'true');
     onAllowed();
   };

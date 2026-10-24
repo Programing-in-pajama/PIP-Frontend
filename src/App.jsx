@@ -37,7 +37,7 @@ function profileFromServer(payload) {
 
 function App() {
   const [locationAllowed, setLocationAllowed] = useState(
-    () => sessionStorage.getItem('soyo-location-allowed') === 'true',
+    () => localStorage.getItem('soyo-location-allowed') === 'true' || sessionStorage.getItem('soyo-location-allowed') === 'true',
   );
   const [screen, setScreen] = useState(() => (readStoredLogin() ? 'main' : 'auth'));
   const [isLoggedIn, setIsLoggedIn] = useState(readStoredLogin);
