@@ -226,10 +226,13 @@ function App() {
               if (form.email) localStorage.setItem('soyo-current-email', form.email);
             }
 
-            // 백엔드로 건강 프로필 데이터 전송 (AWS RDS 저장)
-            console.log('🚀 [AWS RDS 백엔드] 회원가입 2단계 건강 프로필 저장 요청:', targetUserId);
+            // 백엔드로 계정 및 건강 프로필 데이터 전송 (서버 DB 저장)
+            console.log('🚀 [서버 DB 백엔드] 회원가입 계정 및 건강 프로필 저장 요청:', targetUserId);
             const saveRes = await saveUserProfile({
               userId: targetUserId,
+              loginId: form.loginId,
+              password: form.password,
+              email: form.email,
               name: form.name,
               birth: form.birthDate,
               allergies: actualProfile.allergies,
@@ -239,7 +242,7 @@ function App() {
               noDisease: form.noDisease,
               noMedication: form.noMedication
             });
-            console.log('✅ [AWS RDS 백엔드] 회원가입 프로필 저장 성공:', saveRes);
+            console.log('✅ [서버 DB 백엔드] 회원가입 프로필 저장 성공:', saveRes);
 
             // 실제 입력한 정보로 마이페이지 스토어 업데이트
             await updateProfile(null, actualProfile);

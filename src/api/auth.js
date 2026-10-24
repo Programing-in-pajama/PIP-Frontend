@@ -31,6 +31,14 @@ export async function getUserProfile(userId) {
   });
 }
 
+// 일반 아이디/비밀번호 로그인 요청 (모든 기기 동기화)
+export async function loginUser(loginId, password) {
+  return await apiFetch('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ loginId, password })
+  });
+}
+
 // 네이버 소셜 로그인 콜백 처리 요청
 export async function naverAuthCallback(code, state) {
   try {
