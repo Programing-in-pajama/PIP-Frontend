@@ -1,3 +1,5 @@
+import { YEOKGOK_RESTAURANTS } from './yeokgokRestaurants';
+
 // 산책 지역 목록 — 지도는 실제 좌표 대신 디자인 시안과 같은 일러스트 지도를 사용합니다.
 export const REGIONS = [
   {
@@ -241,7 +243,7 @@ export function getRegionGeoPolygon(region) {
 export function getRoutes(region, minutes) {
   const templates = ROUTE_TEMPLATES[minutes] ?? ROUTE_TEMPLATES[25];
   return templates.map((template, index) => {
-    const restaurant = template.hasRestaurant ? RESTAURANTS[index % RESTAURANTS.length] : null;
+    const realRest = template.hasRestaurant ? YEOKGOK_RESTAURANTS[index % YEOKGOK_RESTAURANTS.length] : null;
     const geoPath = template.path.map((point) => normalizedToLatLng(region, point));
     const restaurantPoint = geoPath[Math.min(2, geoPath.length - 1)];
     return {
@@ -262,12 +264,19 @@ export function getRoutes(region, minutes) {
         lat: geoPath[geoPath.length - 1]?.lat,
         lng: geoPath[geoPath.length - 1]?.lng,
       },
-      restaurant: restaurant
+      restaurant: realRest && template.hasRestaurant
         ? {
-            ...restaurant,
-            gradeLabel: restaurant.grade === 'green' ? '초록 안심 (저염·저당)' : '노랑 주의 (나트륨 조절)',
-            lat: restaurantPoint?.lat,
-            lng: restaurantPoint?.lng,
+            id: realRest.id,
+            name: realRest.name,
+            category: realRest.category,
+            address: realRest.location?.address,
+            foods: realRest.foods,
+            menu: realRest.foods[0]?.name || '대표 건강식',
+            grade: realRest.foods[0]?.grade || 'green',
+            nutritionGrade: realRest.foods[0]?.grade || 'green',
+            gradeLabel: realRest.foods[0]?.label || '초록 안심 (저염·저당)',
+            lat: realRest.location?.lat || restaurantPoint?.lat,
+            lng: realRest.location?.lng || restaurantPoint?.lng,
           }
         : null,
       savedAt: null,

@@ -150,6 +150,27 @@ export default function KakaoMapLayer({ route = null, region = null, showUser = 
       addDot(path[0], 'kakao-dot--start');
       addDot(path[path.length - 1], 'kakao-dot--end');
 
+      if (route?.restaurant && route.restaurant.lat && route.restaurant.lng) {
+        const restPos = new kakao.maps.LatLng(route.restaurant.lat, route.restaurant.lng);
+        const gradeColor = route.restaurant.nutritionGrade === 'green' || route.restaurant.grade === 'green' ? '#16a34a' : (route.restaurant.nutritionGrade === 'red' || route.restaurant.grade === 'red' ? '#dc2626' : '#d97706');
+        const gradeDot = route.restaurant.nutritionGrade === 'green' || route.restaurant.grade === 'green' ? '🟢' : (route.restaurant.nutritionGrade === 'red' || route.restaurant.grade === 'red' ? '🔴' : '🟡');
+
+        const restOverlay = new kakao.maps.CustomOverlay({
+          position: restPos,
+          content: `
+            <div style="background: #ffffff; color: #111827; border: 2px solid ${gradeColor}; font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 14px; box-shadow: 0 4px 10px rgba(0,0,0,0.18); display: flex; align-items: center; gap: 4px; white-space: nowrap; transform: translateY(-8px);">
+              <span>🍴</span>
+              <span>${route.restaurant.name}</span>
+              <span style="font-size: 10px;">${gradeDot}</span>
+            </div>
+          `,
+          xAnchor: 0.5,
+          yAnchor: 1.2,
+          zIndex: 8,
+        });
+        addOverlay(restOverlay);
+      }
+
       const bounds = new kakao.maps.LatLngBounds();
       path.forEach((point) => bounds.extend(point));
       try {

@@ -22,7 +22,7 @@ export default function WalkFlow({
   const [region, setRegion] = useState(DEFAULT_REGION);
   const [regionQuery, setRegionQuery] = useState('');
   const [minutes, setMinutes] = useState(25);
-  const [includeRestaurant, setIncludeRestaurant] = useState('yes'); // 'yes' | 'no'
+  const [includeRestaurant, setIncludeRestaurant] = useState(true);
   const [routes, setRoutes] = useState(() => getRoutes(DEFAULT_REGION, 25));
   const [selectedRoute, setSelectedRoute] = useState(startRoute);
   const [walkSeconds, setWalkSeconds] = useState(0);
@@ -86,12 +86,12 @@ export default function WalkFlow({
 
   const searchRoutes = () => {
     let list = getRoutes(region, minutes);
-    if (includeRestaurant === 'yes') {
+    if (includeRestaurant) {
       const filtered = list.filter((r) => r.hasRestaurant);
-      if (filtered.length > 0) list = filtered;
-    } else if (includeRestaurant === 'no') {
+      list = filtered.length > 0 ? filtered : list;
+    } else {
       const filtered = list.filter((r) => !r.hasRestaurant);
-      if (filtered.length > 0) list = filtered;
+      list = filtered.length > 0 ? filtered : list.map((r) => ({ ...r, hasRestaurant: false, restaurant: null }));
     }
     setRoutes(list);
     setStep('list');
@@ -339,20 +339,22 @@ export default function WalkFlow({
             <div className="chip-row">
               <button
                 type="button"
-                className={`chip ${includeRestaurant === 'yes' ? 'chip--active' : ''}`}
-                onClick={() => setIncludeRestaurant('yes')}
+                className={`chip ${includeRestaurant ? 'chip--active' : ''}`}
+                onClick={() => setIncludeRestaurant(true)}
               >
-                식당 포함 (Yes)
+                🍴 식당 포함 (Yes)
               </button>
               <button
                 type="button"
-                className={`chip ${includeRestaurant === 'no' ? 'chip--active' : ''}`}
-                onClick={() => setIncludeRestaurant('no')}
+                className={`chip ${!includeRestaurant ? 'chip--active' : ''}`}
+                onClick={() => setIncludeRestaurant(false)}
               >
-                산책만 (No)
+                산책로만 (No)
               </button>
             </div>
-            <p className="helper">산책 중 안심 식당 경유 여부를 선택할 수 있어요.</p>
+            <p className="helper">
+              {includeRestaurant ? '식사 후 걷기 좋은 안심식당 연계 코스를 찾아드려요.' : '음식점 없이 순수 보행길 위주로 안내해요.'}
+            </p>
           </div>
         </div>
 
@@ -382,7 +384,7 @@ export default function WalkFlow({
         <div className="filter-chips">
           <span className="chip chip--active">{region.short}</span>
           <span className="chip chip--active">약 {minutes}분</span>
-          <span className="chip chip--active">{includeRestaurant === 'yes' ? '식당 포함' : '산책만'}</span>
+          <span className="chip chip--active">{includeRestaurant ? '🍴 식당 포함' : '산책만'}</span>
         </div>
 
         <div className="course-list">
@@ -396,6 +398,14 @@ export default function WalkFlow({
                     약 {route.durationMin}분 · {formatDistance(route.distanceKm)} ·{' '}
                     {route.hasRestaurant ? '식당 포함' : '산책만'}
                   </span>
+                  {route.restaurant && (
+                    <div className="course-restaurant-badge">
+                      <span>🍴 {route.restaurant.name}</span>
+                      <span className={`nutrition-pill nutrition-pill--${route.restaurant.grade || 'green'}`}>
+                        {route.restaurant.grade === 'green' ? '🟢 안심' : '🟡 주의'}
+                      </span>
+                    </div>
+                  )}
                   <span className="course-note">{route.roadType}</span>
                 </button>
                 <button
@@ -456,6 +466,50 @@ export default function WalkFlow({
             <span>주요 경유지</span>
             <strong>{selectedRoute.waypoints}</strong>
           </div>
+
+          {selectedRoute.restaurant && (
+            <div className="restaurant-detail-box">
+              <div className="restaurant-detail-header">
+                <div className="restaurant-title-row">
+                  <span className="restaurant-badge">🍴 추천 식당</span>
+                  <strong>{selectedRoute.restaurant.name}</strong>
+                  {selectedRoute.restaurant.grade === 'green' && (
+                    <span className="nutrition-pill nutrition-pill--green">🟢 초록 안심</span>
+                  )}
+                  {selectedRoute.restaurant.grade === 'yellow' && (
+                    <span className="nutrition-pill nutrition-pill--yellow">🟡 노랑 주의</span>
+                  )}
+                  {selectedRoute.restaurant.grade === 'red' && (
+                    <span className="nutrition-pill nutrition-pill--red">🔴 빨강 유의</span>
+                  )}
+                </div>
+                <p className="restaurant-address">{selectedRoute.restaurant.address || selectedRoute.restaurant.category}</p>
+              </div>
+
+              {selectedRoute.restaurant.foods && selectedRoute.restaurant.foods.length > 0 && (
+                <div className="restaurant-foods-list">
+                  <div className="foods-list-title">식약처 영양성분 DB 기반 대표 메뉴</div>
+                  {selectedRoute.restaurant.foods.map((food, idx) => (
+                    <div key={idx} className="food-item-card">
+                      <div className="food-item-header">
+                        <strong className="food-name">{food.name}</strong>
+                        <span className="food-cal">{food.calories} kcal</span>
+                      </div>
+                      <div className="food-nutr-row">
+                        <span className="nutr-chip">나트륨 {food.sodium}mg</span>
+                        <span className="nutr-chip">당류 {food.sugar}g</span>
+                        {food.protein ? <span className="nutr-chip">단백질 {food.protein}g</span> : null}
+                      </div>
+                      {food.description && (
+                        <p className="food-desc">{food.description}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <button type="button" className="btn btn-primary" onClick={beginWalk}>
             시작하기
           </button>
