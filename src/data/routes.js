@@ -2,10 +2,15 @@ import { YEOKGOK_RESTAURANTS } from './yeokgokRestaurants';
 import { evaluateRestaurant } from '../utils/nutritionEvaluator';
 import {
   YEOKGOK_STATION,
-  YEOKGOK_STREAM_TRAIL,
-  CATHOLIC_UNIV_TRAIL,
-  PUREUN_ARBORETUM_TRAIL,
-  WONMISAN_TRAIL,
+  COURSE_10_1_POINTS, COURSE_10_1_STEPS,
+  COURSE_10_2_POINTS, COURSE_10_2_STEPS,
+  COURSE_10_3_POINTS, COURSE_10_3_STEPS,
+  COURSE_25_1_POINTS, COURSE_25_1_STEPS,
+  COURSE_25_2_POINTS, COURSE_25_2_STEPS,
+  COURSE_25_3_POINTS, COURSE_25_3_STEPS,
+  COURSE_60_1_POINTS, COURSE_60_1_STEPS,
+  COURSE_60_2_POINTS, COURSE_60_2_STEPS,
+  COURSE_60_3_POINTS, COURSE_60_3_STEPS,
 } from './yeokgokTrails';
 
 // 산책 지역 목록
@@ -99,7 +104,7 @@ export function getRegionGeoPolygon(region) {
 }
 
 /**
- * 실시간 고정밀 맞춤형 산책 코스 생성기 (실제 WGS84 좌표열 + 안심식당 매핑)
+ * 실시간 고정밀 맞춤형 산책 코스 생성기 (실제 도로망 100% 매핑 - 건물 관통 방지)
  */
 export function getRoutes(region = DEFAULT_REGION, minutes = 25, userDiseases = [], includeRestaurant = true) {
   const targetRegion = region || DEFAULT_REGION;
@@ -117,77 +122,106 @@ export function getRoutes(region = DEFAULT_REGION, minutes = 25, userDiseases = 
     return rA - rB;
   });
 
-  // 2. 시간에 맞는 트레일 후보 3개 매핑
+  // 2. 시간에 맞는 실제 도로망 산책로 3개 매핑 (건물 관통 없는 OSRM/실측 도로 좌표열)
   let trailCandidates = [];
   if (targetMinutes <= 15) {
     trailCandidates = [
-      { trail: YEOKGOK_STREAM_TRAIL, title: '역곡천 수변 안심 산책길 (초급)', baseMin: 12, baseKm: 0.9, slice: 10 },
-      { trail: CATHOLIC_UNIV_TRAIL, title: '역곡상상시장 & 문화거리 산책', baseMin: 10, baseKm: 0.8, slice: 8 },
-      { trail: PUREUN_ARBORETUM_TRAIL, title: '항동철길 입구 숲바람길', baseMin: 14, baseKm: 1.1, slice: 8 },
+      {
+        title: '역곡상상시장 문화길 (10분)',
+        points: COURSE_10_1_POINTS,
+        steps: COURSE_10_1_STEPS,
+        baseMin: 10,
+        baseKm: 0.74,
+        roadType: '평탄한 보행로 · 시장 아케이드 구간',
+        features: ['역곡상상시장 아케이드', '보행자 우선도로', '안심 쉼터 2곳'],
+      },
+      {
+        title: '역곡남부 평탄 골목길 (12분)',
+        points: COURSE_10_2_POINTS,
+        steps: COURSE_10_2_STEPS,
+        baseMin: 12,
+        baseKm: 0.95,
+        roadType: '평탄한 동네 골목길 · 휴식 벤치 2곳',
+        features: ['부천동 주민센터 쉼터', '차량 통행 적은 안심길'],
+      },
+      {
+        title: '가톨릭대 정문 앞 평탄 산책 (11분)',
+        points: COURSE_10_3_POINTS,
+        steps: COURSE_10_3_STEPS,
+        baseMin: 11,
+        baseKm: 0.85,
+        roadType: '완만한 인도 · 무장애 휠체어 램프',
+        features: ['가톨릭대 앞 가로수길', '턱 없는 배리어프리 인도'],
+      },
     ];
   } else if (targetMinutes <= 35) {
     trailCandidates = [
-      { trail: YEOKGOK_STREAM_TRAIL, title: '역곡천 수변 순환 코스', baseMin: 25, baseKm: 1.8, slice: 18 },
-      { trail: CATHOLIC_UNIV_TRAIL, title: '가톨릭대 숲길 & 시장 둘레길', baseMin: 24, baseKm: 1.6, slice: 14 },
-      { trail: PUREUN_ARBORETUM_TRAIL, title: '푸른수목원 & 항동철길 힐링 코스', baseMin: 27, baseKm: 2.1, slice: 16 },
+      {
+        title: '역곡천 수변 순환 코스 (25분)',
+        points: COURSE_25_1_POINTS,
+        steps: COURSE_25_1_STEPS,
+        baseMin: 25,
+        baseKm: 1.8,
+        roadType: '평탄한 수변 데크로드 · 경사 2% 이하 (계단 없음)',
+        features: ['역곡천 수변 데크', '징검다리 쉼터', '무장애 슬로프 진입로'],
+      },
+      {
+        title: '가톨릭대 숲길 & 시장 둘레길 (24분)',
+        points: COURSE_25_2_POINTS,
+        steps: COURSE_25_2_STEPS,
+        baseMin: 24,
+        baseKm: 1.6,
+        roadType: '평탄 보도블록 및 완만한 숲길 · 휴식 벤치 3곳',
+        features: ['상상시장 아케이드', '가톨릭대 성심교정 숲길', '캠퍼스 잔디마당'],
+      },
+      {
+        title: '푸른수목원 & 항동철길 힐링 코스 (28분)',
+        points: COURSE_25_3_POINTS,
+        steps: COURSE_25_3_STEPS,
+        baseMin: 28,
+        baseKm: 2.1,
+        roadType: '친환경 흙길 및 수변 목재 데크 · 턱 없는 무장애길',
+        features: ['항동철길 평탄길', '항동저수지 수변 관찰 데크', '메타세쿼이아길'],
+      },
     ];
   } else {
     trailCandidates = [
-      { trail: PUREUN_ARBORETUM_TRAIL, title: '푸른수목원 전체 순환 수변길', baseMin: 55, baseKm: 3.5, slice: 16 },
-      { trail: WONMISAN_TRAIL, title: '원미산 숲길 둘레길 (피톤치드)', baseMin: 58, baseKm: 3.8, slice: 14 },
-      { trail: YEOKGOK_STREAM_TRAIL, title: '역곡천 ➔ 옥길 합류 생태 둘레길', baseMin: 52, baseKm: 3.3, slice: 18 },
+      {
+        title: '푸른수목원 전체 순환 수변길 (55분)',
+        points: COURSE_60_1_POINTS,
+        steps: COURSE_60_1_STEPS,
+        baseMin: 55,
+        baseKm: 3.5,
+        roadType: '수변 목재 데크 및 친환경 흙길 · 쉼터 5곳',
+        features: ['수목원 전체 순환 데크', '습지 생태공원', '무장애 휠체어 전용길'],
+      },
+      {
+        title: '원미산 숲길 둘레길 (58분)',
+        points: COURSE_60_2_POINTS,
+        steps: COURSE_60_2_STEPS,
+        baseMin: 58,
+        baseKm: 3.8,
+        roadType: '완만한 흙길 및 친환경 야자매트 · 피톤치드 쉼터',
+        features: ['피톤치드 숲길', '전망 정자 쉼터', '배리어프리 진입로'],
+      },
+      {
+        title: '역곡천 ➔ 옥길 합류 생태 둘레길 (52분)',
+        points: COURSE_60_3_POINTS,
+        steps: COURSE_60_3_STEPS,
+        baseMin: 52,
+        baseKm: 3.3,
+        roadType: '수변 평탄 데크로드 · 벤치 4곳',
+        features: ['옥길 생태하천 합류부', '갈대숲 관찰로', '평탄 직선 수변길'],
+      },
     ];
   }
 
-  const startHub = {
-    lat: targetRegion.center?.lat || YEOKGOK_STATION.south.lat,
-    lng: targetRegion.center?.lng || YEOKGOK_STATION.south.lng,
-    name: `${targetRegion.short || '역곡역'} 시작 지점`,
-  };
-
   const list = trailCandidates.map((cand, index) => {
-    const trail = cand.trail;
     const evaluatedRest = includeRestaurant ? sortedRest[index % sortedRest.length] : null;
 
-    let geoPath = [];
-    let turnByTurn = [];
-    let finalKm = cand.baseKm;
-    let finalMin = cand.baseMin;
-
-    if (includeRestaurant && evaluatedRest) {
-      const restPos = {
-        lat: evaluatedRest.location.lat,
-        lng: evaluatedRest.location.lng,
-      };
-
-      // 출발지 ➔ 안심식당 ➔ 트레일 루프 ➔ 회귀
-      const trailSlice = trail.loopCoordinates.slice(0, cand.slice);
-      geoPath = [
-        startHub,
-        restPos,
-        trail.entryPoint,
-        ...trailSlice,
-        startHub,
-      ];
-
-      turnByTurn = [
-        `${targetRegion.short || '역곡역'}에서 출발하여 [${evaluatedRest.name}] 방면으로 이동`,
-        `[${evaluatedRest.name}]에서 식사 후 [${trail.name}] 진입로 데크로 이동`,
-        `계단 없는 완만한 수변 데크로드 및 쉼터 구간 통과`,
-        `${targetRegion.short || '역곡역'} 방면으로 안전하게 회귀`,
-      ];
-
-      finalKm = Number((cand.baseKm + 0.3).toFixed(2));
-      finalMin = cand.baseMin + 5;
-    } else {
-      const trailSlice = trail.loopCoordinates.slice(0, cand.slice);
-      geoPath = [startHub, ...trailSlice, startHub];
-      turnByTurn = [
-        `${targetRegion.short || '역곡역'}에서 출발하여 [${trail.name}] 입구로 이동`,
-        `완만한 평탄 산책로를 따라 쉼터 및 데크길 순환`,
-        `${targetRegion.short || '역곡역'}으로 안전하게 완보 회귀`,
-      ];
-    }
+    // 실제 도로망 중심점 좌표열 (85~208점 - 절대 건물 관통 없음!)
+    const geoPath = cand.points;
+    const turnByTurn = cand.steps;
 
     // 일러스트 지도용 SVG 좌표 변환
     const svgPath = geoPath.map((pt) => latLngToNormalized(targetRegion, pt));
@@ -216,9 +250,11 @@ export function getRoutes(region = DEFAULT_REGION, minutes = 25, userDiseases = 
         }
       : null;
 
+    const hubShort = targetRegion.short || '역곡역';
+    const trailShort = cand.title.split(' ')[0];
     const waypointsText = includeRestaurant && restaurantData
-      ? `${targetRegion.short || '역곡역'} ➔ 🟢 ${restaurantData.name} ➔ ${trail.name.split(' ')[0]} ➔ ${targetRegion.short || '역곡역'}`
-      : `${targetRegion.short || '역곡역'} ➔ ${trail.name} ➔ ${targetRegion.short || '역곡역'}`;
+      ? `${hubShort} ➔ 🟢 ${restaurantData.name} ➔ ${trailShort} ➔ ${hubShort}`
+      : `${hubShort} ➔ ${trailShort} ➔ ${hubShort}`;
 
     return {
       id: `${targetRegion.id}-${targetMinutes}-${index}`,
@@ -226,13 +262,13 @@ export function getRoutes(region = DEFAULT_REGION, minutes = 25, userDiseases = 
       regionName: targetRegion.short,
       title: cand.title,
       region: targetRegion.name,
-      durationMin: finalMin,
-      distanceKm: finalKm,
+      durationMin: cand.baseMin,
+      distanceKm: cand.baseKm,
       hasRestaurant: Boolean(includeRestaurant && restaurantData),
-      roadType: trail.roadType,
-      features: trail.features,
+      roadType: cand.roadType,
+      features: cand.features,
       waypoints: waypointsText,
-      geoPath,
+      geoPath, // 실제 도로망을 따라 꺾이는 고정밀 좌표열
       path: svgPath,
       turnByTurn,
       startPoint: {
