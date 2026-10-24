@@ -256,3 +256,13 @@ button.mp-profile-card { border: 0; background: var(--mp-gray-bg); }
 
 /* 생년월일 칸: 브라우저 기본 달력 아이콘 대신 Figma 의 연필 아이콘만 보이게 (누르면 달력은 그대로 열림) */
 .mp-input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; position: absolute; right: 0; width: 48px; height: 100%; cursor: pointer; }
+
+/* 약물 검색 로딩 (Figma 에 없는 상태 — 마이페이지 색 사용) */
+.mp-loading { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 72px 0 32px; text-align: center; }
+.mp-loading strong { margin-top: 8px; font-size: 15px; font-weight: 700; }
+.mp-loading > span { font-size: 12px; color: var(--mp-text-sub); line-height: 1.6; }
+.mp-loading .mp-loading-slow { max-width: 260px; margin-top: 6px; padding: 10px 12px; border-radius: 12px; background: var(--mp-gray-bg); }
+.mp-spinner { width: 32px; height: 32px; border: 3px solid var(--mp-green-bg); border-top-color: var(--mp-green); border-radius: 50%; animation: mp-spin 0.8s linear infinite; }
+.mp-loading-dots::after { content: ''; display: inline-block; width: 1.2em; text-align: left; animation: mp-dots 1.2s steps(4, end) infinite; }
+@keyframes mp-spin { to { transform: rotate(360deg); } }
+@keyframes mp-dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }

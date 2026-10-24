@@ -1,0 +1,92 @@
+/* 내 핀 탭 (Figma no.15 비회원버전 · N0.19 핀 · No.20 · no.22)
+   색·글꼴 변수는 mypage.css 의 .mp-screen 값을 같이 써요. 클래스는 pin- 으로 시작 */
+
+.pin-screen { min-height: calc(100vh - 60px); box-sizing: border-box; }
+
+/* ─── N0.19: 지도 + 시트 ─── */
+.pin-map-screen { padding: 0; display: flex; flex-direction: column; background: #EEF0EA; }
+.pin-map {
+  position: relative; flex: 0 0 auto; height: 260px; overflow: hidden;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 26px 22px; padding: 16px 14px;
+  background:
+    linear-gradient(transparent 46px, #fff 46px, #fff 52px, transparent 52px) 0 0 / 100% 64px,
+    linear-gradient(90deg, transparent 52px, #fff 52px, #fff 57px, transparent 57px) 0 0 / 66px 100%,
+    #EEF0EA;
+}
+.pin-map-block { height: 28px; border-radius: 4px; background: #DFE1DC; }
+.pin-map-block.green { background: #DCEFD0; }
+.pin-map-dot {
+  position: absolute; top: 30px; right: 32px; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--mp-green); box-shadow: 0 0 0 3px rgba(130, 201, 75, 0.25);
+}
+
+.pin-sheet {
+  position: relative; flex: 1; margin-top: -22px; padding: 12px 20px 28px;
+  border-radius: 22px 22px 0 0; background: var(--mp-surface);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.04);
+}
+.pin-sheet-handle { display: block; width: 44px; height: 4px; margin: 0 auto 14px; border-radius: 4px; background: #D9DBD6; }
+.pin-sheet-title { margin: 0 0 30px; font-size: 18px; font-weight: 700; }
+
+.pin-folder-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.pin-folder-row {
+  width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 10px;
+  border: 1px solid var(--mp-border); border-radius: 10px; background: var(--mp-surface);
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.pin-folder-thumb { flex: none; width: 26px; height: 26px; border-radius: 6px; background: var(--mp-green-bg); }
+.pin-folder-text { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.pin-folder-text strong { font-size: 13px; font-weight: 700; }
+.pin-folder-text small { font-size: 10px; color: var(--mp-text-sub); }
+.pin-new-folder { height: 48px; font-size: 13px; }
+
+/* ─── No.20: 폴더 상세 ─── */
+.pin-filters { display: flex; gap: 6px; margin: 4px 0 14px; }
+.pin-dropdown { position: relative; }
+.pin-chip {
+  height: 36px; padding: 0 18px; border: 1px solid var(--mp-border); border-radius: 999px;
+  background: var(--mp-surface); color: var(--mp-text); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.pin-chip span { font-size: 8px; }
+.pin-chip.dark { border-color: var(--mp-button); background: var(--mp-button); color: #fff; }
+.pin-menu {
+  position: absolute; top: 42px; left: 0; z-index: 20; min-width: 120px; margin: 0; padding: 6px; list-style: none;
+  border: 1px solid var(--mp-border); border-radius: 12px; background: var(--mp-surface);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+}
+.pin-menu button {
+  width: 100%; padding: 9px 10px; border: 0; border-radius: 8px; background: none;
+  font: inherit; font-size: 12px; text-align: left; color: var(--mp-text); cursor: pointer;
+}
+.pin-menu button.active { background: var(--mp-green-bg); color: var(--mp-green-text); font-weight: 700; }
+
+.pin-course-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; touch-action: pan-y; }
+.pin-course-card {
+  position: relative; border: 1px solid var(--mp-border); border-radius: 14px; background: var(--mp-surface);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.pin-course-card.selected { border-color: var(--mp-green); box-shadow: 0 0 0 2px var(--mp-green-bg); }
+.pin-course-card.dragging { opacity: 0.7; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12); }
+.pin-course-main {
+  width: 100%; display: flex; flex-direction: column; gap: 8px; padding: 16px 52px 26px 14px;
+  border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.pin-course-main strong { font-size: 15px; font-weight: 700; }
+.pin-course-meta { font-size: 11px; color: var(--mp-text-sub); }
+.pin-course-tags { font-size: 11px; color: var(--mp-text); }
+.pin-course-delete {
+  position: absolute; top: 10px; right: 10px; padding: 2px 4px; border: 0; background: none;
+  font: inherit; font-size: 11px; color: var(--mp-text); cursor: pointer;
+}
+.pin-drag-handle {
+  position: absolute; right: 10px; bottom: 10px; width: 32px; height: 32px; border: 0; border-radius: 8px;
+  background: var(--mp-gray-bg); font-size: 18px; line-height: 1; color: var(--mp-text-sub); cursor: grab; touch-action: none;
+}
+.pin-empty { margin: 60px 0; text-align: center; font-size: 13px; color: var(--mp-text-sub); }
+
+.pin-bottom { gap: 8px; }
+.pin-hint { margin: 0; font-size: 10px; color: var(--mp-text-sub); }
+
+/* ─── no.22: 새 폴더 만들기 ─── */
+.pin-input-icon { position: absolute; top: 50%; right: 14px; transform: translateY(-50%); display: grid; pointer-events: none; }
+.pin-help { margin: 2px 0 0; font-size: 11px; color: var(--mp-text-sub); }

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../supabaseClient';
+import { loginUser } from '../api/auth';
 
 // 로그인 화면 — 문서 알고리즘에 따른 카카오, 네이버, 구글 소셜 로그인 지원
 const socialLogins = [
@@ -8,8 +9,8 @@ const socialLogins = [
   { name: '구글', image: '/pic/구글.png', className: 'google', provider: 'google' },
 ];
 
-export default function LoginPage({ onSignup, onLogin, onSkip, initialNotice = '' }) {
-  const [loginId, setLoginId] = useState(() => localStorage.getItem('soyo-saved-id') ?? '');
+export default function LoginPage({ onSignup, onLogin, onSkip, onFindAccount, initialNotice = '', initialLoginId = '' }) {
+  const [loginId, setLoginId] = useState(() => initialLoginId || (localStorage.getItem('soyo-saved-id') ?? ''));
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberId, setRememberId] = useState(Boolean(localStorage.getItem('soyo-saved-id')));
@@ -21,7 +22,24 @@ export default function LoginPage({ onSignup, onLogin, onSkip, initialNotice = '
 
     console.log('📌 [로그인 시도] 사용자 아이디:', loginId);
 
-    // 1. Supabase 로그인 시도 (이메일 형태인 경우)
+    // 1. 서버 DB 로그인 시도 (모든 기기 공통 인증)
+    try {
+      console.log('🚀 [서버 DB 로그인 요청 전송]:', loginId);
+      const res = await loginUser(loginId, password);
+      if (res?.success && res?.user) {
+        console.log('✅ [서버 DB 로그인 성공]:', res.user);
+        if (rememberId) localStorage.setItem('soyo-saved-id', loginId);
+        else localStorage.removeItem('soyo-saved-id');
+        if (res.token) localStorage.setItem('soyo-jwt-token', res.token);
+        setAuthMessage('');
+        onLogin({ loginId, user: res.user, token: res.token });
+        return;
+      }
+    } catch (apiErr) {
+      console.warn('⚠️ [서버 DB 로그인 응답/실패]:', apiErr.message);
+    }
+
+    // 2. Supabase Auth 이메일 로그인 시도 (이메일 형태인 경우 fallback)
     if (supabase && loginId.includes('@')) {
       try {
         console.log('🚀 [Supabase Auth] 이메일 로그인 시도 중...');
@@ -30,17 +48,17 @@ export default function LoginPage({ onSignup, onLogin, onSkip, initialNotice = '
           password
         });
         if (!error && data?.session) {
-          console.log('✅ [Supabase Auth] 로그인 성공 ➔ AWS 클라우드 프로필 연동');
+          console.log('✅ [Supabase Auth] 로그인 성공');
           if (rememberId) localStorage.setItem('soyo-saved-id', loginId);
           onLogin({ loginId, session: data.session });
           return;
         }
       } catch (sbErr) {
-        console.warn('⚠️ [Supabase Auth 로그인 실패, 로컬 계정 확인]:', sbErr.message);
+        console.warn('⚠️ [Supabase Auth 로그인 실패]:', sbErr.message);
       }
     }
 
-    // 2. 가입된 로컬 계정 확인
+    // 3. 가입된 로컬 계정 확인 (오프라인 fallback)
     let registeredUsers = [];
     try {
       registeredUsers = JSON.parse(localStorage.getItem('soyo-registered-users') || '[]');
@@ -52,20 +70,20 @@ export default function LoginPage({ onSignup, onLogin, onSkip, initialNotice = '
       (u) => (u.loginId === loginId || u.email === loginId) && u.password === password
     );
 
-    if (!matchedUser) {
-      // 기획서 1.1 명세: 일치하지 않을 경우 '아이디/비밀번호를 확인하세요' 오류 표시 및 ID/PW 입력 내용 모두 삭제
-      console.warn('❌ [로그인 실패] 계정 불일치');
-      setLoginId('');
-      setPassword('');
-      return setAuthMessage('아이디/비밀번호를 확인하세요.');
+    if (matchedUser) {
+      console.log('✅ [로컬 계정 일치 확인]');
+      if (rememberId) localStorage.setItem('soyo-saved-id', loginId);
+      else localStorage.removeItem('soyo-saved-id');
+      setAuthMessage('');
+      onLogin({ loginId, user: matchedUser });
+      return;
     }
 
-    console.log('✅ [로그인 성공] 계정 일치 확인 ➔ AWS 클라우드/마이페이지로 이동');
-    if (rememberId) localStorage.setItem('soyo-saved-id', loginId);
-    else localStorage.removeItem('soyo-saved-id');
-
-    setAuthMessage('');
-    onLogin({ loginId, user: matchedUser });
+    // 일치하지 않을 경우: 기획서 표준 오류 문구 노출 및 입력 필드 비움
+    console.warn('❌ [로그인 실패] 계정 불일치');
+    setLoginId('');
+    setPassword('');
+    return setAuthMessage('아이디/비밀번호를 확인하세요.');
   }
 
   function showNotice(text) {
@@ -160,7 +178,7 @@ export default function LoginPage({ onSignup, onLogin, onSkip, initialNotice = '
               <input type="checkbox" checked={rememberId} onChange={(event) => setRememberId(event.target.checked)} />
               <span>내 로그인 정보 기억하기</span>
             </label>
-            <button className="text-button find-button" type="button" onClick={() => showNotice('아이디/비밀번호 찾기는 준비 중이에요.')}>아이디/비밀번호 찾기</button>
+            <button className="text-button find-button" type="button" onClick={() => onFindAccount?.({ loginId })}>아이디/비밀번호 찾기</button>
           </div>
 
           {authMessage && <p className="form-message" role="status">{authMessage}</p>}

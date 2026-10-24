@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { PencilIcon } from './common';
+import { formatBirthDateInput, isValidBirthDate } from '../../utils/date';
 
 // N0.11 회원정보 수정 (Figma 166-680)
 // 변수: name(이름 입력값), birthDate(생년월일 — DB birth_date), isLoading
@@ -11,6 +12,7 @@ function ProfileEditPage({ profile, isLoading, onSave }) {
   const handleSubmit = (event) => {
     event.preventDefault();
     if (!name.trim()) return setNotice('이름을 입력해 주세요.');
+    if (birthDate && !isValidBirthDate(birthDate)) return setNotice('생년월일을 8자리 숫자로 정확히 입력해 주세요. (예: 20070305)');
     onSave({ userName: name.trim(), birthDate });
   };
 
@@ -36,11 +38,11 @@ function ProfileEditPage({ profile, isLoading, onSave }) {
         <input
           className="mp-input"
           placeholder="생년월일"
-          type={birthDate ? 'date' : 'text'}
-          onFocus={(e) => { e.target.type = 'date'; }}
-          onBlur={(e) => { if (!e.target.value) e.target.type = 'text'; }}
+          type="text"
+          inputMode="numeric"
+          maxLength={10}
           value={birthDate}
-          onChange={(e) => setBirthDate(e.target.value)}
+          onChange={(e) => { setBirthDate(formatBirthDateInput(e.target.value)); setNotice(''); }}
         />
         <PencilIcon />
       </label>

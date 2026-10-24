@@ -476,3 +476,18 @@ button {
 .consent-check input { margin-top: 2px; flex: none; }
 
 .password-hint.invalid { color: #e74c3c; }
+
+/* ─── 아이디 찾기 / 비밀번호 찾기 (Figma No.1) ─── */
+.find-heading h1 { margin-bottom: 30px; }
+.find-heading h1 button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: #7a7e77;
+  cursor: pointer;
+}
+.find-heading h1 button.active { color: #111; }
+.find-form { flex: 1; display: flex; flex-direction: column; }
+.find-form .signup-bottom { padding-bottom: 40px; }
+.find-sent-note { margin: -3px 0 10px; }

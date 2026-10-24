@@ -4,8 +4,13 @@ import BottomNav from './components/BottomNav';
 import MyPageFlow from './pages/mypage/MyPageFlow';
 import LoginPage from './pages/LoginPage';
 import SignupFlow from './pages/SignupFlow';
+import FindAccountPage from './pages/FindAccountPage';
 import { updateProfile } from './api/user';
 import { saveUserProfile, getUserProfile, naverAuthCallback } from './api/auth';
+import HomePage from './pages/HomePage';
+import WalkPage from './pages/WalkPage';
+import WalkMapFlow from './pages/WalkMapFlow';
+import PinFlow from './pages/pins/PinFlow';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -13,11 +18,14 @@ function App() {
   const [activeScreen, setActiveScreen] = useState('auth'); // 'auth' | 'main'
   const [authMode, setAuthMode] = useState('login');
   const [authNotice, setAuthNotice] = useState('');
+  const [foundLoginId, setFoundLoginId] = useState(''); // 아이디 찾기 결과 → 로그인 칸에 채워 줌
   const [signupDraft, setSignupDraft] = useState({ loginId: '', password: '' });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   // 하단 메뉴 선택 (변수 명세서 activeTab: walk / recommended / records / myPage)
   const [activeTab, setActiveTab] = useState('recommended');
   const [myPageResetKey, setMyPageResetKey] = useState(0);
+  const [pinResetKey, setPinResetKey] = useState(0);
+  const [selectedRoute, setSelectedRoute] = useState(null);
 
   // 브라우저 뒤로가기(Alt + ←, 브라우저 상단 뒤로가기 버튼) 히스토리 동기화
   useEffect(() => {
@@ -51,6 +59,7 @@ function App() {
 
   const handleTabChange = (tab) => {
     if (tab === 'myPage') setMyPageResetKey((key) => key + 1);
+    if (tab === 'walk') setPinResetKey((key) => key + 1);
     setActiveTab(tab);
     window.history.pushState({ activeScreen: 'main', authMode, activeTab: tab }, '');
   };
@@ -200,6 +209,20 @@ function App() {
 
   // 로그인 · 회원가입 화면 (하단 메뉴 없이 전체 화면)
   if (activeScreen === 'auth') {
+    // 아이디 찾기 / 비밀번호 찾기 (로그인 화면의 '아이디/비밀번호 찾기' 버튼)
+    if (authMode === 'find') {
+      return (
+        <FindAccountPage
+          initialLoginId={signupDraft.loginId || ''}
+          onBack={() => navigateTo('auth', 'login')}
+          onDone={({ loginId, notice } = {}) => {
+            setFoundLoginId(loginId || '');
+            setAuthNotice(notice || '');
+            navigateTo('auth', 'login');
+          }}
+        />
+      );
+    }
     if (authMode === 'signup') {
       return (
         <SignupFlow
@@ -222,10 +245,13 @@ function App() {
               if (form.email) localStorage.setItem('soyo-current-email', form.email);
             }
 
-            // 백엔드로 건강 프로필 데이터 전송 (AWS RDS 저장)
-            console.log('🚀 [AWS RDS 백엔드] 회원가입 2단계 건강 프로필 저장 요청:', targetUserId);
+            // 백엔드로 계정 및 건강 프로필 데이터 전송 (서버 DB 저장)
+            console.log('🚀 [서버 DB 백엔드] 회원가입 계정 및 건강 프로필 저장 요청:', targetUserId);
             const saveRes = await saveUserProfile({
               userId: targetUserId,
+              loginId: form.loginId,
+              password: form.password,
+              email: form.email,
               name: form.name,
               birth: form.birthDate,
               allergies: actualProfile.allergies,
@@ -235,7 +261,7 @@ function App() {
               noDisease: form.noDisease,
               noMedication: form.noMedication
             });
-            console.log('✅ [AWS RDS 백엔드] 회원가입 프로필 저장 성공:', saveRes);
+            console.log('✅ [서버 DB 백엔드] 회원가입 프로필 저장 성공:', saveRes);
 
             // 실제 입력한 정보로 마이페이지 스토어 업데이트
             await updateProfile(null, actualProfile);
@@ -266,6 +292,7 @@ function App() {
     return (
       <LoginPage
         initialNotice={authNotice}
+        initialLoginId={foundLoginId}
         onSignup={(draft) => {
           setAuthNotice('');
           setSignupDraft(draft || { loginId: '', password: '' });
@@ -316,6 +343,11 @@ function App() {
           setIsLoggedIn(true);
           navigateTo('main', 'login', 'myPage'); // 로그인 성공 시 마이페이지로 이동
         }}
+        onFindAccount={({ loginId } = {}) => {
+          setAuthNotice('');
+          setSignupDraft({ loginId: loginId || '', password: '' });
+          navigateTo('auth', 'find');
+        }}
         onSkip={() => navigateTo('main', 'login', 'recommended')}
       />
     );
@@ -357,8 +389,21 @@ function App() {
           />
         )}
 
-        {activeTab === 'walk' && <ComingSoon name="산책" onBackToAuth={goToLogin} />}
-        {activeTab === 'recommended' && <ComingSoon name="홈" onBackToAuth={goToLogin} />}
+        {/* 📍 내 핀 탭 (Figma no.15 · N0.19 · No.20 · no.22) */}
+        {activeTab === 'walk' && (
+          <PinFlow
+            isLoggedIn={isLoggedIn}
+            resetKey={pinResetKey}
+            onStartCourse={(course) => {
+              // TODO(지도 담당): selectedRoute 를 WalkMapFlow 에 넘겨서 바로 산책 시작 화면으로
+              setSelectedRoute(course);
+              handleTabChange('recommended');
+            }}
+          />
+        )}
+        {activeTab === 'recommended' && (
+          <WalkMapFlow onBackToAuth={goToLogin} />
+        )}
       </main>
       <BottomNav activeTab={activeTab} onChange={handleTabChange} />
     </div>

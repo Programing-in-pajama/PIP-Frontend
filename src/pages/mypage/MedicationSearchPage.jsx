@@ -59,22 +59,7 @@ function MedicationSearchPage({ query, onQueryChange, selected, registeredIds, o
         </span>
       </div>
 
-      {isLoading && (
-        <section className="mp-empty-state" style={{ padding: '32px 0 16px', color: '#16a34a' }}>
-          <div style={{
-            margin: '0 auto 12px',
-            width: '28px',
-            height: '28px',
-            border: '3px solid #e2e8f0',
-            borderTopColor: '#22c55e',
-            borderRadius: '50%',
-            animation: 'spin 0.8s linear infinite'
-          }} />
-          <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
-          <strong style={{ fontSize: '15px', color: '#1e293b' }}>‘{keyword}’ 정보를 가져오는 중...</strong>
-          <span style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>식약처 공공데이터 및 DUR 안전정보를 조회하고 있어요.</span>
-        </section>
-      )}
+      {isLoading && <SearchLoading keyword={keyword} />}
 
       {noResults && (
         <section className="mp-empty-state mp-empty-search">
@@ -118,6 +103,24 @@ function MedicationSearchPage({ query, onQueryChange, selected, registeredIds, o
         </div>
       )}
     </div>
+  );
+}
+
+// 검색 중 화면 (Figma 에 없는 상태라 마이페이지 색으로 맞춤)
+// 5초가 넘으면 무료 서버(Render)가 깨어나는 중일 수 있다는 안내를 덧붙여요.
+function SearchLoading({ keyword }) {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setSlow(true), 5000);
+    return () => clearTimeout(timer);
+  }, []);
+  return (
+    <section className="mp-loading" role="status" aria-live="polite">
+      <span className="mp-spinner" aria-hidden="true" />
+      <strong>‘{keyword}’ 찾는 중<span className="mp-loading-dots" aria-hidden="true" /></strong>
+      <span>약물 정보와 주의사항을 불러오고 있어요.</span>
+      {slow && <span className="mp-loading-slow">서버가 잠들어 있었다면 처음 검색은 최대 1분 걸릴 수 있어요. 조금만 기다려 주세요.</span>}
+    </section>
   );
 }
 

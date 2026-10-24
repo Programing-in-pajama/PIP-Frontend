@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatBirthDateInput, isValidBirthDate } from '../utils/date';
 import { supabase } from '../supabaseClient';
 import { DISEASE_CATEGORIES, getDiseaseName } from '../data/chronicDiseases';
 import { sendEmailCode, verifyEmailCode } from '../api/auth';
@@ -23,7 +24,7 @@ export default function SignupFlow({ onBack, onComplete, initialDraft = {} }) {
     code: '',
     termsAgreed: isSocialUser ? true : false,   // 소셜 유저는 소셜 로그인 시 약관 동의 완료
     name: initialDraft?.name || '',              // 소셜에서 받아온 이름 자동 채움 (일반 가입은 빈 칸)
-    birthDate: initialDraft?.birthDate || '',    // 소셜에서 받아온 생년월일 자동 채움
+    birthDate: formatBirthDateInput(initialDraft?.birthDate || ''),    // 소셜에서 받아온 생년월일 자동 채움 (형식 통일: YYYY-MM-DD)
     allergies: [],
     diseaseIds: [],
     medications: [],
@@ -102,6 +103,7 @@ export default function SignupFlow({ onBack, onComplete, initialDraft = {} }) {
   async function completeProfile(event) {
     event.preventDefault();
     if (!form.name.trim() || !form.birthDate) return setAuthMessage('이름과 생년월일을 입력해 주세요.');
+    if (!isValidBirthDate(form.birthDate)) return setAuthMessage('생년월일을 8자리 숫자로 정확히 입력해 주세요. (예: 20070305)');
     if (hasHealthInfo && !form.healthConsent) return setAuthMessage('건강 정보를 저장하려면 이용 동의가 필요해요.');
 
     console.log('📌 [회원가입 2단계 완료] Supabase 회원가입 정보 저장 ➔ AWS 클라우드 연동 시작:', {
@@ -238,7 +240,8 @@ export default function SignupFlow({ onBack, onComplete, initialDraft = {} }) {
         ) : (
           <form className="profile-form" onSubmit={completeProfile}>
             <input className="text-input" aria-label="이름" placeholder="이름" autoComplete="name" value={form.name} onChange={(e) => update('name', e.target.value)} />
-            <input className="text-input" aria-label="생년월일" placeholder="생년월일" type="text" inputMode="numeric" onFocus={(e) => { e.target.type = 'date'; }} onBlur={(e) => { if (!e.target.value) e.target.type = 'text'; }} value={form.birthDate} onChange={(e) => update('birthDate', e.target.value)} />
+            {/* 키패드로 20070305 를 입력하면 2007-03-05 로 자동 변환 */}
+            <input className="text-input" aria-label="생년월일" placeholder="생년월일" type="text" inputMode="numeric" maxLength={10} value={form.birthDate} onChange={(e) => update('birthDate', formatBirthDateInput(e.target.value))} />
 
             <FieldGroup title="알레르기 여부" onSelect={() => setModalType('allergyPicker')} summary={form.allergies.join(', ')} placeholder="알레르기 카테고리 선택" emptyLabel="알레르기가 없습니다." emptyChecked={form.noAllergy} onEmpty={(checked) => { update('noAllergy', checked); if (checked) update('allergies', []); }} />
             <FieldGroup title="기저질환" onSelect={() => setModalType('diseasePicker')} summary={form.diseaseIds.map(getDiseaseName).join(', ')} placeholder="질병 카테고리 선택" emptyLabel="기저질환이 없습니다." emptyChecked={form.noDisease} onEmpty={(checked) => { update('noDisease', checked); if (checked) update('diseaseIds', []); }} />
