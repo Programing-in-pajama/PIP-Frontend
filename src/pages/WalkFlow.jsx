@@ -18,12 +18,25 @@ export default function WalkFlow({
   onRequireLogin,
   onSectionChange,
 }) {
+  const userProfile = useMemo(() => {
+    try {
+      const saved = localStorage.getItem('soyo-user-profile');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  }, [userId, isLoggedIn]);
+
+  const userDiseases = useMemo(() => {
+    return userProfile?.diseaseIds || userProfile?.chronicConditions || [];
+  }, [userProfile]);
+
   const [step, setStep] = useState(startRoute ? 'walking' : 'home');
   const [region, setRegion] = useState(DEFAULT_REGION);
   const [regionQuery, setRegionQuery] = useState('');
   const [minutes, setMinutes] = useState(25);
   const [includeRestaurant, setIncludeRestaurant] = useState(true);
-  const [routes, setRoutes] = useState(() => getRoutes(DEFAULT_REGION, 25));
+  const [routes, setRoutes] = useState(() => getRoutes(DEFAULT_REGION, 25, userDiseases));
   const [selectedRoute, setSelectedRoute] = useState(startRoute);
   const [walkSeconds, setWalkSeconds] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -85,7 +98,7 @@ export default function WalkFlow({
   };
 
   const searchRoutes = () => {
-    let list = getRoutes(region, minutes);
+    let list = getRoutes(region, minutes, userDiseases);
     if (includeRestaurant) {
       const filtered = list.filter((r) => r.hasRestaurant);
       list = filtered.length > 0 ? filtered : list;
@@ -387,6 +400,16 @@ export default function WalkFlow({
           <span className="chip chip--active">{includeRestaurant ? '🍴 식당 포함' : '산책만'}</span>
         </div>
 
+        {userDiseases.length > 0 && (
+          <div className="health-match-notice">
+            <span className="health-match-icon">🩺</span>
+            <div>
+              <strong>기저질환 맞춤 3색 신호등 필터링 적용 중</strong>
+              <p>회원님의 건강 정보({userDiseases.length}개 질환) 1끼 임계치를 엄격 병합하여 가장 안전한 안심 메뉴를 우선 추천해요.</p>
+            </div>
+          </div>
+        )}
+
         <div className="course-list">
           {routes.map((route) => {
             const saved = isRoutePinned(userId, route.id);
@@ -402,7 +425,7 @@ export default function WalkFlow({
                     <div className="course-restaurant-badge">
                       <span>🍴 {route.restaurant.name}</span>
                       <span className={`nutrition-pill nutrition-pill--${route.restaurant.grade || 'green'}`}>
-                        {route.restaurant.grade === 'green' ? '🟢 안심' : '🟡 주의'}
+                        {route.restaurant.dot || '🟢'} {route.restaurant.badgeLabel || '안심식당'}
                       </span>
                     </div>
                   )}
@@ -473,18 +496,25 @@ export default function WalkFlow({
                 <div className="restaurant-title-row">
                   <span className="restaurant-badge">🍴 추천 식당</span>
                   <strong>{selectedRoute.restaurant.name}</strong>
-                  {selectedRoute.restaurant.grade === 'green' && (
-                    <span className="nutrition-pill nutrition-pill--green">🟢 초록 안심</span>
-                  )}
-                  {selectedRoute.restaurant.grade === 'yellow' && (
-                    <span className="nutrition-pill nutrition-pill--yellow">🟡 노랑 주의</span>
-                  )}
-                  {selectedRoute.restaurant.grade === 'red' && (
-                    <span className="nutrition-pill nutrition-pill--red">🔴 빨강 유의</span>
-                  )}
+                  <span className={`nutrition-pill nutrition-pill--${selectedRoute.restaurant.grade || 'green'}`}>
+                    {selectedRoute.restaurant.dot || '🟢'} {selectedRoute.restaurant.badgeLabel || '안심식당'}
+                  </span>
                 </div>
                 <p className="restaurant-address">{selectedRoute.restaurant.address || selectedRoute.restaurant.category}</p>
               </div>
+
+              {selectedRoute.restaurant.threshold && (
+                <div className="disease-threshold-box">
+                  <div className="threshold-title">
+                    <span>🩺 {selectedRoute.restaurant.threshold.isDefault ? '일반 성인 1끼 권장 기준' : `${selectedRoute.restaurant.threshold.name} 1끼 상한`}</span>
+                  </div>
+                  <div className="threshold-chips">
+                    <span>나트륨 ≤ {selectedRoute.restaurant.threshold.sodium}mg</span>
+                    <span>당류 ≤ {selectedRoute.restaurant.threshold.sugar}g</span>
+                    <span>열량 {selectedRoute.restaurant.threshold.calMin}~{selectedRoute.restaurant.threshold.calMax}kcal</span>
+                  </div>
+                </div>
+              )}
 
               {selectedRoute.restaurant.foods && selectedRoute.restaurant.foods.length > 0 && (
                 <div className="restaurant-foods-list">
@@ -493,15 +523,22 @@ export default function WalkFlow({
                     <div key={idx} className="food-item-card">
                       <div className="food-item-header">
                         <strong className="food-name">{food.name}</strong>
-                        <span className="food-cal">{food.calories} kcal</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span className="food-cal">{food.calories} kcal</span>
+                          <span className={`food-grade-badge food-grade-badge--${food.grade || 'green'}`}>
+                            {food.dot || '🟢'} {food.gradeText || (food.grade === 'green' ? '안심' : '주의')}
+                          </span>
+                        </div>
                       </div>
                       <div className="food-nutr-row">
-                        <span className="nutr-chip">나트륨 {food.sodium}mg</span>
-                        <span className="nutr-chip">당류 {food.sugar}g</span>
+                        <span className="nutr-chip">나트륨 {food.sodium}mg {food.rSod ? `(R: ${food.rSod})` : ''}</span>
+                        <span className="nutr-chip">당류 {food.sugar}g {food.rSug ? `(R: ${food.rSug})` : ''}</span>
                         {food.protein ? <span className="nutr-chip">단백질 {food.protein}g</span> : null}
                       </div>
-                      {food.description && (
-                        <p className="food-desc">{food.description}</p>
+                      {food.guideAdvice && (
+                        <div className={`food-guide-advice food-guide-advice--${food.grade || 'green'}`}>
+                          💡 {food.guideAdvice}
+                        </div>
                       )}
                     </div>
                   ))}

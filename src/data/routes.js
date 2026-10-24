@@ -1,4 +1,5 @@
 import { YEOKGOK_RESTAURANTS } from './yeokgokRestaurants';
+import { evaluateRestaurant } from '../utils/nutritionEvaluator';
 
 // 산책 지역 목록 — 지도는 실제 좌표 대신 디자인 시안과 같은 일러스트 지도를 사용합니다.
 export const REGIONS = [
@@ -240,12 +241,14 @@ export function getRegionGeoPolygon(region) {
   return points;
 }
 
-export function getRoutes(region, minutes) {
+export function getRoutes(region, minutes, userDiseases = []) {
   const templates = ROUTE_TEMPLATES[minutes] ?? ROUTE_TEMPLATES[25];
-  return templates.map((template, index) => {
-    const realRest = template.hasRestaurant ? YEOKGOK_RESTAURANTS[index % YEOKGOK_RESTAURANTS.length] : null;
+  const list = templates.map((template, index) => {
+    const rawRest = template.hasRestaurant ? YEOKGOK_RESTAURANTS[index % YEOKGOK_RESTAURANTS.length] : null;
+    const evaluatedRest = rawRest ? evaluateRestaurant(rawRest, userDiseases) : null;
     const geoPath = template.path.map((point) => normalizedToLatLng(region, point));
     const restaurantPoint = geoPath[Math.min(2, geoPath.length - 1)];
+
     return {
       ...template,
       id: `${region.id}-${minutes}-${index}`,
@@ -264,22 +267,34 @@ export function getRoutes(region, minutes) {
         lat: geoPath[geoPath.length - 1]?.lat,
         lng: geoPath[geoPath.length - 1]?.lng,
       },
-      restaurant: realRest && template.hasRestaurant
+      restaurant: evaluatedRest && template.hasRestaurant
         ? {
-            id: realRest.id,
-            name: realRest.name,
-            category: realRest.category,
-            address: realRest.location?.address,
-            foods: realRest.foods,
-            menu: realRest.foods[0]?.name || '대표 건강식',
-            grade: realRest.foods[0]?.grade || 'green',
-            nutritionGrade: realRest.foods[0]?.grade || 'green',
-            gradeLabel: realRest.foods[0]?.label || '초록 안심 (저염·저당)',
-            lat: realRest.location?.lat || restaurantPoint?.lat,
-            lng: realRest.location?.lng || restaurantPoint?.lng,
+            id: evaluatedRest.id,
+            name: evaluatedRest.name,
+            category: evaluatedRest.category,
+            address: evaluatedRest.location?.address,
+            foods: evaluatedRest.foods,
+            menu: evaluatedRest.bestFood?.name || evaluatedRest.foods[0]?.name || '대표 건강식',
+            grade: evaluatedRest.grade,
+            nutritionGrade: evaluatedRest.grade,
+            gradeLabel: evaluatedRest.bestFood?.label || evaluatedRest.badgeLabel,
+            badgeLabel: evaluatedRest.badgeLabel,
+            threshold: evaluatedRest.threshold,
+            bestFood: evaluatedRest.bestFood,
+            lat: evaluatedRest.location?.lat || restaurantPoint?.lat,
+            lng: evaluatedRest.location?.lng || restaurantPoint?.lng,
           }
         : null,
       savedAt: null,
     };
+  });
+
+  // 3색 안심 신호등 기준 정렬: 🟢 SAFE(초록) 코스를 최우선 배치
+  return list.sort((a, b) => {
+    if (!a.restaurant && !b.restaurant) return 0;
+    if (!a.restaurant) return 1;
+    if (!b.restaurant) return -1;
+    const order = { green: 0, yellow: 1, red: 2 };
+    return (order[a.restaurant.grade] ?? 3) - (order[b.restaurant.grade] ?? 3);
   });
 }
