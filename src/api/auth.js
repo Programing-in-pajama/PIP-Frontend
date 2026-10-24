@@ -55,3 +55,36 @@ export async function naverAuthCallback(code, state) {
   }
 }
 
+// 아이디 찾기 요청 (이름 + 이메일로 아이디 조회)
+export async function findLoginId(name, email) {
+  return await apiFetch('/api/auth/find-id', {
+    method: 'POST',
+    body: JSON.stringify({ name, email })
+  });
+}
+
+// 비밀번호 재설정 인증코드 발송 요청 (아이디로 등록된 이메일 조회 후 발송)
+export async function sendPasswordResetCode(loginId) {
+  return await apiFetch('/api/auth/password-reset/send-code', {
+    method: 'POST',
+    body: JSON.stringify({ loginId })
+  });
+}
+
+// 비밀번호 재설정 인증코드 검증 요청
+export async function verifyPasswordResetCode(loginId, code) {
+  return await apiFetch('/api/auth/password-reset/verify-code', {
+    method: 'POST',
+    body: JSON.stringify({ loginId, code })
+  });
+}
+
+// 비밀번호 재설정 확정 요청 (새 비밀번호 등록)
+export async function resetPassword(loginId, code, newPassword) {
+  return await apiFetch('/api/auth/password-reset', {
+    method: 'POST',
+    body: JSON.stringify({ loginId, code, newPassword })
+  });
+}
+
+

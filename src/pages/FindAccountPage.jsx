@@ -1,18 +1,13 @@
 import React, { useState } from 'react';
-import { sendEmailCode, verifyEmailCode } from '../api/auth';
+import {
+  sendEmailCode,
+  verifyEmailCode,
+  findLoginId,
+  sendPasswordResetCode,
+  verifyPasswordResetCode,
+  resetPassword,
+} from '../api/auth';
 import Icon from '../components/Icons';
-
-// TODO(백엔드 팀): 아래 4개는 아직 서버 API 가 없어서 '준비 중' 안내만 띄워요.
-//   서버가 생기면 src/api/auth.js 에 함수를 만들고 여기서 바꿔 끼우면 됩니다.
-//   - findLoginId(name, email)            → { loginId }
-//   - sendPasswordResetCode(loginId)      → 아이디에 등록된 이메일로 인증번호 발송
-//   - verifyPasswordResetCode(loginId, code) → { verified }
-//   - resetPassword(loginId, code, newPassword)
-const notReady = async () => { const err = new Error('서버 준비 중'); err.status = 404; throw err; };
-const findLoginId = notReady;
-const sendPasswordResetCode = notReady;
-const verifyPasswordResetCode = notReady;
-const resetPassword = notReady;
 
 // 아이디 찾기 / 비밀번호 찾기 (Figma No.1 - 아이디 찾기 / 비밀번호 찾기)
 // 제목의 "아이디 찾기" / "비밀번호 찾기" 글자를 누르면 탭이 바뀌어요. (선택된 쪽이 검정, 나머지는 회색)
