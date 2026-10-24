@@ -114,9 +114,15 @@ function App() {
         if (res?.success && res.user) {
           if (res.token) localStorage.setItem('soyo-jwt-token', res.token);
           finishLogin({ loginId: res.user.email, user: { ...res.user, profile: res.user.profile } });
+        } else {
+          setAuthNotice(res?.error || '네이버 로그인 중 오류가 발생했습니다.');
+          if (res?.error) alert(`네이버 로그인 실패 안내:\n${res.error}`);
         }
       })
-      .catch(() => setAuthNotice('네이버 로그인 중 오류가 발생했습니다.'));
+      .catch((err) => {
+        setAuthNotice('네이버 로그인 중 오류가 발생했습니다.');
+        alert(`네이버 로그인 통신 오류:\n${err?.message || '알 수 없는 오류'}`);
+      });
   }, [finishLogin]);
 
   // Supabase Auth 세션 감지
