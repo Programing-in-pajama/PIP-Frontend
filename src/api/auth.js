@@ -1,10 +1,10 @@
 import { apiFetch } from './client';
 
-// 이메일 인증번호 발송 요청 (백엔드로 요청 전송)
-export async function sendEmailCode(email) {
+// 이메일 인증번호 발송 요청 (백엔드로 요청 전송, type: 'signup' | 'find')
+export async function sendEmailCode(email, type = 'signup') {
   return await apiFetch('/api/auth/email/send-code', {
     method: 'POST',
-    body: JSON.stringify({ email })
+    body: JSON.stringify({ email, type })
   });
 }
 

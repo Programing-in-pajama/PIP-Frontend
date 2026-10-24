@@ -92,6 +92,13 @@ export default function SignupFlow({ onBack, onComplete, initialDraft = {} }) {
       // 서버 메시지(res.message)에 인증번호가 들어 있을 수 있어서 화면에는 고정 문구만 보여줘요.
       setAuthMessage('인증번호가 발송되었어요. 메일함을 확인해 주세요.');
     } catch (error) {
+      if (error.status === 409 || error.alreadyRegistered || error.code === 'ALREADY_REGISTERED') {
+        setCodeSent(false);
+        setVerified(false);
+        setDemoCode(false);
+        setAuthMessage(error.message || '이미 회원가입이 되어 있는 이메일입니다. 아이디와 비밀번호 찾기를 이용해 주세요.');
+        return;
+      }
       // 백엔드가 아직 연결되지 않은 상태에서도 가입 흐름을 확인할 수 있게 합니다.
       setCodeSent(true);
       setVerified(false);

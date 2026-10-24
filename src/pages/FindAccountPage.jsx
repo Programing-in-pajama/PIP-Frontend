@@ -55,7 +55,7 @@ function FindIdForm({ onBack, onDone }) {
     if (!EMAIL_RULE.test(email)) return say('먼저 올바른 E-mail 주소를 입력해 주세요.');
     try {
       say('인증번호를 발송하는 중입니다...');
-      await sendEmailCode(email);
+      await sendEmailCode(email, 'find');
       setCodeSent(true);
       setVerified(false);
       say('인증번호를 발송했어요. 메일함을 확인해 주세요.', true); // 서버 메시지에 인증번호가 들어 있을 수 있어 그대로 안 씀
