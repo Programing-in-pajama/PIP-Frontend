@@ -50,6 +50,20 @@ export default function WalkFlow({
   }, [step, onSectionChange]);
 
   useEffect(() => {
+    setRoutes(() => {
+      let list = getRoutes(region, minutes, userDiseases);
+      if (includeRestaurant) {
+        const filtered = list.filter((r) => r.hasRestaurant);
+        list = filtered.length > 0 ? filtered : list;
+      } else {
+        const filtered = list.filter((r) => !r.hasRestaurant);
+        list = filtered.length > 0 ? filtered : list.map((r) => ({ ...r, hasRestaurant: false, restaurant: null }));
+      }
+      return list;
+    });
+  }, [userDiseases]);
+
+  useEffect(() => {
     if (step !== 'walking' || isPaused) return undefined;
     const timer = setInterval(() => setWalkSeconds((seconds) => seconds + 1), 1000);
     return () => clearInterval(timer);

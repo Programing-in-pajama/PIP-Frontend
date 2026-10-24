@@ -243,9 +243,21 @@ export function getRegionGeoPolygon(region) {
 
 export function getRoutes(region, minutes, userDiseases = []) {
   const templates = ROUTE_TEMPLATES[minutes] ?? ROUTE_TEMPLATES[25];
+
+  // 1. 전체 30개 실제 음식점을 사용자 질환 기준으로 평가 및 안전도 우선 정렬
+  const evaluatedAll = YEOKGOK_RESTAURANTS.map((r) => evaluateRestaurant(r, userDiseases));
+  const sortedRest = [...evaluatedAll].sort((a, b) => {
+    const score = { green: 1, yellow: 2, red: 3 };
+    if ((score[a.grade] || 2) !== (score[b.grade] || 2)) {
+      return (score[a.grade] || 2) - (score[b.grade] || 2);
+    }
+    const rA = a.bestFood?.rMax ?? 1.0;
+    const rB = b.bestFood?.rMax ?? 1.0;
+    return rA - rB;
+  });
+
   const list = templates.map((template, index) => {
-    const rawRest = template.hasRestaurant ? YEOKGOK_RESTAURANTS[index % YEOKGOK_RESTAURANTS.length] : null;
-    const evaluatedRest = rawRest ? evaluateRestaurant(rawRest, userDiseases) : null;
+    const evaluatedRest = template.hasRestaurant ? sortedRest[index % sortedRest.length] : null;
     const geoPath = template.path.map((point) => normalizedToLatLng(region, point));
     const restaurantPoint = geoPath[Math.min(2, geoPath.length - 1)];
 
