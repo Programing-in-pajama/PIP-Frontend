@@ -10,7 +10,15 @@ import { sendEmailCode, verifyEmailCode } from '../api/auth';
 
 const PASSWORD_RULE = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
 
-export default function SignupFlow({ onBack, onComplete, initialDraft = {} }) {
+// ✏️ 이미 가입된 이메일일 때 보여줄 문구 — 여기만 고치면 화면 문구가 바뀌어요.
+//    (백엔드가 409 + code: 'ALREADY_REGISTERED' 를 보내면 서버 문구 대신 이 문구를 씀)
+const ALREADY_REGISTERED_TEXT = {
+  title: '이미 가입된 이메일이에요.',
+  description: '아이디나 비밀번호가 기억나지 않으면 아래 버튼으로 찾아 주세요.',
+  button: '아이디/비밀번호 찾기',
+};
+
+export default function SignupFlow({ onBack, onComplete, onFindAccount, initialDraft = {} }) {
   const isSocialUser = Boolean(initialDraft?.supabaseUserId || initialDraft?.isSocial);
   const [step, setStep] = useState(isSocialUser ? 2 : 1);
   const [form, setForm] = useState({
@@ -34,6 +42,7 @@ export default function SignupFlow({ onBack, onComplete, initialDraft = {} }) {
   const [codeSent, setCodeSent] = useState(false);
   const [verified, setVerified] = useState(false);
   const [demoCode, setDemoCode] = useState(false);
+  const [alreadyRegistered, setAlreadyRegistered] = useState(false); // 이미 가입된 이메일 (409)
   const [authMessage, setAuthMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -84,6 +93,7 @@ export default function SignupFlow({ onBack, onComplete, initialDraft = {} }) {
 
     setIsSending(true);
     setAuthMessage('');
+    setAlreadyRegistered(false);
     try {
       await sendEmailCode(form.email);
       setCodeSent(true);
@@ -96,7 +106,8 @@ export default function SignupFlow({ onBack, onComplete, initialDraft = {} }) {
         setCodeSent(false);
         setVerified(false);
         setDemoCode(false);
-        setAuthMessage(error.message || '이미 회원가입이 되어 있는 이메일입니다. 아이디와 비밀번호 찾기를 이용해 주세요.');
+        setAlreadyRegistered(true);
+        setAuthMessage(''); // 안내는 아래 alreadyRegistered 상자에서 보여줌
         return;
       }
       // 백엔드가 아직 연결되지 않은 상태에서도 가입 흐름을 확인할 수 있게 합니다.
@@ -249,6 +260,7 @@ export default function SignupFlow({ onBack, onComplete, initialDraft = {} }) {
                     update('email', event.target.value);
                     setVerified(false);
                     setCodeSent(false);
+                    setAlreadyRegistered(false);
                   }}
                 />
                 <button type="button" className="pill-btn pill-btn--light" onClick={sendCode} disabled={isSending}>
@@ -279,6 +291,18 @@ export default function SignupFlow({ onBack, onComplete, initialDraft = {} }) {
                 />
                 <span>[필수] 이용약관 및 개인정보 수집·이용에 동의합니다.</span>
               </label>
+
+              {alreadyRegistered && (
+                <div className="already-registered" role="alert">
+                  <strong>{ALREADY_REGISTERED_TEXT.title}</strong>
+                  <p>{ALREADY_REGISTERED_TEXT.description}</p>
+                  {onFindAccount && (
+                    <button type="button" className="already-registered-btn" onClick={() => onFindAccount({ email: form.email })}>
+                      {ALREADY_REGISTERED_TEXT.button}
+                    </button>
+                  )}
+                </div>
+              )}
 
               {authMessage && (
                 <p className={`form-message ${verified ? 'is-success' : ''}`} role="status">
