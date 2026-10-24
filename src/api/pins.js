@@ -59,6 +59,18 @@ export function createPinFolder(userId, name) {
   return folder;
 }
 
+/** 폴더 삭제 (안에 있던 핀도 같이 삭제). 기본 '내 핀' 폴더는 핀 저장 기본 위치라 지울 수 없어요. */
+export const DEFAULT_FOLDER_ID = 'default';
+
+export function deletePinFolder(userId, folderId) {
+  if (folderId === DEFAULT_FOLDER_ID) return getPinFolders(userId);
+  const folders = getPinFolders(userId).filter((folder) => folder.id !== folderId);
+  const all = readAll();
+  all[userId] = { folders };
+  writeAll(all);
+  return folders;
+}
+
 export function saveRoutePin(userId, route, folderId = 'default') {
   const folders = getPinFolders(userId);
   const already = folders.some((folder) => folder.pins.some((pin) => pin.id === route.id));

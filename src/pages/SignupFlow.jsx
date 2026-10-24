@@ -85,11 +85,12 @@ export default function SignupFlow({ onBack, onComplete, initialDraft = {} }) {
     setIsSending(true);
     setAuthMessage('');
     try {
-      const res = await sendEmailCode(form.email);
+      await sendEmailCode(form.email);
       setCodeSent(true);
       setVerified(false);
       setDemoCode(false);
-      setAuthMessage(res?.message || '인증번호가 발송되었어요. 메일함을 확인해 주세요.');
+      // 서버 메시지(res.message)에 인증번호가 들어 있을 수 있어서 화면에는 고정 문구만 보여줘요.
+      setAuthMessage('인증번호가 발송되었어요. 메일함을 확인해 주세요.');
     } catch (error) {
       // 백엔드가 아직 연결되지 않은 상태에서도 가입 흐름을 확인할 수 있게 합니다.
       setCodeSent(true);
@@ -120,7 +121,7 @@ export default function SignupFlow({ onBack, onComplete, initialDraft = {} }) {
       const res = await verifyEmailCode(form.email, form.code);
       if (res?.verified) {
         setVerified(true);
-        setAuthMessage(res?.message || 'E-mail 인증이 완료됐어요.');
+        setAuthMessage('E-mail 인증이 완료됐어요.');
       } else {
         setVerified(false);
         setAuthMessage(res?.error || '인증번호를 확인해 주세요.');
@@ -135,7 +136,7 @@ export default function SignupFlow({ onBack, onComplete, initialDraft = {} }) {
     event.preventDefault();
     if (!form.name.trim()) return setAuthMessage('이름을 입력해 주세요.');
     if (!isValidBirthDate(form.birthDate)) {
-      return setAuthMessage('생년월일 8자리를 정확히 입력해 주세요. (예: 20070305)');
+      return setAuthMessage('생년월일을 달력에서 다시 선택해 주세요.');
     }
     if (hasHealthInfo && !form.healthConsent) {
       return setAuthMessage('건강 정보를 저장하려면 이용 동의가 필요해요.');
@@ -324,7 +325,7 @@ export default function SignupFlow({ onBack, onComplete, initialDraft = {} }) {
                   onChange={(value) => update('birthDate', value)}
                   aria-label="생년월일"
                 />
-                <p className="input-hint">숫자 8자리로 입력하면 2007-03-05 형식으로 바뀌어요.</p>
+                <p className="input-hint">칸을 누르면 달력이 열려요.</p>
               </div>
 
               <div className="profile-group">

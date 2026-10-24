@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { sendEmailCode, verifyEmailCode } from '../api/auth';
+import Icon from '../components/Icons';
 
 // TODO(백엔드 팀): 아래 4개는 아직 서버 API 가 없어서 '준비 중' 안내만 띄워요.
 //   서버가 생기면 src/api/auth.js 에 함수를 만들고 여기서 바꿔 끼우면 됩니다.
@@ -15,7 +16,7 @@ const resetPassword = notReady;
 
 // 아이디 찾기 / 비밀번호 찾기 (Figma No.1 - 아이디 찾기 / 비밀번호 찾기)
 // 제목의 "아이디 찾기" / "비밀번호 찾기" 글자를 누르면 탭이 바뀌어요. (선택된 쪽이 검정, 나머지는 회색)
-// 스타일은 회원가입 화면(styles.css)과 같은 클래스를 그대로 써요.
+// 스타일은 회원가입 1단계 화면(SignupFlow)과 같은 클래스를 그대로 써요. (auth-screen / input / inline-fields / pill-btn …)
 
 const EMAIL_RULE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // 비밀번호 조건: 회원가입과 동일 (영문 + 숫자 + 특수문자(!@#$%^&*) 포함 8자 이상)
@@ -25,9 +26,9 @@ export default function FindAccountPage({ initialTab = 'findId', initialLoginId 
   const [tab, setTab] = useState(initialTab); // 'findId' | 'findPassword'
 
   return (
-    <main className="page-shell">
-      <section className="signup-card find-card">
-        <header className="signup-heading find-heading">
+    <main className="auth-screen">
+      <div className="auth-scroll signup-scroll">
+        <header className="signup-head find-head">
           <h1>
             <button type="button" className={tab === 'findId' ? 'active' : ''} aria-pressed={tab === 'findId'} onClick={() => setTab('findId')}>아이디 찾기</button>
             {' / '}
@@ -38,7 +39,7 @@ export default function FindAccountPage({ initialTab = 'findId', initialLoginId 
         {tab === 'findId'
           ? <FindIdForm key="findId" onBack={onBack} onDone={onDone} />
           : <FindPasswordForm key="findPassword" initialLoginId={initialLoginId} onBack={onBack} onDone={onDone} />}
-      </section>
+      </div>
     </main>
   );
 }
@@ -59,10 +60,10 @@ function FindIdForm({ onBack, onDone }) {
     if (!EMAIL_RULE.test(email)) return say('먼저 올바른 E-mail 주소를 입력해 주세요.');
     try {
       say('인증번호를 발송하는 중입니다...');
-      const res = await sendEmailCode(email);
+      await sendEmailCode(email);
       setCodeSent(true);
       setVerified(false);
-      say(res?.message || '인증번호를 발송했습니다. 메일함을 확인해 주세요.', true);
+      say('인증번호를 발송했어요. 메일함을 확인해 주세요.', true); // 서버 메시지에 인증번호가 들어 있을 수 있어 그대로 안 씀
     } catch (err) {
       say(err.message || '인증번호 발송에 실패했습니다. 다시 시도해 주세요.');
     }
@@ -75,7 +76,7 @@ function FindIdForm({ onBack, onDone }) {
       const res = await verifyEmailCode(email, code);
       if (res?.verified) {
         setVerified(true);
-        say(res?.message || 'E-mail 인증이 완료됐어요.', true);
+        say('E-mail 인증이 완료됐어요.', true);
       } else {
         setVerified(false);
         say(res?.error || '인증번호를 확인해 주세요.');
@@ -105,19 +106,19 @@ function FindIdForm({ onBack, onDone }) {
 
   return (
     <form className="signup-form find-form" onSubmit={submit}>
-      <input className="text-input" aria-label="이름" placeholder="이름" autoComplete="name" value={name} onChange={(e) => { setName(e.target.value); setFoundId(''); }} />
-      <div className="verification-row email-row">
-        <input className="text-input" aria-label="E-mail" placeholder="E-mail" type="email" autoComplete="email" value={email} onChange={(e) => { setEmail(e.target.value); setVerified(false); setFoundId(''); }} />
-        <button className="send-code-button" type="button" onClick={sendCode}>{codeSent ? '재전송' : '인증번호 전송'}</button>
+      <input className="input" aria-label="이름" placeholder="이름" autoComplete="name" value={name} onChange={(e) => { setName(e.target.value); setFoundId(''); }} />
+      <div className="inline-fields">
+        <input className="input" aria-label="E-mail" placeholder="E-mail" type="email" autoComplete="email" value={email} onChange={(e) => { setEmail(e.target.value); setVerified(false); setFoundId(''); }} />
+        <button className="pill-btn pill-btn--light" type="button" onClick={sendCode}>{codeSent ? '재전송' : '인증번호 전송'}</button>
       </div>
-      <div className="verification-row">
-        <input className="text-input" aria-label="인증번호 6자리" placeholder="인증번호 6자리" inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} />
-        <button className="verify-button" type="button" onClick={verifyCode}>{verified ? '인증 완료' : '인증 확인'}</button>
+      <div className="inline-fields">
+        <input className="input" aria-label="인증번호 6자리" placeholder="인증번호 6자리" inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} />
+        <button className="pill-btn pill-btn--dark" type="button" onClick={verifyCode}>{verified ? '인증 완료' : '인증 확인'}</button>
       </div>
-      {message.text && <p className={`signup-notice ${message.ok ? 'success' : ''}`} role="status">{message.text}</p>}
-      <div className="signup-bottom">
-        <button className="primary-button" type="submit">{foundId ? '이 아이디로 로그인' : '아이디 찾기'}</button>
-        <button className="signup-back-link" type="button" onClick={onBack}>로그인으로 돌아가기</button>
+      {message.text && <p className={`form-message ${message.ok ? 'is-success' : ''}`} role="status">{message.text}</p>}
+      <div className="auth-bottom signup-bottom">
+        <button className="btn btn-primary" type="submit">{foundId ? '이 아이디로 로그인' : '아이디 찾기'}</button>
+        <button className="text-btn auth-skip" type="button" onClick={onBack}>로그인으로 돌아가기</button>
       </div>
     </form>
   );
@@ -186,7 +187,7 @@ function FindPasswordForm({ initialLoginId, onBack, onDone }) {
   return (
     <form className="signup-form find-form" onSubmit={submit}>
       <input
-        className="text-input"
+        className="input"
         aria-label="아이디"
         placeholder="아이디"
         autoComplete="username"
@@ -195,29 +196,26 @@ function FindPasswordForm({ initialLoginId, onBack, onDone }) {
         onBlur={sendCode}
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); sendCode(); } }}
       />
-      <div className="verification-row">
-        <input className="text-input" aria-label="인증번호 6자리" placeholder="인증번호 6자리" inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} />
-        <button className="verify-button" type="button" onClick={verifyCode}>{verified ? '인증 완료' : '인증 확인'}</button>
+      <div className="inline-fields">
+        <input className="input" aria-label="인증번호 6자리" placeholder="인증번호 6자리" inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} />
+        <button className="pill-btn pill-btn--dark" type="button" onClick={verifyCode}>{verified ? '인증 완료' : '인증 확인'}</button>
       </div>
-      {sentTo && <p className="password-hint find-sent-note">해당 아이디의 이메일로 인증번호를 발송했습니다</p>}
-      <div className="password-wrap signup-password">
-        <input className="text-input password-input" aria-label="비밀번호" placeholder="비밀번호" type={showPassword ? 'text' : 'password'} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-        <button className="eye-button" type="button" aria-label="비밀번호 표시/숨기기" onClick={() => setShowPassword((v) => !v)}><EyeIcon /></button>
+      {sentTo && <p className="input-hint">해당 아이디의 이메일로 인증번호를 발송했습니다</p>}
+      <div className="input-wrap">
+        <input className="input has-icon" aria-label="비밀번호" placeholder="비밀번호" type={showPassword ? 'text' : 'password'} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <button className="input-icon-btn" type="button" aria-label="비밀번호 표시/숨기기" onClick={() => setShowPassword((v) => !v)}><Icon name={showPassword ? 'eye' : 'eye-off'} size={19} /></button>
       </div>
       <p className={`password-hint ${password && !isPasswordValid ? 'invalid' : ''}`}>영문, 숫자, 특수문자 포함 8자 이상, 특수문자 !@#$%^&amp;*만 사용가능</p>
-      <div className="password-wrap signup-password">
-        <input className="text-input password-input" aria-label="비밀번호 확인" placeholder="비밀번호 확인" type={showConfirm ? 'text' : 'password'} autoComplete="new-password" value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} />
-        <button className="eye-button" type="button" aria-label="비밀번호 확인 표시/숨기기" onClick={() => setShowConfirm((v) => !v)}><EyeIcon /></button>
+      <div className="input-wrap">
+        <input className="input has-icon" aria-label="비밀번호 확인" placeholder="비밀번호 확인" type={showConfirm ? 'text' : 'password'} autoComplete="new-password" value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} />
+        <button className="input-icon-btn" type="button" aria-label="비밀번호 확인 표시/숨기기" onClick={() => setShowConfirm((v) => !v)}><Icon name={showConfirm ? 'eye' : 'eye-off'} size={19} /></button>
       </div>
-      {message.text && <p className={`signup-notice ${message.ok ? 'success' : ''}`} role="status">{message.text}</p>}
-      <div className="signup-bottom">
-        <button className="primary-button" type="submit">비밀번호 재설정</button>
-        <button className="signup-back-link" type="button" onClick={onBack}>로그인으로 돌아가기</button>
+      {message.text && <p className={`form-message ${message.ok ? 'is-success' : ''}`} role="status">{message.text}</p>}
+      <div className="auth-bottom signup-bottom">
+        <button className="btn btn-primary" type="submit">비밀번호 재설정</button>
+        <button className="text-btn auth-skip" type="button" onClick={onBack}>로그인으로 돌아가기</button>
       </div>
     </form>
   );
 }
 
-function EyeIcon() {
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z" /><circle cx="12" cy="12" r="2.7" /></svg>;
-}
