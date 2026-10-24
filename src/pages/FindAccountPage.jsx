@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import { sendEmailCode, verifyEmailCode } from '../api/auth';
 
 // TODO(백엔드 팀): 아래 4개는 아직 서버 API 가 없어서 '준비 중' 안내만 띄워요.

@@ -1,61 +1,66 @@
-// 알레르기 선택 목록 — Figma "no.14 알레르기 수정" 화면 그대로 (식품 알레르기 25종)
-// sub: 항목 아래 작은 설명 (없으면 생략)
-export const ALLERGEN_GROUPS = [
+// 알레르기 선택지 (기획서: 식품 / 약물 / 꽃가루·먼지 / 기타)
+export const ALLERGEN_CATEGORIES = [
   {
-    id: 'eggDairyGrain',
-    name: '알류·유제품·곡물·콩류',
+    id: 'food',
+    name: '식품',
     items: [
-      { name: '알류', sub: '계란 / 가금류' },
-      { name: '우유', sub: '유제품' },
-      { name: '메밀' },
-      { name: '땅콩' },
-      { name: '대두', sub: '콩류' },
-      { name: '밀', sub: '소맥 / 글루텐' },
+      { id: 'egg', name: '계란', note: '알류' },
+      { id: 'milk', name: '우유', note: '유제품' },
+      { id: 'buckwheat', name: '메밀', note: '곡류' },
+      { id: 'peanut', name: '땅콩', note: '견과류' },
+      { id: 'soy', name: '대두', note: '콩류' },
+      { id: 'wheat', name: '밀', note: '곡류' },
+      { id: 'mackerel', name: '고등어', note: '생선' },
+      { id: 'crab', name: '게', note: '갑각류' },
+      { id: 'shrimp', name: '새우', note: '갑각류' },
+      { id: 'squid', name: '오징어', note: '연체동물' },
+      { id: 'shellfish', name: '조개', note: '패류' },
+      { id: 'pork', name: '돼지고기', note: '육류' },
+      { id: 'beef', name: '소고기', note: '육류' },
+      { id: 'chicken', name: '닭고기', note: '육류' },
+      { id: 'peach', name: '복숭아', note: '과일' },
+      { id: 'tomato', name: '토마토', note: '과채류' },
+      { id: 'kiwi', name: '키위', note: '과일' },
+      { id: 'walnut', name: '호두', note: '견과류' },
+      { id: 'pine', name: '잣', note: '견과류' },
+      { id: 'sesame', name: '참깨', note: '씨앗류' },
     ],
   },
   {
-    id: 'seafood',
-    name: '수산물',
+    id: 'drug',
+    name: '약물',
     items: [
-      { name: '고등어' },
-      { name: '게', sub: '갑각류' },
-      { name: '새우', sub: '갑각류' },
-      { name: '오징어' },
-      { name: '조개류', sub: '기타' },
-      { name: '굴' },
-      { name: '전복' },
-      { name: '홍합' },
+      { id: 'penicillin', name: '페니실린', note: '항생제' },
+      { id: 'aspirin', name: '아스피린', note: '소염진통제' },
+      { id: 'nsaid', name: '소염진통제', note: 'NSAIDs' },
+      { id: 'sulfa', name: '설파제', note: '항생제' },
+      { id: 'iodine', name: '요오드', note: '조영제' },
     ],
   },
   {
-    id: 'meat',
-    name: '육류',
-    items: [{ name: '돼지고기' }, { name: '닭고기' }, { name: '쇠고기' }],
-  },
-  {
-    id: 'nutSeed',
-    name: '견과류·씨앗',
+    id: 'environment',
+    name: '꽃가루·먼지',
     items: [
-      { name: '호두' },
-      { name: '잣' },
-      { name: '참깨 및 들깨' },
-      { name: '기타 견과류', sub: '아몬드 / 캐슈넛 / 피스타치오' },
+      { id: 'pollen', name: '꽃가루', note: '환경' },
+      { id: 'dust', name: '집먼지', note: '환경' },
+      { id: 'mold', name: '곰팡이', note: '환경' },
+      { id: 'pet', name: '반려동물 털', note: '환경' },
+      { id: 'cockroach', name: '바퀴벌레', note: '환경' },
     ],
   },
   {
-    id: 'fruitVeg',
-    name: '과일·채소',
-    items: [{ name: '복숭아' }, { name: '토마토' }, { name: '키위 및 아열대 과일' }],
-  },
-  {
-    id: 'additive',
-    name: '첨가물',
-    items: [{ name: '아황산류' }],
+    id: 'other',
+    name: '기타',
+    items: [
+      { id: 'latex', name: '라텍스', note: '기타' },
+      { id: 'metal', name: '금속', note: '기타' },
+      { id: 'perfume', name: '향료', note: '기타' },
+    ],
   },
 ];
 
-export const ALLERGEN_LIST = ALLERGEN_GROUPS.flatMap((group) => group.items.map((item) => item.name));
-export const ALLERGEN_COUNT = ALLERGEN_LIST.length; // 25
+export const ALLERGEN_LIST = ALLERGEN_CATEGORIES.flatMap((category) =>
+  category.items.map((item) => ({ ...item, categoryId: category.id, categoryName: category.name })),
+);
 
-// 알레르기 관리 카드의 작은 분류 글씨 (Figma: 계란 → 식품). 목록에 없는 직접 입력 항목은 '직접 입력'
-export const getAllergenCategory = (name) => (ALLERGEN_LIST.includes(name) ? '식품' : '직접 입력');
+export const getAllergen = (name) => ALLERGEN_LIST.find((item) => item.name === name);

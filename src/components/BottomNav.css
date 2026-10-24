@@ -1,14 +1,45 @@
-/* 하단 메뉴 (시안의 연두색 바) */
 .bottom-nav {
-  position: sticky; bottom: 0; z-index: 10;
-  display: flex; justify-content: space-around; align-items: center;
-  height: 60px; background: #B8E986;
+  flex: none;
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  height: 66px;
+  padding: 0 24px;
+  background: #eaf7f1;
+  border-top: 1px solid #dcefe5;
 }
+
 .bottom-nav-item {
-  width: 56px; height: 44px; border: 0; background: none; cursor: pointer;
-  display: grid; place-items: center; border-radius: 10px;
+  position: relative;
+  width: 64px;
+  height: 46px;
+  border: 0;
+  background: none;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  color: #7c8a83;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
 }
-.bottom-nav-item svg {
-  width: 20px; height: 20px; fill: none; stroke: #6B6F6A; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round;
+
+.bottom-nav-item:hover {
+  color: #3f7d64;
 }
-.bottom-nav-item.active svg { stroke: #111111; stroke-width: 2.2; }
+
+.bottom-nav-item.active {
+  color: #2f7c5d;
+}
+
+.bottom-nav-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #5fb294;
+}

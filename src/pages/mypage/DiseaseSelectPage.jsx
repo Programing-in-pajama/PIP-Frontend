@@ -1,64 +1,86 @@
 import React, { useState } from 'react';
-import { PageHeader } from './common';
+import Icon from '../../components/Icons';
 import { DISEASE_CATEGORIES } from '../../data/chronicDiseases';
 
-// No.12 기저질환 선택 (Figma 204-784 — 질환 목록은 엑셀 만성질환 목록표 기준)
-// 변수: diseaseList(질병 선택 목록 — data/chronicDiseases.js), diseaseIds(선택한 질병), isLoading
-function DiseaseSelectPage({ profile, isLoading, onSave, onBack }) {
+export default function DiseaseSelectPage({ profile, isLoading, onSave, onBack }) {
   const [diseaseIds, setDiseaseIds] = useState(profile.diseaseIds ?? []);
-  // 화면 전용: 지금 펼쳐진 대분류 (한 번에 하나)
-  const [openCategoryId, setOpenCategoryId] = useState(null);
+  const [openCategoryId, setOpenCategoryId] = useState(DISEASE_CATEGORIES[0]?.id ?? null);
 
   const toggleDisease = (id) => {
-    setDiseaseIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+    setDiseaseIds((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+    );
   };
 
   return (
-    <div className="mp-page">
-      <PageHeader title="기저질환 선택" onBack={onBack} />
+    <>
+      <header className="page-head page-head--back">
+        <button type="button" className="back-btn" onClick={onBack} aria-label="뒤로">
+          <Icon name="chevron-left" size={22} />
+        </button>
+        <div>
+          <h1>기저질환 선택</h1>
+          <p>해당하는 질환을 모두 선택해 주세요</p>
+        </div>
+      </header>
 
-      <ul className="mp-category-list">
+      <ul className="disease-list">
         {DISEASE_CATEGORIES.map((category) => {
           const isOpen = openCategoryId === category.id;
-          const selectedCount = category.diseases.filter((d) => diseaseIds.includes(d.id)).length;
+          const selectedCount = category.diseases.filter((disease) => diseaseIds.includes(disease.id)).length;
           return (
             <li key={category.id}>
               <button
                 type="button"
-                className="mp-category"
+                className={`disease-category ${isOpen ? 'is-open' : ''} ${selectedCount ? 'has-selection' : ''}`}
                 aria-expanded={isOpen}
                 onClick={() => setOpenCategoryId(isOpen ? null : category.id)}
               >
-                <span className={`mp-category-icon ${isOpen || selectedCount > 0 ? 'active' : ''}`} aria-hidden="true" />
-                <span className="mp-category-name">{category.name}</span>
-                <span className="mp-chevron mp-chevron-down" aria-hidden="true">⌄</span>
+                <span className="disease-icon" aria-hidden="true" />
+                <span className="disease-category-text">
+                  {category.name}
+                  {selectedCount > 0 && <small>{selectedCount}개 선택</small>}
+                </span>
+                <Icon name="chevron-down" size={18} className={isOpen ? 'rotate' : ''} />
               </button>
 
               {isOpen && (
-                <fieldset className="mp-disease-box">
-                  <legend>{category.name}</legend>
+                <div className="disease-options">
+                  <p className="disease-options-title">{category.name}</p>
                   {category.diseases.map((disease) => (
-                    <label key={disease.id} className="mp-check">
+                    <label
+                      key={disease.id}
+                      className={`check-row ${diseaseIds.includes(disease.id) ? 'selected' : ''}`}
+                    >
                       <input
                         type="checkbox"
                         checked={diseaseIds.includes(disease.id)}
                         onChange={() => toggleDisease(disease.id)}
                       />
-                      {disease.name}
+                      <span>{disease.name}</span>
                     </label>
                   ))}
-                </fieldset>
+                </div>
               )}
             </li>
           );
         })}
       </ul>
 
-      <button type="button" className="mp-primary-button" disabled={isLoading} onClick={() => onSave({ diseaseIds })}>
-        {isLoading ? '저장 중...' : '저장'}
-      </button>
-    </div>
+      <p className="selected-summary">
+        {diseaseIds.length ? `선택한 기저질환 ${diseaseIds.length}개` : '선택한 기저질환이 없어요'}
+      </p>
+
+      <div className="bottom-cta">
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={isLoading}
+          onClick={() => onSave({ diseaseIds })}
+        >
+          {isLoading ? '저장 중...' : '저장'}
+        </button>
+      </div>
+    </>
   );
 }
-
-export default DiseaseSelectPage;
