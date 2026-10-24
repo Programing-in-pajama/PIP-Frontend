@@ -374,6 +374,7 @@ function App() {
       <SignupFlow
         initialDraft={signupDraft}
         onBack={() => setScreen('auth')}
+        onFindAccount={() => setScreen('find')}
         onComplete={handleSignupComplete}
       />
     );

@@ -2972,3 +2972,25 @@ img {
   font-size: 14.5px;
   pointer-events: none;
 }
+
+/* ── 회원가입: 이미 가입된 이메일 안내 (409 ALREADY_REGISTERED) ── */
+.already-registered {
+  margin-top: 2px;
+  padding: 14px 16px;
+  border: 1px solid #f3d2cc;
+  border-radius: 14px;
+  background: #fff6f4;
+}
+.already-registered strong { display: block; font-size: 13px; font-weight: 700; color: var(--red); }
+.already-registered p { margin-top: 4px; font-size: 12px; line-height: 1.5; color: var(--muted); }
+.already-registered-btn {
+  margin-top: 10px;
+  padding: 8px 14px;
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+}
