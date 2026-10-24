@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
+import { PageHeader } from './common';
 import { DISEASE_CATEGORIES } from '../../data/chronicDiseases';
 
 // No.12 기저질환 선택 (Figma 204-784 — 질환 목록은 엑셀 만성질환 목록표 기준)
 // 변수: diseaseList(질병 선택 목록 — data/chronicDiseases.js), diseaseIds(선택한 질병), isLoading
-function DiseaseSelectPage({ profile, isLoading, onSave }) {
+function DiseaseSelectPage({ profile, isLoading, onSave, onBack }) {
   const [diseaseIds, setDiseaseIds] = useState(profile.diseaseIds ?? []);
   // 화면 전용: 지금 펼쳐진 대분류 (한 번에 하나)
   const [openCategoryId, setOpenCategoryId] = useState(null);
@@ -14,7 +15,7 @@ function DiseaseSelectPage({ profile, isLoading, onSave }) {
 
   return (
     <div className="mp-page">
-      <h1 className="mp-title mp-title-center">기저질환 선택</h1>
+      <PageHeader title="기저질환 선택" onBack={onBack} />
 
       <ul className="mp-category-list">
         {DISEASE_CATEGORIES.map((category) => {

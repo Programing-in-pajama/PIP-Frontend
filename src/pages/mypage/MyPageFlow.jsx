@@ -125,7 +125,7 @@ function MyPageFlow({ session, resetKey, isLoggedIn, onLogin, onLogout }) {
         content = <HealthManagePage profile={profile} onBack={goBack} onOpen={(screen) => (screen === 'allergyManage' ? goTo(screen) : goTo('diseaseSelect'))} />;
         break;
       case 'diseaseSelect':
-        content = <DiseaseSelectPage profile={profile} isLoading={isLoading} onSave={(changes) => save(changes, { nextScreen: 'healthManage' })} />;
+        content = <DiseaseSelectPage profile={profile} isLoading={isLoading} onBack={goBack} onSave={(changes) => save(changes, { nextScreen: 'healthManage' })} />;
         break;
       case 'allergyManage':
         content = (
