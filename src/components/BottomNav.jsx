@@ -5,7 +5,7 @@ import './BottomNav.css';
 const TABS = [
   { key: 'pins', label: '핀', icon: 'pin' },
   { key: 'main', label: '홈', icon: 'home' },
-  { key: 'mypage', label: '마이페이지', icon: 'user' },
+  { key: 'mypage', label: '마이', icon: 'user' },
 ];
 
 function BottomNav({ activeTab, onChange }) {
@@ -20,7 +20,8 @@ function BottomNav({ activeTab, onChange }) {
           aria-current={activeTab === tab.key ? 'page' : undefined}
           onClick={() => onChange(tab.key)}
         >
-          <Icon name={tab.icon} size={23} />
+          <Icon name={tab.icon} size={22} />
+          <span className="bottom-nav-label">{tab.label}</span>
         </button>
       ))}
     </nav>

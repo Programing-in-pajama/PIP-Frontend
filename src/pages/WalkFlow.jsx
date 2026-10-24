@@ -196,28 +196,17 @@ export default function WalkFlow({
       <div className="screen screen--map">
         <SoyoMap showUser region={region} className="map-fill" />
         <div className="map-top">
-          <button type="button" className="search-bar" onClick={() => setStep('region')}>
+          <button type="button" className="search-bar search-bar--full" onClick={() => setStep('region')}>
             <span>어디서 산책할까요?</span>
             <Icon name="search" size={20} />
           </button>
-          <button
-            type="button"
-            className="map-close"
-            aria-label="지역 선택 초기화"
-            onClick={() => {
-              setRegion(DEFAULT_REGION);
-              setToast('기본 지역으로 돌아왔어요');
-            }}
-          >
-            <Icon name="close" size={18} />
-          </button>
         </div>
-        <div className="map-hint">
-          <span className="map-hint-dot" />
-          {region.short} 근처에서 산책 코스를 찾아보세요
-        </div>
-
-        {!isLoggedIn && (
+        {isLoggedIn ? (
+          <div className="map-hint">
+            <span className="map-hint-dot" />
+            {region.short} 근처에서 산책 코스를 찾아보세요
+          </div>
+        ) : (
           <div
             className="guest-banner"
             onClick={onRequireLogin}
@@ -225,12 +214,12 @@ export default function WalkFlow({
             tabIndex={0}
             style={{
               position: 'absolute',
-              bottom: '24px',
+              bottom: '16px',
               left: '16px',
               right: '16px',
-              background: 'rgba(17, 24, 39, 0.92)',
+              background: 'rgba(23, 26, 24, 0.92)',
               color: '#ffffff',
-              padding: '14px 18px',
+              padding: '12px 16px',
               borderRadius: '14px',
               display: 'flex',
               justifyContent: 'space-between',
@@ -242,10 +231,10 @@ export default function WalkFlow({
             }}
           >
             <div>
-              <strong style={{ fontSize: '14px', display: 'block', marginBottom: '2px' }}>비회원 둘러보기 중</strong>
-              <div style={{ fontSize: '11px', color: '#9ca3af' }}>로그인하면 건강 맞춤 코스 추천과 핀 저장이 가능해요.</div>
+              <strong style={{ fontSize: '13.5px', display: 'block', marginBottom: '2px' }}>비회원 둘러보기 중</strong>
+              <div style={{ fontSize: '11px', color: '#9ca3af' }}>로그인 시 맞춤 영양 분석 & 핀 저장이 가능해요</div>
             </div>
-            <span style={{ fontSize: '12px', fontWeight: 'bold', background: '#3b82f6', color: '#fff', padding: '6px 12px', borderRadius: '8px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 'bold', background: 'var(--emerald)', color: '#fff', padding: '6px 12px', borderRadius: '8px' }}>
               로그인
             </span>
           </div>
@@ -255,12 +244,23 @@ export default function WalkFlow({
     );
   }
 
-  // ── No.5 지역 검색 ───────────────────────────────────────────
+  // ── No.5 지역 검색 (Figma: 1 / 3 산책할 지역을 선택하세요) ───
   if (step === 'region') {
     return (
       <div className="screen screen--map">
         <SoyoMap variant="search" region={region} className="map-fill" />
-        <div className="map-top map-top--search">
+
+        <div className="region-header-overlay">
+          <header className="page-head page-head--back" style={{ marginBottom: 12 }}>
+            <button type="button" className="back-btn" onClick={() => setStep('home')} aria-label="뒤로">
+              <Icon name="chevron-left" size={22} />
+            </button>
+            <div>
+              <h1 style={{ fontSize: '20px' }}>지역 검색</h1>
+              <p style={{ fontSize: '11.5px', color: 'var(--muted)' }}>1 / 3 산책할 지역을 선택하세요</p>
+            </div>
+          </header>
+
           <div className="search-bar search-bar--input">
             <input
               value={regionQuery}
@@ -281,50 +281,54 @@ export default function WalkFlow({
             )}
             <span className="search-icon"><Icon name="search" size={20} /></span>
           </div>
-          <button type="button" className="map-close" onClick={() => setStep('home')} aria-label="닫기">
-            <Icon name="close" size={18} />
-          </button>
-        </div>
 
-        <section className="map-sheet region-sheet" aria-label="지역 검색 결과">
-          <div className="sheet-grip" />
-          <button
-            type="button"
-            className="focus-chip"
-            onClick={() => {
-              setRegionQuery('');
-              setToast('지도를 현재 위치에 맞췄어요');
-            }}
-          >
-            <Icon name="target" size={14} /> 지도초점
-          </button>
-
-          <div className="region-list">
-            {filteredRegions.map((item) => (
-              <button key={item.id} type="button" className="region-row" onClick={() => startRegion(item)}>
-                <span className="region-text">
+          {regionQuery && filteredRegions.length > 0 && (
+            <div className="region-dropdown">
+              {filteredRegions.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="region-dropdown-item"
+                  onClick={() => {
+                    setRegion(item);
+                    setRegionQuery('');
+                  }}
+                >
                   <strong>{item.name}</strong>
                   <small>{formatDistance(item.distanceKm)}</small>
-                </span>
-                <span className="region-arrow">
-                  <Icon name="arrow-right" size={17} />
-                </span>
-              </button>
-            ))}
-            {filteredRegions.length === 0 && (
-              <div className="empty-state compact">
-                <strong>검색 결과가 없어요</strong>
-                <p>동 이름의 일부를 다시 입력해 주세요.</p>
-              </div>
-            )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <section className="map-sheet region-card-sheet" aria-label="선택된 지역 정보">
+          <div className="sheet-grip" />
+          <div className="region-card-info">
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+              <strong style={{ fontSize: '20px', fontWeight: 800, color: 'var(--ink)' }}>{region.short || region.name}</strong>
+              <span style={{ fontSize: '13px', color: 'var(--muted)' }}>{region.name} 주변</span>
+            </div>
+            <p style={{ fontSize: '12px', color: 'var(--muted-2)', marginTop: '4px' }}>
+              지도에서 산책할 지역을 선택해 주세요.
+            </p>
           </div>
+
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setStep('setup')}
+            style={{ width: '100%', marginTop: '16px' }}
+          >
+            이 지역 선택
+          </button>
         </section>
         {toast && <div className="toast">{toast}</div>}
       </div>
     );
   }
 
-  // ── No.6 코스 설정 (식당 여부 제외) ──────────────────────────
+  // ── No.6 코스 설정 ──────────────────────────────────────────
   if (step === 'setup') {
     return (
       <div className="screen page">
@@ -362,21 +366,21 @@ export default function WalkFlow({
           </div>
 
           <div className="setup-group">
-            <span className="field-label">식당 포함 여부</span>
+            <span className="field-label">식당 여부</span>
             <div className="chip-row">
               <button
                 type="button"
                 className={`chip ${includeRestaurant ? 'chip--active' : ''}`}
                 onClick={() => setIncludeRestaurant(true)}
               >
-                🍴 식당 포함 (Yes)
+                예
               </button>
               <button
                 type="button"
                 className={`chip ${!includeRestaurant ? 'chip--active' : ''}`}
                 onClick={() => setIncludeRestaurant(false)}
               >
-                산책로만 (No)
+                아니요
               </button>
             </div>
             <p className="helper">

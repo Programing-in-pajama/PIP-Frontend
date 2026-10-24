@@ -116,7 +116,7 @@ export default function LocationGate({ onAllowed }) {
           </p>
         )}
 
-        <p className="location-footnote">서비스 이용을 위해 필수로 허용이 필요해요.</p>
+        <p className="location-footnote">서비스 이용을 위해 필수로 허용해 주세요</p>
       </section>
 
       {import.meta.env.DEV && (
