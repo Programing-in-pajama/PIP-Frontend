@@ -88,4 +88,11 @@ export async function resetPassword(loginId, code, newPassword) {
   });
 }
 
+// 이메일 및 본인확인 감사 로그 조회 (실시간 진단용)
+export async function getEmailLogs() {
+  return await apiFetch('/api/auth/email/logs', {
+    method: 'GET'
+  });
+}
+
 

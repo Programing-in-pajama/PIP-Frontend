@@ -55,6 +55,12 @@ function renderManeuverIcon(maneuver) {
   }
 }
 
+export function formatCourseTitle(title, durationMin) {
+  if (!title) return '';
+  const clean = String(title).replace(/\s*\(\d+분\)/g, '').trim();
+  return durationMin ? `${clean} (${durationMin}분)` : clean;
+}
+
 export default function WalkFlow({
   isLoggedIn,
   userId = 'guest',
@@ -818,7 +824,7 @@ export default function WalkFlow({
             return (
               <article key={route.id} className="course-card">
                 <button type="button" className="course-card-main" onClick={() => openRoute(route)}>
-                  <strong>{route.title}</strong>
+                  <strong>{formatCourseTitle(route.title, route.durationMin)}</strong>
                   <span className="course-meta">
                     약 {route.durationMin}분 · {formatDistance(route.distanceKm)} ·{' '}
                     {route.hasRestaurant ? '식당 포함' : '산책만'}
@@ -891,7 +897,7 @@ export default function WalkFlow({
         </div>
 
         <section className="map-sheet route-sheet">
-          <h2>{selectedRoute.title}</h2>
+          <h2>{formatCourseTitle(selectedRoute.title, selectedRoute.durationMin)}</h2>
           <p className="route-meta">
             약 {selectedRoute.durationMin}분 · {formatDistance(selectedRoute.distanceKm)} ·{' '}
             {selectedRoute.hasRestaurant ? '식당 포함' : '산책만'}

@@ -7,6 +7,7 @@ import { DISEASE_CATEGORIES, getDiseaseName } from '../data/chronicDiseases';
 import { MEDICATIONS, searchMedications } from '../data/medications';
 import { isValidBirthDate } from '../utils/format';
 import { sendEmailCode, verifyEmailCode } from '../api/auth';
+import EmailDiagnosticModal from '../components/EmailDiagnosticModal';
 
 const PASSWORD_RULE = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
 
@@ -48,6 +49,7 @@ export default function SignupFlow({ onBack, onComplete, onFindAccount, initialD
   const [isSaving, setIsSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showDiagModal, setShowDiagModal] = useState(false);
   const [picker, setPicker] = useState(null); // allergy | disease | medication
 
   const isPasswordValid = PASSWORD_RULE.test(form.password);
@@ -292,6 +294,24 @@ export default function SignupFlow({ onBack, onComplete, onFindAccount, initialD
                 </button>
               </div>
 
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-4px', marginBottom: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowDiagModal(true)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    fontSize: '11.5px',
+                    color: '#15803d',
+                    cursor: 'pointer',
+                    padding: '2px 4px',
+                    textDecoration: 'underline'
+                  }}
+                >
+                  📋 인증번호가 안 오나요? (실시간 로그/번호 확인)
+                </button>
+              </div>
+
               <label className="check check--terms">
                 <input
                   type="checkbox"
@@ -531,6 +551,13 @@ export default function SignupFlow({ onBack, onComplete, onFindAccount, initialD
           onClearNoMedication={() => update('noMedication', false)}
         />
       )}
+
+      <EmailDiagnosticModal
+        isOpen={showDiagModal}
+        onClose={() => setShowDiagModal(false)}
+        onSelectCode={(code) => update('code', code)}
+        targetEmail={form.email}
+      />
     </main>
   );
 }

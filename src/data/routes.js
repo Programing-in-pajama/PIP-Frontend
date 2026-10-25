@@ -369,7 +369,9 @@ export function getRoutes(region = DEFAULT_REGION, minutes = 25, userDiseases = 
     const svgPath = smoothedGeoPath.map((pt) => latLngToNormalized(targetRegion, pt));
 
     const hubShort = targetRegion.short || '역곡역';
-    const trailShort = cand.title.split(' ')[0];
+    const cleanBaseTitle = cand.title.replace(/\s*\(\d+분\)/g, '').trim();
+    const dynamicTitle = `${cleanBaseTitle} (${durationMin}분)`;
+    const trailShort = cleanBaseTitle.split(' ')[0];
     const waypointsText = includeRestaurant && restaurantData
       ? `${hubShort} ➔ ${restaurantData.dot || '🟢'} ${restaurantData.name} ➔ ${trailShort} ➔ ${hubShort}`
       : `${hubShort} ➔ ${trailShort} ➔ ${hubShort}`;
@@ -378,7 +380,7 @@ export function getRoutes(region = DEFAULT_REGION, minutes = 25, userDiseases = 
       id: `${targetRegion.id}-${targetMinutes}-${index}`,
       regionId: targetRegion.id,
       regionName: targetRegion.short,
-      title: cand.title,
+      title: dynamicTitle,
       region: targetRegion.name,
       durationMin,
       distanceKm,

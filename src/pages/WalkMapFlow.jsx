@@ -2,6 +2,12 @@ import React, { useState, useEffect } from 'react';
 import KakaoMap from '../components/KakaoMap';
 import { supabase } from '../supabaseClient';
 
+const formatCourseTitle = (title, duration) => {
+  if (!title) return '';
+  const clean = String(title).replace(/\s*\(\d+분\)/g, '').trim();
+  return duration ? `${clean} (${duration}분)` : clean;
+};
+
 // 🌿 피그마(Figma) 시안 04 ~ 08 기준 역곡/부천 추천 산책 코스 데이터
 export const FIGMA_ROUTES = [
   {
@@ -404,7 +410,7 @@ export default function WalkMapFlow({ onBackToAuth }) {
                 }}
               >
                 <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#111827', marginBottom: '6px' }}>
-                  {route.title}
+                  {formatCourseTitle(route.title, route.durationMin)}
                 </div>
                 <div style={{ fontSize: '13px', color: '#16a34a', fontWeight: 600, marginBottom: '4px' }}>
                   약 {route.durationMin}분 · {route.distanceKm}km · {route.hasRestaurant ? '식당 포함' : '산책만'}
@@ -481,7 +487,7 @@ export default function WalkMapFlow({ onBackToAuth }) {
             zIndex: 20
           }}>
             <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#111827', marginBottom: '4px' }}>
-              {selectedRoute.title}
+              {formatCourseTitle(selectedRoute.title, selectedRoute.durationMin)}
             </div>
             <div style={{ fontSize: '13px', color: '#16a34a', fontWeight: 600, marginBottom: '14px' }}>
               약 {selectedRoute.durationMin}분 · {selectedRoute.distanceKm}km · {selectedRoute.hasRestaurant ? '식당 포함' : '산책만'}

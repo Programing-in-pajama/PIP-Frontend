@@ -156,7 +156,7 @@ export function createPinFolder(arg1, arg2) {
 /** 폴더 삭제 (안에 있던 핀도 같이 삭제). 기본 '내 핀' 폴더는 삭제 불가 */
 export const DEFAULT_FOLDER_ID = 'default';
 
-export function deletePinFolder(userId = getCurrentUserId(), folderId) {
+export async function deletePinFolder(userId = getCurrentUserId(), folderId) {
   if (!folderId && typeof userId === 'string') {
     folderId = userId;
     userId = getCurrentUserId();
@@ -164,18 +164,24 @@ export function deletePinFolder(userId = getCurrentUserId(), folderId) {
 
   if (folderId === DEFAULT_FOLDER_ID) return getPinFolders(userId);
 
-  const folders = getPinFolders(userId).filter((folder) => folder.id !== folderId);
   const all = readAll();
-  all[userId] = { folders };
+  const currentFolders = Array.isArray(all[userId]?.folders) ? all[userId].folders : getPinFolders(userId);
+  const folders = currentFolders.filter((folder) => folder.id !== folderId && folder.name !== folderId);
+  all[userId] = {
+    ...all[userId],
+    folders
+  };
   writeAll(all);
 
-  // 백엔드 서버 동기화
+  // 백엔드 서버 동기화 (삭제 완료 보장)
   if (userId && userId !== 'guest') {
-    apiFetch(`/api/pins/folders/${encodeURIComponent(folderId)}?userId=${encodeURIComponent(userId)}`, {
-      method: 'DELETE'
-    }).catch((err) => {
+    try {
+      await apiFetch(`/api/pins/folders/${encodeURIComponent(folderId)}?userId=${encodeURIComponent(userId)}`, {
+        method: 'DELETE'
+      });
+    } catch (err) {
       console.warn('⚠️ [Pins] 서버 폴더 삭제 대기:', err.message);
-    });
+    }
   }
 
   return folders;

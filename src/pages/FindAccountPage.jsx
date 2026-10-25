@@ -8,6 +8,7 @@ import {
   resetPassword,
 } from '../api/auth';
 import Icon from '../components/Icons';
+import EmailDiagnosticModal from '../components/EmailDiagnosticModal';
 
 // 아이디 찾기 / 비밀번호 찾기 (Figma No.1 - 아이디 찾기 / 비밀번호 찾기)
 // 제목의 "아이디 찾기" / "비밀번호 찾기" 글자를 누르면 탭이 바뀌어요. (선택된 쪽이 검정, 나머지는 회색)
@@ -48,6 +49,7 @@ function FindIdForm({ onBack, onDone }) {
   const [verified, setVerified] = useState(false);
   const [foundId, setFoundId] = useState('');
   const [message, setMessage] = useState({ text: '', ok: false });
+  const [showDiagModal, setShowDiagModal] = useState(false);
 
   const say = (text, ok = false) => setMessage({ text, ok });
 
@@ -104,7 +106,7 @@ function FindIdForm({ onBack, onDone }) {
       setFoundId(loginId);
       say(`회원님의 아이디는 ${loginId} 입니다.`, true);
     } catch (err) {
-      say(err.status === 404 ? '아이디 찾기 기능은 서버 준비 중이에요.' : (err.message || '아이디를 찾지 못했어요.'));
+      say(err.status === 404 ? '입력하신 정보와 일치하는 계정을 찾을 수 없습니다.' : (err.message || '아이디를 찾지 못했어요.'));
     }
   }
 
@@ -119,11 +121,35 @@ function FindIdForm({ onBack, onDone }) {
         <input className="input" aria-label="인증번호 6자리" placeholder="인증번호 6자리" inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} />
         <button className="pill-btn pill-btn--dark" type="button" onClick={verifyCode}>{verified ? '인증 완료' : '인증 확인'}</button>
       </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-4px', marginBottom: '8px' }}>
+        <button
+          type="button"
+          onClick={() => setShowDiagModal(true)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            fontSize: '11.5px',
+            color: '#15803d',
+            cursor: 'pointer',
+            padding: '2px 4px',
+            textDecoration: 'underline'
+          }}
+        >
+          📋 인증번호가 안 오나요? (실시간 로그/번호 확인)
+        </button>
+      </div>
       {message.text && <p className={`form-message ${message.ok ? 'is-success' : ''}`} role="status">{message.text}</p>}
       <div className="auth-bottom signup-bottom">
         <button className="btn btn-primary" type="submit">{foundId ? '이 아이디로 로그인' : '아이디 찾기'}</button>
         <button className="text-btn auth-skip" type="button" onClick={onBack}>로그인으로 돌아가기</button>
       </div>
+
+      <EmailDiagnosticModal
+        isOpen={showDiagModal}
+        onClose={() => setShowDiagModal(false)}
+        onSelectCode={(c) => setCode(c)}
+        targetEmail={email}
+      />
     </form>
   );
 }
@@ -140,6 +166,7 @@ function FindPasswordForm({ initialLoginId, onBack, onDone }) {
   const [sentTo, setSentTo] = useState(''); // 인증번호를 보낸 아이디
   const [verified, setVerified] = useState(false);
   const [message, setMessage] = useState({ text: '', ok: false });
+  const [showDiagModal, setShowDiagModal] = useState(false);
 
   const say = (text, ok = false) => setMessage({ text, ok });
   const isPasswordValid = PASSWORD_RULE.test(password);
@@ -193,7 +220,7 @@ function FindPasswordForm({ initialLoginId, onBack, onDone }) {
       await resetPassword(sentTo, code, password);
       onDone?.({ loginId: sentTo, notice: '비밀번호가 재설정되었어요. 새 비밀번호로 로그인해 주세요.' });
     } catch (err) {
-      say(err.status === 404 ? '비밀번호 재설정 기능은 서버 준비 중이에요.' : (err.message || '비밀번호 재설정에 실패했어요.'));
+      say(err.status === 404 ? '존재하지 않는 아이디이거나 등록된 이메일이 없습니다.' : (err.message || '비밀번호 재설정에 실패했어요.'));
     }
   }
 
@@ -213,6 +240,23 @@ function FindPasswordForm({ initialLoginId, onBack, onDone }) {
         <input className="input" aria-label="인증번호 6자리" placeholder="인증번호 6자리" inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} />
         <button className="pill-btn pill-btn--dark" type="button" onClick={verifyCode}>{verified ? '인증 완료' : '인증 확인'}</button>
       </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-4px', marginBottom: '8px' }}>
+        <button
+          type="button"
+          onClick={() => setShowDiagModal(true)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            fontSize: '11.5px',
+            color: '#15803d',
+            cursor: 'pointer',
+            padding: '2px 4px',
+            textDecoration: 'underline'
+          }}
+        >
+          📋 인증번호가 안 오나요? (실시간 로그/번호 확인)
+        </button>
+      </div>
       {sentTo && <p className="input-hint">해당 아이디의 이메일로 인증번호를 발송했습니다</p>}
       <div className="input-wrap">
         <input className="input has-icon" aria-label="비밀번호" placeholder="비밀번호" type={showPassword ? 'text' : 'password'} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
@@ -228,6 +272,13 @@ function FindPasswordForm({ initialLoginId, onBack, onDone }) {
         <button className="btn btn-primary" type="submit">비밀번호 재설정</button>
         <button className="text-btn auth-skip" type="button" onClick={onBack}>로그인으로 돌아가기</button>
       </div>
+
+      <EmailDiagnosticModal
+        isOpen={showDiagModal}
+        onClose={() => setShowDiagModal(false)}
+        onSelectCode={(c) => setCode(c)}
+        targetEmail={sentTo || loginId}
+      />
     </form>
   );
 }

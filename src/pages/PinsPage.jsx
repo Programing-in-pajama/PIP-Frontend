@@ -26,6 +26,12 @@ const FILTER_OPTIONS = [
   { value: 'without', label: '식당 미포함' },
 ];
 
+const formatPinTitle = (title, durationMin) => {
+  if (!title) return '';
+  const clean = String(title).replace(/\s*\(\d+분\)/g, '').trim();
+  return durationMin ? `${clean} (${durationMin}분)` : clean;
+};
+
 export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRoute }) {
   const [folders, setFolders] = useState(() => (isLoggedIn ? getPinFolders(userId) : []));
   const [view, setView] = useState('list'); // list | folder | create | confirm
@@ -124,14 +130,28 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
     setToast('핀을 삭제했어요');
   };
 
-  const deleteFolder = () => {
+  const deleteFolder = async () => {
     if (!activeFolder) return;
-    const name = activeFolder.name;
-    setFolders(deletePinFolder(userId, activeFolder.id));
+    const targetId = activeFolder.id;
+    const targetName = activeFolder.name;
+
+    // 1. React 상태 즉시 제거 (새로고침 없이 즉각 사라짐 보장)
+    setFolders((prev) => prev.filter((f) => f.id !== targetId && f.name !== targetName));
     setConfirmDeleteFolder(false);
     setFolderId(null);
+    isPoppingHistoryRef.current = true;
+    if (window.history.state?.pinView) {
+      window.history.replaceState({ pinView: null }, '');
+    }
     setView('list');
-    setToast(`‘${name}’ 폴더를 삭제했어요`);
+    setToast(`‘${targetName}’ 폴더를 삭제했어요`);
+
+    // 2. 로컬 스토리지 및 서버 동기화 완료
+    try {
+      await deletePinFolder(userId, targetId);
+    } catch (err) {
+      console.warn('⚠️ [Pins] 폴더 삭제 오류:', err.message);
+    }
   };
 
   // 마우스 드래그 앤 드롭
@@ -288,7 +308,7 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
           <div className="sheet-grip" />
           <h2>해당 경로를 시작하시겠습니까?</h2>
           <div className="start-summary">
-            <strong>{confirmPin.title}</strong>
+            <strong>{formatPinTitle(confirmPin.title, confirmPin.durationMin)}</strong>
             <span>
               약 {confirmPin.durationMin}분 · 거리 {formatDistance(dist)} · {confirmPin.hasRestaurant ? '식당 포함' : '산책만'}
             </span>
@@ -388,7 +408,7 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
                   className="pin-card-main"
                   onClick={() => setSelectedPinId(pin.id)}
                 >
-                  <strong>{pin.title}</strong>
+                  <strong>{formatPinTitle(pin.title, pin.durationMin)}</strong>
                   <span className="pin-meta">
                     거리 {formatDistance(distance)} · 약 {pin.durationMin}분
                   </span>
