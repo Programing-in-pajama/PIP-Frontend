@@ -314,6 +314,17 @@ export function getRoutes(region = DEFAULT_REGION, minutes = 25, userDiseases = 
       durationMin = cand.withRest.durationMin;
       distanceKm = cand.withRest.distanceKm;
 
+      const grade = evaluatedRest.grade || 'green';
+      const dot = evaluatedRest.dot || (grade === 'green' ? '🟢' : (grade === 'yellow' ? '🟡' : '🔴'));
+
+      // 등급(green/yellow/red)에 맞춰 뱃지 레이블 동기화 (예: 복합 안심 -> 복합 보통)
+      let dynamicBadgeLabel = evaluatedRest.badgeLabel || '안심식당';
+      if (grade === 'yellow') {
+        dynamicBadgeLabel = dynamicBadgeLabel.replace('안심', '보통');
+      } else if (grade === 'red') {
+        dynamicBadgeLabel = dynamicBadgeLabel.replace('복합 안심', '섭취 주의').replace('안심', '주의');
+      }
+
       restaurantData = {
         id: evaluatedRest.id,
         name: evaluatedRest.name,
@@ -325,10 +336,11 @@ export function getRoutes(region = DEFAULT_REGION, minutes = 25, userDiseases = 
         calories: evaluatedRest.bestFood?.calories || 450,
         sodium: evaluatedRest.bestFood?.sodium || 500,
         sugar: evaluatedRest.bestFood?.sugar || 3.0,
-        grade: evaluatedRest.grade,
-        nutritionGrade: evaluatedRest.grade,
-        gradeLabel: evaluatedRest.bestFood?.label || evaluatedRest.badgeLabel,
-        badgeLabel: evaluatedRest.badgeLabel || '안심식당',
+        grade,
+        nutritionGrade: grade,
+        dot,
+        gradeLabel: evaluatedRest.bestFood?.label || `${dot} ${dynamicBadgeLabel}`,
+        badgeLabel: dynamicBadgeLabel,
         threshold: evaluatedRest.threshold,
         bestFood: evaluatedRest.bestFood,
         lat: evaluatedRest.location?.lat,
@@ -343,7 +355,7 @@ export function getRoutes(region = DEFAULT_REGION, minutes = 25, userDiseases = 
     const hubShort = targetRegion.short || '역곡역';
     const trailShort = cand.title.split(' ')[0];
     const waypointsText = includeRestaurant && restaurantData
-      ? `${hubShort} ➔ 🟢 ${restaurantData.name} ➔ ${trailShort} ➔ ${hubShort}`
+      ? `${hubShort} ➔ ${restaurantData.dot || '🟢'} ${restaurantData.name} ➔ ${trailShort} ➔ ${hubShort}`
       : `${hubShort} ➔ ${trailShort} ➔ ${hubShort}`;
 
     return {
@@ -376,5 +388,10 @@ export function getRoutes(region = DEFAULT_REGION, minutes = 25, userDiseases = 
     };
   });
 
-  return list;
+  // 🌿 기저질환 맞춤 안전 필터링: 섭취 주의(red) 식당 코스는 추천 목록에서 제외 (pass: green, yellow, 산책만)
+  const safeList = list.filter(
+    (c) => !c.hasRestaurant || !c.restaurant || c.restaurant.grade !== 'red'
+  );
+
+  return safeList.length > 0 ? safeList : list;
 }
