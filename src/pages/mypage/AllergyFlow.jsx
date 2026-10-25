@@ -143,7 +143,7 @@ function AllergyEditor({ initial, onSave, onBack }) {
           className={`choice ${hasAllergy ? 'selected' : ''}`}
           onClick={() => setHasAllergy(true)}
         >
-          있었어요 {hasAllergy && <Icon name="check" size={16} />}
+          있어요 {hasAllergy && <Icon name="check" size={16} />}
         </button>
         <button
           type="button"
@@ -163,7 +163,7 @@ function AllergyEditor({ initial, onSave, onBack }) {
         <>
           {ALLERGEN_CATEGORIES.map((category) => (
             <section key={category.id} className="allergen-section">
-              <h3>{category.name} <small>{category.items.length}종</small></h3>
+              <h3>{category.group === '식품' ? `식품 · ${category.name}` : category.name} <small>{category.items.length}종</small></h3>
               <div className="allergen-grid allergen-grid--form">
                 {category.items.map((item) => {
                   const isSelected = selected.includes(item.name);

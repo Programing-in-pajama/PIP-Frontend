@@ -57,7 +57,7 @@ export const clearProfileCache = () => {
 
 // 회원 정보 API (Supabase PostgreSQL DB 직접 연동 및 로컬 캐시 동기화)
 export const getProfile = async (token, { force = false } = {}) => {
-  const currentUserId = localStorage.getItem('soyo-current-user-id') || localStorage.getItem('soyo-saved-id');
+  const currentUserId = localStorage.getItem('soyo-current-user-id');
   const currentEmail = localStorage.getItem('soyo-current-email');
 
   // 1. 이미 캐시된 프로필이 있고 강제 새로고침이 아닌 경우 즉시 반환
@@ -143,7 +143,7 @@ export const getProfile = async (token, { force = false } = {}) => {
 };
 
 export const updateProfile = async (token, changes) => {
-  const currentUserId = localStorage.getItem('soyo-current-user-id') || localStorage.getItem('soyo-saved-id');
+  const currentUserId = localStorage.getItem('soyo-current-user-id');
   const currentEmail = localStorage.getItem('soyo-current-email');
 
   // 1. 현재 로컬 저장 프로필과 변경사항 머지
@@ -159,16 +159,27 @@ export const updateProfile = async (token, changes) => {
     // ignore
   }
 
-  // 2. 서버 DB에 저장 요청 (변경이 요청된 필드만 선별적으로 전송하여 기존 데이터 유실 방지)
+  // 2. 서버 DB에 저장 요청 (기존 프로필의 건강 정보를 항상 온전히 유지하여 다른 항목 수정 시 유실 방지)
   if (currentUserId && changes) {
     try {
       console.log('🚀 [서버 DB] 마이페이지 프로필 변경사항 DB 저장 중:', currentUserId, changes);
+
+      const existingMedNames = (inMemoryProfile.medications || []).map((m) => (typeof m === 'object' && m ? m.name : String(m))).filter(Boolean);
+      const existingAllergies = inMemoryProfile.allergies || [];
+      const existingDiseases = inMemoryProfile.diseaseIds || [];
 
       const payload = {
         userId: currentUserId,
         email: currentEmail || inMemoryProfile.email || undefined,
         name: inMemoryProfile.userName,
-        birth: inMemoryProfile.birthDate
+        birth: inMemoryProfile.birthDate,
+        allergies: existingAllergies,
+        diseases: existingDiseases,
+        diseaseIds: existingDiseases,
+        medications: existingMedNames,
+        noAllergy: existingAllergies.length === 0,
+        noDisease: existingDiseases.length === 0,
+        noMedication: existingMedNames.length === 0,
       };
 
       if (changes.userName !== undefined) payload.name = changes.userName;

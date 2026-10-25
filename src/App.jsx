@@ -12,7 +12,11 @@ import { updateProfile, clearProfileCache } from './api/user';
 import { supabase } from './supabaseClient';
 
 function readStoredLogin() {
-  return Boolean(localStorage.getItem('soyo-current-user-id'));
+  if (typeof window !== 'undefined' && sessionStorage.getItem('soyo-logged-out') === 'true') {
+    return false;
+  }
+  const uid = localStorage.getItem('soyo-current-user-id');
+  return Boolean(uid && uid !== 'guest');
 }
 
 function profileFromServer(payload) {
@@ -83,6 +87,9 @@ function App() {
 
   const resolveProfile = useCallback(async (user) => {
     if (user?.profile) return profileFromServer(user.profile);
+    if (user && (user.userName || user.chronicConditions || user.allergies || user.diseaseIds)) {
+      return profileFromServer(user);
+    }
     const id = user?.supabaseUserId || user?.userId || user?.loginId;
     const email = user?.email || localStorage.getItem('soyo-current-email');
     if (!id && !email) return null;
@@ -98,6 +105,7 @@ function App() {
   }, []);
 
   const finishLogin = useCallback(async ({ loginId, user, session: loginSession }) => {
+    sessionStorage.removeItem('soyo-logged-out');
     const id = user?.supabaseUserId || user?.userId || loginSession?.user?.id || user?.loginId || loginId;
     const email = user?.email || loginSession?.user?.email || localStorage.getItem('soyo-current-email') || '';
     if (id) localStorage.setItem('soyo-current-user-id', id);
@@ -154,7 +162,12 @@ function App() {
     if (!supabase) return;
 
     const handleSupabaseSession = async (sessionUser, event) => {
+      if (sessionStorage.getItem('soyo-logged-out') === 'true') {
+        console.log('🛑 [로그아웃 상태 유지] 잔여 세션 자동 로그인 차단');
+        return;
+      }
       if (!sessionUser) return;
+      sessionStorage.removeItem('soyo-logged-out');
 
       const userMeta = sessionUser.user_metadata || {};
       const userName = userMeta.full_name || userMeta.name || userMeta.user_name || sessionUser.email?.split('@')[0] || '소요 여행자';
@@ -226,6 +239,10 @@ function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
       console.log('🔔 [Supabase Auth 상태 변경 알림]:', event, newSession?.user?.email);
+      if (sessionStorage.getItem('soyo-logged-out') === 'true') {
+        console.log('🛑 [로그아웃 상태] Stale Supabase 세션 무시:', event);
+        return;
+      }
       setSession(newSession);
       if (newSession?.user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
         handleSupabaseSession(newSession.user, event);
@@ -258,15 +275,28 @@ function App() {
   };
 
   const handleLogout = async () => {
+    sessionStorage.setItem('soyo-logged-out', 'true');
     localStorage.removeItem('soyo-current-user-id');
     localStorage.removeItem('soyo-current-email');
     localStorage.removeItem('soyo-jwt-token');
     localStorage.removeItem('soyo-user-profile');
     clearProfileCache();
 
+    // Supabase Auth 로컬 캐시 토큰 일괄 소거
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('sb-') || key.includes('supabase.auth.token'))) {
+          localStorage.removeItem(key);
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     if (supabase) {
       try {
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: 'local' });
       } catch {
         // ignore
       }
@@ -280,6 +310,7 @@ function App() {
   };
 
   const handleSkip = () => {
+    sessionStorage.setItem('soyo-logged-out', 'true');
     localStorage.removeItem('soyo-current-user-id');
     localStorage.removeItem('soyo-current-email');
     localStorage.removeItem('soyo-user-profile');
@@ -293,6 +324,7 @@ function App() {
   };
 
   const handleSignupComplete = async (form) => {
+    sessionStorage.removeItem('soyo-logged-out');
     const profile = {
       userName: form.name,
       email: form.email,

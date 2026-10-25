@@ -829,7 +829,73 @@ function LoginPrompt({ onClose, onLogin }) {
   );
 }
 
-function FolderSelectSheet({
+function NewFolderForm({ onSubmit, existingFolders }) {
+  const [name, setName] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    // 최초 1회만 포커스하여 부모 컴포넌트 렌더링 시 한글 조합(IME) 깨짐 원천 방지
+    const timer = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 60);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleSubmit = (event) => {
+    event?.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setErrorMsg('폴더 이름을 입력해 주세요');
+      return;
+    }
+    if (existingFolders.some((f) => f.name === trimmed)) {
+      setErrorMsg('이미 존재하는 폴더 이름입니다');
+      return;
+    }
+    onSubmit(trimmed);
+  };
+
+  return (
+    <form className="folder-form" onSubmit={handleSubmit} style={{ marginTop: '8px' }}>
+      <label
+        className="field-label"
+        htmlFor="new-sheet-folder-name"
+        style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}
+      >
+        새 폴더 이름
+      </label>
+      <div className="input-wrap" style={{ display: 'flex', gap: '8px' }}>
+        <input
+          ref={inputRef}
+          id="new-sheet-folder-name"
+          className="input"
+          placeholder="예: 우리 동네, 주말 코스"
+          value={name}
+          onChange={(event) => {
+            setName(event.target.value);
+            setErrorMsg('');
+          }}
+          style={{ flex: 1 }}
+        />
+        <button
+          type="submit"
+          className="btn btn-primary"
+          style={{ flex: 'none', padding: '0 16px', height: '44px', minHeight: '44px' }}
+        >
+          만들고 저장
+        </button>
+      </div>
+      {errorMsg && (
+        <p className="form-message" style={{ color: '#e53e3e', fontSize: '12px', marginTop: '4px' }}>
+          {errorMsg}
+        </p>
+      )}
+    </form>
+  );
+}
+
+const FolderSelectSheet = React.memo(function FolderSelectSheet({
   userId,
   route,
   onClose,
@@ -838,8 +904,6 @@ function FolderSelectSheet({
 }) {
   const [folders, setFolders] = useState(() => getPinFolders(userId));
   const [isCreating, setIsCreating] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     if (userId && userId !== 'guest') {
@@ -853,22 +917,11 @@ function FolderSelectSheet({
     }
   }, [userId]);
 
-  const handleCreateSubmit = (event) => {
-    event?.preventDefault();
-    const trimmed = newFolderName.trim();
-    if (!trimmed) {
-      setErrorMsg('폴더 이름을 입력해 주세요');
-      return;
-    }
-    if (folders.some((f) => f.name === trimmed)) {
-      setErrorMsg('이미 존재하는 폴더 이름입니다');
-      return;
-    }
-    const created = createPinFolder(userId, trimmed);
+  const handleCreateSubmit = (trimmedName) => {
+    const created = createPinFolder(userId, trimmedName);
     if (created) {
+      setFolders(getPinFolders(userId));
       onCreateAndSelect(created);
-    } else {
-      setErrorMsg('폴더를 생성하지 못했습니다');
     }
   };
 
@@ -900,41 +953,7 @@ function FolderSelectSheet({
         </div>
 
         {isCreating ? (
-          <form className="folder-form" onSubmit={handleCreateSubmit} style={{ marginTop: '8px' }}>
-            <label
-              className="field-label"
-              htmlFor="new-sheet-folder-name"
-              style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}
-            >
-              새 폴더 이름
-            </label>
-            <div className="input-wrap" style={{ display: 'flex', gap: '8px' }}>
-              <input
-                id="new-sheet-folder-name"
-                className="input"
-                placeholder="예: 우리 동네, 주말 코스"
-                value={newFolderName}
-                onChange={(event) => {
-                  setNewFolderName(event.target.value);
-                  setErrorMsg('');
-                }}
-                autoFocus
-                style={{ flex: 1 }}
-              />
-              <button
-                type="submit"
-                className="btn btn-primary"
-                style={{ flex: 'none', padding: '0 16px', height: '44px', minHeight: '44px' }}
-              >
-                만들고 저장
-              </button>
-            </div>
-            {errorMsg && (
-              <p className="form-message" style={{ color: '#e53e3e', fontSize: '12px', marginTop: '4px' }}>
-                {errorMsg}
-              </p>
-            )}
-          </form>
+          <NewFolderForm onSubmit={handleCreateSubmit} existingFolders={folders} />
         ) : (
           <button
             type="button"
@@ -948,4 +967,4 @@ function FolderSelectSheet({
       </div>
     </Sheet>
   );
-}
+});

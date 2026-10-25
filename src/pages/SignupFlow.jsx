@@ -458,7 +458,7 @@ export default function SignupFlow({ onBack, onComplete, onFindAccount, initialD
         >
           {ALLERGEN_CATEGORIES.map((category) => (
             <section key={category.id} className="picker-section">
-              <h3>{category.name}</h3>
+              <h3>{category.group === '식품' ? `식품 · ${category.name}` : category.name}</h3>
               <div className="allergen-grid">
                 {category.items.map((item) => {
                   const selected = form.allergies.includes(item.name);

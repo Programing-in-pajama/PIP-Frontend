@@ -26,6 +26,17 @@ function writeAll(data) {
   }
 }
 
+function generateUuid() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 const createId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
 /** 서버에서 최신 폴더 및 핀 목록을 가져와 로컬 캐시를 갱신합니다. */
@@ -106,8 +117,9 @@ export function createPinFolder(arg1, arg2) {
   const folders = getPinFolders(userId);
   if (folders.some((folder) => folder.name === trimmed)) return null;
 
+  const newFolderUuid = generateUuid();
   const folder = {
-    id: createId('folder'),
+    id: newFolderUuid,
     name: trimmed,
     createdAt: new Date().toISOString(),
     pins: [],
@@ -118,14 +130,13 @@ export function createPinFolder(arg1, arg2) {
   all[userId] = { folders: [...folders, folder] };
   writeAll(all);
 
-  // 백엔드 서버 동기화 (비동기)
+  // 백엔드 서버 동기화 (클라이언트 UUID 전송하여 ID 불일치 방지)
   if (userId && userId !== 'guest') {
     apiFetch('/api/pins/folders', {
       method: 'POST',
-      body: JSON.stringify({ userId, name: trimmed })
+      body: JSON.stringify({ userId, id: newFolderUuid, name: trimmed })
     }).then((res) => {
       if (res?.success && res.folder) {
-        // 서버 발급 UUID 가 있으면 로컬 폴더 ID 동기화
         const latest = readAll();
         if (latest[userId]?.folders) {
           latest[userId].folders = latest[userId].folders.map((f) =>
@@ -175,10 +186,9 @@ export function saveRoutePin(userId = getCurrentUserId(), route, folderId = 'def
   if (!route) return { saved: false, folders: getPinFolders(userId) };
 
   const folders = getPinFolders(userId);
-  const already = folders.some((folder) => folder.pins.some((pin) => pin.id === route.id || pin.title === route.title));
-  if (already) return { saved: false, folders };
-
   const target = folders.find((folder) => folder.id === folderId) ?? folders[0];
+  const alreadyInTarget = target.pins.some((pin) => pin.id === route.id || pin.title === route.title);
+  if (alreadyInTarget) return { saved: false, folders };
   const newPin = {
     ...route,
     savedAt: new Date().toISOString()
