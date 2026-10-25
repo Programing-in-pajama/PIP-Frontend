@@ -39,6 +39,18 @@ function generateUuid() {
 
 const createId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
+export const PIN_UPDATE_EVENT = 'soyo-pins-updated';
+
+function notifyPinsUpdated(detail = {}) {
+  if (typeof window !== 'undefined') {
+    try {
+      window.dispatchEvent(new CustomEvent(PIN_UPDATE_EVENT, { detail }));
+    } catch {
+      // ignore
+    }
+  }
+}
+
 /** 서버에서 최신 폴더 및 핀 목록을 가져와 로컬 캐시를 갱신합니다. */
 export async function syncPinFoldersFromServer(userId = getCurrentUserId()) {
   if (!userId || userId === 'guest') return getPinFolders(userId);
@@ -47,10 +59,19 @@ export async function syncPinFoldersFromServer(userId = getCurrentUserId()) {
       method: 'GET'
     });
     if (res?.success && Array.isArray(res.folders)) {
+      const normalized = res.folders.map((f) => {
+        const list = Array.isArray(f.pins) ? f.pins : (Array.isArray(f.courses) ? f.courses : []);
+        return {
+          ...f,
+          pins: list,
+          courses: list,
+        };
+      });
       const all = readAll();
-      all[userId] = { folders: res.folders };
+      all[userId] = { folders: normalized };
       writeAll(all);
-      return res.folders;
+      notifyPinsUpdated({ userId, folders: normalized });
+      return normalized;
     }
   } catch (err) {
     console.warn('⚠️ [Pins] 서버 핀 동기화 대기 (로컬 캐시 사용):', err.message);
@@ -76,11 +97,15 @@ export function getPinFolders(userId = getCurrentUserId()) {
     writeAll(all);
   }
 
-  // PinFlow 등에서 folder.courses 를 참조할 수 있으므로 courses 도 항상 동기화
-  const folders = all[userId].folders.map((f) => ({
-    ...f,
-    courses: f.courses || f.pins || []
-  }));
+  // pins 와 courses 배열이 항상 유효하도록 정규화
+  const folders = all[userId].folders.map((f) => {
+    const list = Array.isArray(f.pins) ? f.pins : (Array.isArray(f.courses) ? f.courses : []);
+    return {
+      ...f,
+      pins: list,
+      courses: list,
+    };
+  });
 
   // 로그인 상태인 경우 백그라운드에서 서버 동기화 시도
   if (userId && userId !== 'guest' && !all[userId]._syncScheduled) {
@@ -129,6 +154,7 @@ export function createPinFolder(arg1, arg2) {
   const all = readAll();
   all[userId] = { folders: [...folders, folder] };
   writeAll(all);
+  notifyPinsUpdated({ userId, action: 'createFolder', folder });
 
   // 백엔드 서버 동기화 (클라이언트 UUID 전송하여 ID 불일치 방지)
   if (userId && userId !== 'guest') {
@@ -143,6 +169,7 @@ export function createPinFolder(arg1, arg2) {
             f.id === folder.id ? { ...f, id: res.folder.id } : f
           );
           writeAll(latest);
+          notifyPinsUpdated({ userId, action: 'folderIdSynced' });
         }
       }
     }).catch((err) => {
@@ -172,6 +199,7 @@ export async function deletePinFolder(userId = getCurrentUserId(), folderId) {
     folders
   };
   writeAll(all);
+  notifyPinsUpdated({ userId, action: 'deleteFolder', folderId });
 
   // 백엔드 서버 동기화 (삭제 완료 보장)
   if (userId && userId !== 'guest') {
@@ -219,6 +247,7 @@ export function saveRoutePin(userId = getCurrentUserId(), route, folderId = 'def
   const all = readAll();
   all[userId] = { folders: nextFolders };
   writeAll(all);
+  notifyPinsUpdated({ userId, action: 'savePin', route });
 
   // 백엔드 서버 동기화
   if (userId && userId !== 'guest') {
@@ -237,7 +266,7 @@ export function saveRoutePin(userId = getCurrentUserId(), route, folderId = 'def
 export function removeRoutePin(userId = getCurrentUserId(), folderId, routeId, title) {
   const folders = getPinFolders(userId).map((folder) => {
     if (folder.id !== folderId) return folder;
-    const filteredPins = folder.pins.filter((pin) => {
+    const filteredPins = (folder.pins || folder.courses || []).filter((pin) => {
       if (routeId && pin.id === routeId) return false;
       if (title && pin.title === title) return false;
       return true;
@@ -252,6 +281,7 @@ export function removeRoutePin(userId = getCurrentUserId(), folderId, routeId, t
   const all = readAll();
   all[userId] = { folders };
   writeAll(all);
+  notifyPinsUpdated({ userId, action: 'removePin', routeId, title });
 
   // 백엔드 서버 동기화
   if (userId && userId !== 'guest') {
@@ -269,7 +299,7 @@ export function removeRoutePin(userId = getCurrentUserId(), folderId, routeId, t
 /** 모든 폴더에서 해당 핀 제거 (북마크 토글 해제 시 사용) */
 export function removeRoutePinEverywhere(userId = getCurrentUserId(), routeId, title) {
   const folders = getPinFolders(userId).map((folder) => {
-    const filteredPins = folder.pins.filter((pin) => {
+    const filteredPins = (folder.pins || folder.courses || []).filter((pin) => {
       if (routeId && pin.id === routeId) return false;
       if (title && pin.title === title) return false;
       return true;
@@ -284,6 +314,7 @@ export function removeRoutePinEverywhere(userId = getCurrentUserId(), routeId, t
   const all = readAll();
   all[userId] = { folders };
   writeAll(all);
+  notifyPinsUpdated({ userId, action: 'removePinEverywhere', routeId, title });
 
   // 백엔드 서버 동기화
   if (userId && userId !== 'guest') {
@@ -300,7 +331,7 @@ export function removeRoutePinEverywhere(userId = getCurrentUserId(), routeId, t
 export function reorderPins(userId = getCurrentUserId(), folderId, fromIndex, toIndex) {
   const folders = getPinFolders(userId).map((folder) => {
     if (folder.id !== folderId) return folder;
-    const pins = [...folder.pins];
+    const pins = [...(folder.pins || folder.courses || [])];
     if (fromIndex < 0 || toIndex < 0 || fromIndex >= pins.length || toIndex >= pins.length) {
       return folder;
     }
@@ -312,6 +343,7 @@ export function reorderPins(userId = getCurrentUserId(), folderId, fromIndex, to
   const all = readAll();
   all[userId] = { folders };
   writeAll(all);
+  notifyPinsUpdated({ userId, action: 'reorderPins' });
 
   // 백엔드 서버 동기화
   const activeFolder = folders.find((f) => f.id === folderId);

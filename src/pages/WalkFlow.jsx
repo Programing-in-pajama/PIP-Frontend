@@ -1052,7 +1052,7 @@ export default function WalkFlow({
     distanceToTurnMeters: displayRemainingMeters,
     distanceText: displayRemainingMeters > 0 ? `${displayRemainingMeters}m 앞` : '출발',
     instruction: nextDirection,
-    subInstruction: selectedRoute?.title || '',
+    subInstruction: formatCourseTitle(selectedRoute?.title, selectedRoute?.durationMin),
   };
 
   return (
@@ -1222,7 +1222,7 @@ export default function WalkFlow({
               <strong>{displayMovedKm.toFixed(2)} km</strong>
             </div>
           </div>
-          <p className="complete-note">{selectedRoute?.title}</p>
+          <p className="complete-note">{formatCourseTitle(selectedRoute?.title, selectedRoute?.durationMin)}</p>
         </Sheet>
       )}
 
@@ -1446,7 +1446,7 @@ const FolderSelectSheet = React.memo(function FolderSelectSheet({
   return (
     <Sheet
       title="어느 폴더에 저장할까요?"
-      subtitle={route ? `선택 코스: ${route.title}` : '저장할 폴더를 선택하세요'}
+      subtitle={route ? `선택 코스: ${formatCourseTitle(route.title, route.durationMin)}` : '저장할 폴더를 선택하세요'}
       onClose={onClose}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '55vh', overflowY: 'auto' }}>

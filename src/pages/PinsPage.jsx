@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Icon from '../components/Icons';
 import SoyoMap from '../components/SoyoMap';
 import { REGIONS } from '../data/routes';
@@ -11,6 +11,7 @@ import {
   getPinFolders,
   removeRoutePin,
   reorderPins,
+  PIN_UPDATE_EVENT,
 } from '../api/pins';
 
 const SORT_OPTIONS = [
@@ -48,20 +49,36 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
   const [folderError, setFolderError] = useState('');
   const cardRefs = useRef(new Map());
 
-  useEffect(() => {
-    if (isLoggedIn) {
-      setFolders(getPinFolders(userId));
-      fetchPinFolders(userId).then((res) => {
+  const reloadFolders = useCallback(() => {
+    if (!isLoggedIn) {
+      setFolders([]);
+      return;
+    }
+    const local = getPinFolders(userId);
+    setFolders(local);
+    fetchPinFolders(userId)
+      .then((res) => {
         if (Array.isArray(res) && res.length > 0) {
           setFolders(res);
         }
-      }).catch(() => {});
-    } else {
-      setFolders([]);
-    }
-    setView('list');
-    setFolderId(null);
+      })
+      .catch(() => {});
   }, [isLoggedIn, userId]);
+
+  useEffect(() => {
+    reloadFolders();
+    const handleUpdate = () => {
+      if (isLoggedIn) {
+        setFolders(getPinFolders(userId));
+      }
+    };
+    window.addEventListener(PIN_UPDATE_EVENT, handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener(PIN_UPDATE_EVENT, handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, [reloadFolders, isLoggedIn, userId]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -90,11 +107,25 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
     }
   }, [view]);
 
-  const activeFolder = folders.find((folder) => folder.id === folderId) ?? null;
+  const activeFolder = useMemo(() => {
+    if (!folderId || !Array.isArray(folders) || folders.length === 0) return null;
+    return (
+      folders.find((folder) => folder.id === folderId) ||
+      folders.find((folder) => (folderId === 'default' || folderId === DEFAULT_FOLDER_ID) && (folder.id === 'default' || folder.sortOrder === 0 || folder.name === '내 핀')) ||
+      folders.find((folder) => folder.name === folderId) ||
+      null
+    );
+  }, [folders, folderId]);
+
+  const folderPins = useMemo(() => {
+    if (!activeFolder) return [];
+    const raw = activeFolder.pins || activeFolder.courses || [];
+    return Array.isArray(raw) ? raw : [];
+  }, [activeFolder]);
 
   const visiblePins = useMemo(() => {
     if (!activeFolder) return [];
-    let pins = [...activeFolder.pins];
+    let pins = [...folderPins];
     if (filter === 'with') pins = pins.filter((pin) => pin.hasRestaurant);
     if (filter === 'without') pins = pins.filter((pin) => !pin.hasRestaurant);
 
@@ -110,7 +141,7 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
       });
     }
     return pins;
-  }, [activeFolder, filter, sort]);
+  }, [activeFolder, folderPins, filter, sort]);
 
   const openFolder = (folder) => {
     setFolderId(folder.id);
@@ -157,8 +188,8 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
   // 마우스 드래그 앤 드롭
   const handleDrop = (targetPin) => {
     if (sort !== 'custom' || !dragId || !activeFolder || dragId === targetPin.id) return;
-    const fromIndex = activeFolder.pins.findIndex((pin) => pin.id === dragId);
-    const toIndex = activeFolder.pins.findIndex((pin) => pin.id === targetPin.id);
+    const fromIndex = folderPins.findIndex((pin) => pin.id === dragId);
+    const toIndex = folderPins.findIndex((pin) => pin.id === targetPin.id);
     if (fromIndex !== -1 && toIndex !== -1 && fromIndex !== toIndex) {
       const next = reorderPins(userId, activeFolder.id, fromIndex, toIndex);
       setFolders(next);
@@ -178,7 +209,7 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
   const handlePointerMove = (event) => {
     if (!dragId || !activeFolder || sort !== 'custom') return;
     const y = event.clientY;
-    const pins = activeFolder.pins;
+    const pins = folderPins;
     const targetPin = pins.find((p) => {
       if (p.id === dragId) return false;
       const rect = cardRefs.current.get(p.id)?.getBoundingClientRect();
@@ -201,7 +232,7 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
   };
 
   const createFolder = (event) => {
-    event.preventDefault();
+    if (event && event.preventDefault) event.preventDefault();
     const trimmed = folderName.trim();
     if (!trimmed) return setFolderError('폴더 이름을 입력해 주세요.');
     if (folders.some((folder) => folder.name === trimmed)) {
@@ -209,7 +240,8 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
     }
     const folder = createPinFolder(userId, trimmed);
     if (!folder) return setFolderError('폴더를 만들지 못했어요.');
-    setFolders(getPinFolders(userId));
+    const updated = getPinFolders(userId);
+    setFolders(updated);
     setFolderName('');
     setFolderError('');
     setView('list');
@@ -282,7 +314,7 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
               <button type="button" className="btn btn-ghost" onClick={() => setView('list')} style={{ flex: 1 }}>
                 취소
               </button>
-              <button type="submit" className="btn btn-primary" onClick={createFolder} style={{ flex: 1 }}>
+              <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
                 저장
               </button>
             </div>
@@ -337,7 +369,26 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
   }
 
   // ── No.20 폴더 상세 ─────────────────────────────────────────
-  if (view === 'folder' && activeFolder) {
+  if (view === 'folder') {
+    if (!activeFolder) {
+      return (
+        <div className="screen page">
+          <header className="page-head page-head--back">
+            <button type="button" className="back-btn" onClick={() => setView('list')} aria-label="뒤로">
+              <Icon name="chevron-left" size={22} />
+            </button>
+            <div className="page-head-text">
+              <h1>저장 코스</h1>
+              <p>코스를 불러오는 중...</p>
+            </div>
+          </header>
+          <div className="pin-list" style={{ padding: '32px', textAlign: 'center', color: 'var(--muted)' }}>
+            잠시만 기다려 주세요...
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="screen page">
         <header className="page-head page-head--back">
@@ -346,10 +397,10 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
           </button>
           <div className="page-head-text">
             <h1>{activeFolder.name}</h1>
-            <p>저장한 코스 {activeFolder.pins.length}개</p>
+            <p>저장한 코스 {folderPins.length}개</p>
           </div>
           {/* 기본 '내 핀' 폴더는 핀 저장 기본 위치라 삭제 버튼을 숨김 */}
-          {activeFolder.id !== DEFAULT_FOLDER_ID && (
+          {activeFolder.id !== DEFAULT_FOLDER_ID && activeFolder.name !== '내 핀' && activeFolder.sortOrder !== 0 && (
             <button type="button" className="danger-link folder-delete" onClick={() => setConfirmDeleteFolder(true)}>
               폴더 삭제
             </button>
@@ -488,7 +539,7 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
               onClick={(event) => event.stopPropagation()}
             >
               <h2 id="pin-delete-title">저장한 코스를 삭제할까요?</h2>
-              <strong>{confirmDeletePin.title}</strong>
+              <strong>{formatPinTitle(confirmDeletePin.title, confirmDeletePin.durationMin)}</strong>
               <p>삭제한 코스는 폴더에서 사라져요.</p>
               <div className="pin-dialog-actions">
                 <button type="button" className="btn btn-ghost" onClick={() => setConfirmDeletePin(null)}>취소</button>
@@ -513,8 +564,8 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
               <h2 id="folder-delete-title">폴더를 삭제할까요?</h2>
               <strong>{activeFolder.name}</strong>
               <p>
-                {activeFolder.pins.length > 0
-                  ? `폴더 안의 저장 코스 ${activeFolder.pins.length}개도 함께 삭제돼요.`
+                {folderPins.length > 0
+                  ? `폴더 안의 저장 코스 ${folderPins.length}개도 함께 삭제돼요.`
                   : '삭제한 폴더는 되돌릴 수 없어요.'}
               </p>
               <div className="pin-dialog-actions">
@@ -544,7 +595,7 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
               <span className="folder-icon"><Icon name="bookmark" size={18} /></span>
               <span className="folder-text">
                 <strong>{folder.name}</strong>
-                <small>저장 코스 {folder.pins.length}개</small>
+                <small>저장 코스 {(folder.pins || folder.courses || []).length}개</small>
               </span>
               <Icon name="chevron-right" size={18} />
             </button>
