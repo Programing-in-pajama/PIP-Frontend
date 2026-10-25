@@ -92,25 +92,17 @@ function FindIdForm({ onBack, onDone }) {
       console.log('🔄 상태 업데이트:', { codeSent: true, verified: false, isSending: false });
       console.groupEnd();
 
-      if (serverCode) {
-        setEmailHint({
-          text: res?.emailSent
-            ? (codeSent ? `인증번호를 재전송했어요! 메일함을 확인해 주세요. [인증번호: ${serverCode}]` : `인증번호를 발송했어요. 메일함을 확인해 주세요. [인증번호: ${serverCode}]`)
-            : (codeSent ? `새 인증번호가 재전송되었어요. [인증번호: ${serverCode}] (자동 입력 완료)` : `인증번호가 발급되었어요. [인증번호: ${serverCode}] (자동 입력 완료)`),
-          ok: true
-        });
-        setCode(String(serverCode));
-        setCodeHint({
-          text: codeSent
-            ? '새 인증번호가 자동 입력되었어요. 바로 [인증 확인] 버튼을 눌러주세요.'
-            : '인증번호가 자동 입력되었어요. 바로 [인증 확인] 버튼을 눌러주세요.',
-          ok: true
-        });
-      } else if (res?.emailSent) {
-        setEmailHint({ text: codeSent ? '인증번호를 재전송했어요! 메일함을 확인해 주세요.' : '인증번호를 발송했어요. 메일함을 확인해 주세요.', ok: true });
-      } else {
-        setEmailHint({ text: res?.message || '인증번호를 발송했어요. 메일함을 확인해 주세요.', ok: true });
-      }
+      setEmailHint({
+        text: codeSent
+          ? '인증번호를 재전송했어요! 메일함을 확인해 주세요.'
+          : '인증번호가 이메일로 발송되었어요. 메일함을 확인해 주세요.',
+        ok: true
+      });
+      setCode('');
+      setCodeHint({
+        text: '메일로 도착한 6자리 인증번호를 입력해 주세요.',
+        ok: true
+      });
     } catch (err) {
       console.group(`❌ [아이디 찾기] 이메일 인증번호 전송 실패 (${new Date().toISOString()})`);
       console.error('HTTP 상태코드:', err?.status || '네트워크 오류');
@@ -261,6 +253,7 @@ function FindIdForm({ onBack, onDone }) {
           placeholder="인증번호 6자리"
           inputMode="numeric"
           maxLength={6}
+          autoComplete="off"
           value={code}
           onChange={(e) => {
             setCode(e.target.value.replace(/\D/g, ''));
@@ -361,25 +354,18 @@ function FindPasswordForm({ initialLoginId, onBack, onDone }) {
       console.log('🔄 상태 업데이트:', { sentTo: id, verified: false, isSending: false });
       console.groupEnd();
 
-      if (serverCode) {
-        setIdHint({
-          text: res?.emailSent
-            ? (sentTo ? `인증번호를 재전송했어요! 메일함을 확인해 주세요. [인증번호: ${serverCode}]` : `등록된 이메일로 인증번호를 발송했어요. [인증번호: ${serverCode}]`)
-            : (sentTo ? `새 인증번호가 재전송되었어요. [인증번호: ${serverCode}] (자동 입력 완료)` : `인증번호가 발급되었어요. [인증번호: ${serverCode}] (자동 입력 완료)`),
-          ok: true
-        });
-        setCode(String(serverCode));
-        setCodeHint({
-          text: sentTo
-            ? '새 인증번호가 자동 입력되었어요. 바로 [인증 확인] 버튼을 눌러주세요.'
-            : '인증번호가 자동 입력되었어요. 바로 [인증 확인] 버튼을 눌러주세요.',
-          ok: true
-        });
-      } else if (res?.emailSent) {
-        setIdHint({ text: sentTo ? '인증번호를 재전송했어요! 메일함을 확인해 주세요.' : '등록된 이메일로 인증번호를 발송했어요. 메일함을 확인해 주세요.', ok: true });
-      } else {
-        setIdHint({ text: res?.message || '등록된 이메일로 인증번호를 발송했어요. 메일함을 확인해 주세요.', ok: true });
-      }
+      const maskedEmail = res?.maskedEmail;
+      setIdHint({
+        text: sentTo
+          ? (maskedEmail ? `등록된 이메일(${maskedEmail})로 인증번호를 재전송했어요! 메일함을 확인해 주세요.` : '인증번호를 재전송했어요! 메일함을 확인해 주세요.')
+          : (maskedEmail ? `등록된 이메일(${maskedEmail})로 인증번호를 발송했어요. 메일함을 확인해 주세요.` : '등록된 이메일로 인증번호를 발송했어요. 메일함을 확인해 주세요.'),
+        ok: true
+      });
+      setCode('');
+      setCodeHint({
+        text: '메일로 도착한 6자리 인증번호를 입력해 주세요.',
+        ok: true
+      });
     } catch (err) {
       console.group(`❌ [비밀번호 찾기] 인증번호 전송 실패 (${new Date().toISOString()})`);
       console.error('HTTP 상태코드:', err?.status || '네트워크 오류');
@@ -519,6 +505,7 @@ function FindPasswordForm({ initialLoginId, onBack, onDone }) {
           placeholder="인증번호 6자리"
           inputMode="numeric"
           maxLength={6}
+          autoComplete="off"
           value={code}
           onChange={(e) => {
             setCode(e.target.value.replace(/\D/g, ''));

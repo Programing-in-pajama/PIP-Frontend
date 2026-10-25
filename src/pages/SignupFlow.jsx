@@ -138,25 +138,17 @@ export default function SignupFlow({ onBack, onComplete, onFindAccount, initialD
       console.log('🔄 상태 업데이트:', { codeSent: true, verified: false, isSending: false });
       console.groupEnd();
 
-      if (serverCode) {
-        setEmailHint({
-          text: res?.emailSent
-            ? (codeSent ? `인증번호를 재전송했어요! 메일함을 확인해 주세요. [인증번호: ${serverCode}]` : `인증번호를 발송했어요. 메일함을 확인해 주세요. [인증번호: ${serverCode}]`)
-            : (codeSent ? `새 인증번호가 재전송되었어요. [인증번호: ${serverCode}] (자동 입력 완료)` : `인증번호가 발급되었어요. [인증번호: ${serverCode}] (자동 입력 완료)`),
-          ok: true
-        });
-        setForm((prev) => ({ ...prev, email: cleanEmail, code: String(serverCode) }));
-        setCodeHint({
-          text: codeSent
-            ? '새 인증번호가 자동 입력되었어요. 바로 [인증 확인] 버튼을 눌러주세요.'
-            : '인증번호가 자동 입력되었어요. 바로 [인증 확인] 버튼을 눌러주세요.',
-          ok: true
-        });
-      } else if (res?.emailSent) {
-        setEmailHint({ text: codeSent ? '인증번호를 재전송했어요! 메일함을 확인해 주세요.' : '인증번호가 이메일로 발송되었어요. 메일함을 확인해 주세요.', ok: true });
-      } else {
-        setEmailHint({ text: res?.message || '인증번호가 발송되었어요. 메일함을 확인해 주세요.', ok: true });
-      }
+      setEmailHint({
+        text: codeSent
+          ? '인증번호를 재전송했어요! 메일함을 확인해 주세요.'
+          : '인증번호가 이메일로 발송되었어요. 메일함을 확인해 주세요.',
+        ok: true
+      });
+      setForm((prev) => ({ ...prev, email: cleanEmail, code: '' }));
+      setCodeHint({
+        text: '메일로 도착한 6자리 인증번호를 입력해 주세요.',
+        ok: true
+      });
     } catch (error) {
       console.group(`❌ [회원가입] 이메일 인증번호 전송 실패 (${new Date().toISOString()})`);
       console.error('HTTP 상태코드:', error?.status || '네트워크 오류');
@@ -173,14 +165,11 @@ export default function SignupFlow({ onBack, onComplete, onFindAccount, initialD
         setEmailHint({ text: '이미 가입된 이메일입니다. 아이디/비밀번호 찾기를 이용해 주세요.', ok: false });
         return;
       }
-      // 백엔드가 아직 연결되지 않은 상태에서도 가입 흐름을 확인할 수 있게 개발용 코드 지원
-      setCodeSent(true);
-      setVerified(false);
-      setDemoCode(true);
-      setEmailHint({ text: '인증번호가 발송되었어요. [인증번호: 123456]', ok: true });
-      setForm((prev) => ({ ...prev, email: cleanEmail, code: '123456' }));
-      setCodeHint({ text: '개발용 인증번호가 입력되었어요. [인증 확인]을 눌러주세요.', ok: true });
-      console.warn('⚠️ [회원가입] 메일 서버 대신 개발용 인증번호를 사용합니다:', error.message);
+
+      setEmailHint({
+        text: error.message || '인증번호 발송에 실패했습니다. 다시 시도해 주세요.',
+        ok: false
+      });
     } finally {
       setIsSending(false);
     }
@@ -379,6 +368,7 @@ export default function SignupFlow({ onBack, onComplete, onFindAccount, initialD
                   placeholder="인증번호 6자리"
                   inputMode="numeric"
                   maxLength={6}
+                  autoComplete="off"
                   value={form.code}
                   onChange={(event) => update('code', event.target.value.replace(/\D/g, ''))}
                 />
