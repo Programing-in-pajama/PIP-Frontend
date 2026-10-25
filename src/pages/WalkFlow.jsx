@@ -529,6 +529,12 @@ export default function WalkFlow({
                 <p className="restaurant-address">{selectedRoute.restaurant.address || selectedRoute.restaurant.category}</p>
               </div>
 
+              {selectedRoute.restaurant.substituteNotice && (
+                <div style={{ background: '#fef3c7', color: '#92400e', padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, margin: '8px 0 12px', border: '1px solid #fde68a' }}>
+                  📢 {selectedRoute.restaurant.substituteNotice}
+                </div>
+              )}
+
               {selectedRoute.restaurant.threshold && (
                 <div className="disease-threshold-box">
                   <div className="threshold-title">
@@ -548,7 +554,14 @@ export default function WalkFlow({
                   {selectedRoute.restaurant.foods.map((food, idx) => (
                     <div key={idx} className="food-item-card">
                       <div className="food-item-header">
-                        <strong className="food-name">{food.name}</strong>
+                        <strong className="food-name">
+                          {food.name}
+                          {food.isSubstitute && (
+                            <span style={{ marginLeft: '6px', fontSize: '11px', background: '#dcfce7', color: '#166534', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                              추천 메뉴
+                            </span>
+                          )}
+                        </strong>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span className="food-cal">{food.calories} kcal</span>
                           <span className={`food-grade-badge food-grade-badge--${food.grade || 'green'}`}>

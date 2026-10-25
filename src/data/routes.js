@@ -343,6 +343,7 @@ export function getRoutes(region = DEFAULT_REGION, minutes = 25, userDiseases = 
         badgeLabel: dynamicBadgeLabel,
         threshold: evaluatedRest.threshold,
         bestFood: evaluatedRest.bestFood,
+        substituteNotice: evaluatedRest.substituteNotice,
         lat: evaluatedRest.location?.lat,
         lng: evaluatedRest.location?.lng,
         isSafeRestaurant: evaluatedRest.isSafeRestaurant,
