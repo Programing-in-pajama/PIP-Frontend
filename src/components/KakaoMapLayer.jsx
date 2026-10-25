@@ -247,7 +247,7 @@ export default function KakaoMapLayer({
           position: restPos,
           content: `
             <div style="background: #ffffff; color: #111827; border: 2px solid ${gradeColor}; font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.18); display: flex; align-items: center; gap: 5px; white-space: nowrap; transform: translateY(-8px);">
-              <span>🍴</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${gradeColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M18 2v6a3 3 0 0 1-3 3 3 3 0 0 1-3-3V2"/><path d="M15 11v11"/><path d="M5 2v20"/><path d="M5 2c2.5 0 4 1.5 4 4s-1.5 4-4 4"/></svg>
               <span>${route.restaurant.name}</span>
               <span style="background: ${gradeColor}18; color: ${gradeColor}; padding: 1px 6px; border-radius: 8px; font-size: 10px; font-weight: 800;">${gradeDot} ${badgeText}</span>
             </div>

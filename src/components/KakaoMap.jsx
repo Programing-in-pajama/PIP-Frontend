@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import Icon from './Icons';
 
 // 카카오 지도 기본 중심 좌표 (역곡역 기준 - 피그마 시안)
 const DEFAULT_CENTER = { lat: 37.4851, lng: 126.8117 };
@@ -235,7 +236,9 @@ export default function KakaoMap({
 
       {loadError && (
         <div style={{ position: 'absolute', inset: 0, background: '#fef2f2', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', textAlign: 'center', zIndex: 10 }}>
-          <div style={{ fontSize: '28px', marginBottom: '8px' }}>⚠️</div>
+          <div style={{ marginBottom: '8px', display: 'flex', justifyContent: 'center', color: '#dc2626' }}>
+            <Icon name="alert" size={30} />
+          </div>
           <div style={{ fontSize: '13px', color: '#b91c1c', fontWeight: 600, lineHeight: 1.5, marginBottom: '12px' }}>
             {loadError}
           </div>

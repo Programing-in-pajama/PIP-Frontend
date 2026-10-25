@@ -350,7 +350,7 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
             </span>
             {confirmPin.restaurant && (
               <span style={{ color: 'var(--emerald-dark)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span>🍴</span>
+                <Icon name="utensils" size={13} />
                 <span>{confirmPin.restaurant.name}</span>
                 <span style={{ fontSize: '10.5px', background: 'var(--emerald-soft)', padding: '1px 6px', borderRadius: '4px' }}>
                   {confirmPin.restaurant.dot || '🟢'} {confirmPin.restaurant.badgeLabel || '안심식당'}
@@ -480,7 +480,7 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
                   </span>
                   {pin.hasRestaurant && pin.restaurant && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#16a34a', fontWeight: 600, marginTop: '2px' }}>
-                      <span>🍴</span>
+                      <Icon name="utensils" size={13} />
                       <span>{pin.restaurant.name}</span>
                       <span style={{ fontSize: '10px', background: 'rgba(22,163,74,0.1)', padding: '1px 5px', borderRadius: '4px' }}>
                         {pin.restaurant.dot || '🟢'} {pin.restaurant.badgeLabel || '안심식당'}

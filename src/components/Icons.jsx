@@ -194,6 +194,49 @@ export function Icon({ name, size = 20, className = '', strokeWidth }) {
           <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3" />
         </svg>
       );
+    case 'crosshair':
+      return (
+        <svg {...props}>
+          <circle cx="12" cy="12" r="8" />
+          <line x1="12" y1="2" x2="12" y2="6" />
+          <line x1="12" y1="18" x2="12" y2="22" />
+          <line x1="2" y1="12" x2="6" y2="12" />
+          <line x1="18" y1="12" x2="22" y2="12" />
+          <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+        </svg>
+      );
+    case 'volume':
+      return (
+        <svg {...props}>
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+        </svg>
+      );
+    case 'volume-x':
+      return (
+        <svg {...props}>
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+          <line x1="22" y1="9" x2="16" y2="15" />
+          <line x1="16" y1="9" x2="22" y2="15" />
+        </svg>
+      );
+    case 'utensils':
+    case 'restaurant':
+      return (
+        <svg {...props}>
+          <path d="M18 2v6a3 3 0 0 1-3 3 3 3 0 0 1-3-3V2" />
+          <path d="M15 11v11" />
+          <path d="M5 2v20" />
+          <path d="M5 2c2.5 0 4 1.5 4 4s-1.5 4-4 4" />
+        </svg>
+      );
+    case 'navigation':
+      return (
+        <svg {...props}>
+          <polygon points="3 11 22 2 13 21 11 13 3 11" />
+        </svg>
+      );
     default:
       return null;
   }

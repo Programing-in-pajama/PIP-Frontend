@@ -547,7 +547,7 @@ function App() {
             gap: '6px',
             boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
           }}>
-            <span>⚡ 인터넷 연결이 끊겼습니다. 저장된 캐시 모드로 안전하게 작동합니다.</span>
+            <span>인터넷 연결이 끊겼습니다. 저장된 캐시 모드로 안전하게 작동합니다.</span>
           </div>
         )}
         <ErrorBoundary onReset={() => setScreen('main')}>

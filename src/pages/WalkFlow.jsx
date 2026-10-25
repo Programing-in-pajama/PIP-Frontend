@@ -40,11 +40,20 @@ function renderManeuverIcon(maneuver) {
         </svg>
       );
     case 'crosswalk':
-      return <span style={{ fontSize: '20px' }}>🚸</span>;
+      return (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 19h16M4 15h16M4 11h16M4 7h16" />
+        </svg>
+      );
     case 'restaurant':
-      return <span style={{ fontSize: '20px' }}>🍴</span>;
+      return <Icon name="utensils" size={22} />;
     case 'destination':
-      return <span style={{ fontSize: '20px' }}>🏁</span>;
+      return (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" fill="currentColor" fillOpacity="0.2" />
+          <line x1="4" y1="22" x2="4" y2="15" />
+        </svg>
+      );
     default:
       return (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
@@ -814,12 +823,14 @@ export default function WalkFlow({
         <div className="filter-chips">
           <span className="chip chip--active">{region.short}</span>
           <span className="chip chip--active">약 {minutes}분</span>
-          <span className="chip chip--active">{includeRestaurant ? '🍴 식당 포함' : '산책만'}</span>
+          <span className="chip chip--active" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            {includeRestaurant ? <><Icon name="utensils" size={13} /> 식당 포함</> : '산책만'}
+          </span>
         </div>
 
         {userDiseases.length > 0 && (
           <div className="health-match-notice">
-            <span className="health-match-icon">🩺</span>
+            <span className="health-match-icon"><Icon name="leaf" size={18} /></span>
             <div>
               <strong>기저질환 맞춤 3색 신호등 필터링 적용 중</strong>
               <p>회원님의 건강 정보({userDiseases.length}개 질환) 1끼 임계치를 엄격 병합하여 가장 안전한 안심 메뉴를 우선 추천해요.</p>
@@ -840,7 +851,10 @@ export default function WalkFlow({
                   </span>
                   {route.restaurant && (
                     <div className="course-restaurant-badge">
-                      <span>🍴 {route.restaurant.name}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <Icon name="utensils" size={12} />
+                        <span>{route.restaurant.name}</span>
+                      </span>
                       <span className={`nutrition-pill nutrition-pill--${route.restaurant.grade || 'green'}`}>
                         {route.restaurant.dot || '🟢'} {route.restaurant.badgeLabel || '안심식당'}
                       </span>
@@ -927,7 +941,10 @@ export default function WalkFlow({
                 }}
               >
                 <div className="restaurant-title-row">
-                  <span className="restaurant-badge">🍴 추천 식당</span>
+                  <span className="restaurant-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <Icon name="utensils" size={13} />
+                    <span>추천 식당</span>
+                  </span>
                   <strong>{selectedRoute.restaurant.name}</strong>
                   <span className={`nutrition-pill nutrition-pill--${selectedRoute.restaurant.grade || 'green'}`}>
                     {selectedRoute.restaurant.dot || '🟢'} {selectedRoute.restaurant.badgeLabel || '안심식당'}
@@ -970,15 +987,17 @@ export default function WalkFlow({
               {showNutritionDetail && (
                 <div style={{ marginTop: '14px' }}>
                   {selectedRoute.restaurant.substituteNotice && (
-                    <div style={{ background: '#fef3c7', color: '#92400e', padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, marginBottom: '12px', border: '1px solid #fde68a' }}>
-                      📢 {selectedRoute.restaurant.substituteNotice}
+                    <div style={{ background: '#fef3c7', color: '#92400e', padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, marginBottom: '12px', border: '1px solid #fde68a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Icon name="alert" size={15} />
+                      <span>{selectedRoute.restaurant.substituteNotice}</span>
                     </div>
                   )}
 
                   {selectedRoute.restaurant.threshold && (
                     <div className="disease-threshold-box">
-                      <div className="threshold-title">
-                        <span>🩺 {selectedRoute.restaurant.threshold.isDefault ? '일반 성인 1끼 권장 기준' : `${selectedRoute.restaurant.threshold.name} 1끼 상한`}</span>
+                      <div className="threshold-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Icon name="leaf" size={14} />
+                        <span>{selectedRoute.restaurant.threshold.isDefault ? '일반 성인 1끼 권장 기준' : `${selectedRoute.restaurant.threshold.name} 1끼 상한`}</span>
                       </div>
                       <div className="threshold-chips">
                         <span>나트륨 ≤ {selectedRoute.restaurant.threshold.sodium}mg</span>
@@ -1082,7 +1101,7 @@ export default function WalkFlow({
             <div
               className={`nav-turn-icon-box ${
                 activeGuidance.maneuver === 'destination'
-                  ? 'nav-turn-icon-box--green'
+                  ? 'nav-turn-icon-box--destination'
                   : activeGuidance.maneuver === 'restaurant'
                     ? 'nav-turn-icon-box--restaurant'
                     : ''
@@ -1093,9 +1112,13 @@ export default function WalkFlow({
             <div className="nav-turn-text">
               <div className="nav-turn-dist-row">
                 <span className="nav-turn-dist-big">{activeGuidance.distanceText}</span>
-                <span className="nav-turn-sub">{activeGuidance.subInstruction || selectedRoute?.roadType || ''}</span>
+                {activeGuidance.subInstruction && (
+                  <span className="nav-turn-sub">{activeGuidance.subInstruction}</span>
+                )}
               </div>
-              <h2 className="nav-turn-title">{activeGuidance.instruction}</h2>
+              <h2 className="nav-turn-title">
+                {activeGuidance.instruction || formatCourseTitle(selectedRoute?.title, selectedRoute?.durationMin)}
+              </h2>
             </div>
           </div>
 
@@ -1106,12 +1129,12 @@ export default function WalkFlow({
               className={`nav-action-btn ${!isVoiceMuted ? 'is-active' : ''}`}
               onClick={() => {
                 setIsVoiceMuted((prev) => !prev);
-                setToast(!isVoiceMuted ? '음성 안내를 껐어요 🔇' : '음성 안내를 켰어요 🔊');
+                setToast(!isVoiceMuted ? '음성 안내를 껐어요' : '음성 안내를 켰어요');
               }}
               aria-label={isVoiceMuted ? '음성 안내 켜기' : '음성 안내 끄기'}
               title={isVoiceMuted ? '음성 안내 켜기' : '음성 안내 끄기'}
             >
-              {isVoiceMuted ? '🔇' : '🔊'}
+              <Icon name={isVoiceMuted ? 'volume-x' : 'volume'} size={18} />
             </button>
 
             {/* 핀 저장 */}
@@ -1126,10 +1149,11 @@ export default function WalkFlow({
           </div>
         </div>
 
-        {/* 보행 정보 & 모의 주행 모드 전환 바 */}
+        {/* 보행 정보 & 모의 주행 모드 전환 바 (하단 바텀 시트와 중복되는 소요시간/걸은 거리 제거, 코스 정보 및 GPS 상태 표출) */}
         <div className="nav-sim-bar">
-          <span style={{ color: '#cbd5e1', fontWeight: 600 }}>
-            ⏱ {formatClock(walkSeconds)} · 🏃 {displayMovedKm.toFixed(2)}km
+          <span className="nav-course-badge">
+            <Icon name="pin" size={13} />
+            <span>{formatCourseTitle(selectedRoute?.title, selectedRoute?.durationMin)}</span>
           </span>
           <button
             type="button"
@@ -1138,10 +1162,11 @@ export default function WalkFlow({
               const nextMode = navMode === 'gps' ? 'simulation' : 'gps';
               setNavMode(nextMode);
               setFollowUser(true);
-              setToast(nextMode === 'simulation' ? '🚶 모의 보행을 시작합니다' : '📍 실제 GPS를 추적합니다');
+              setToast(nextMode === 'simulation' ? '모의 보행을 시작합니다' : '실시간 GPS를 추적합니다');
             }}
           >
-            {navMode === 'simulation' ? '🚶 모의 보행 중 (탭하여 GPS 전환)' : '📍 실제 GPS 추적 중'}
+            <span className={`status-indicator-dot ${navMode === 'gps' ? 'pulse' : ''}`} />
+            <span>{navMode === 'simulation' ? '모의 보행' : '실시간 GPS 추적 중'}</span>
           </button>
         </div>
       </div>
@@ -1153,12 +1178,12 @@ export default function WalkFlow({
           className={`nav-floating-btn ${followUser ? 'is-active' : ''}`}
           onClick={() => {
             setFollowUser(true);
-            setToast('내 위치로 지도를 맞춥니다 🎯');
+            setToast('내 위치로 지도를 맞춥니다');
           }}
           aria-label="내 위치로 지도 맞춤"
           title="내 위치로"
         >
-          🎯
+          <Icon name="crosshair" size={20} />
         </button>
       </div>
 
