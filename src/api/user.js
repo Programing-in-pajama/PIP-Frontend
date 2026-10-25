@@ -58,9 +58,9 @@ export const clearProfileCache = () => {
 // 회원 정보 API (Supabase PostgreSQL DB 직접 연동 및 로컬 캐시 동기화)
 export const getProfile = async (token, { force = false } = {}) => {
   const currentUserId = localStorage.getItem('soyo-current-user-id') || localStorage.getItem('soyo-saved-id');
+  const currentEmail = localStorage.getItem('soyo-current-email');
 
   // 1. 이미 캐시된 프로필이 있고 강제 새로고침이 아닌 경우 즉시 반환
-  //    (창/탭 이동 시 불필요한 백엔드 중복 요청 및 502 / CORS 차단 콘솔 에러 원천 방지)
   const cached = inMemoryProfile || readStoredProfile();
   if (!force && cached) {
     inMemoryProfile = cached;
@@ -68,30 +68,35 @@ export const getProfile = async (token, { force = false } = {}) => {
   }
 
   // 2. 이미 동일한 프로필 조회가 진행 중이면 기존 프로미스 재사용
-  if (pendingFetchPromise) {
+  if (pendingFetchPromise && !force) {
     return pendingFetchPromise;
   }
 
   const fetchTask = async () => {
     if (currentUserId) {
       try {
-        console.log('🚀 [서버 DB] 마이페이지 프로필 조회 요청:', currentUserId);
-        const res = await getUserProfile(currentUserId);
+        console.log('🚀 [서버 DB] 마이페이지 프로필 조회 요청:', currentUserId, currentEmail);
+        const res = await getUserProfile(currentUserId, currentEmail);
         const p = res?.profile || res?.data;
         if (res?.success && p) {
+          const medNames = (Array.isArray(p.medicationNames) && p.medicationNames.length > 0)
+            ? p.medicationNames
+            : (Array.isArray(p.medications)
+                ? p.medications.map((m) => (typeof m === 'object' && m ? m.name : String(m))).filter(Boolean)
+                : []);
+
           const profile = {
-            userId: p.userId,
+            userId: p.userId || currentUserId,
             userName: p.userName || '소요 여행자',
-            email: p.email || localStorage.getItem('soyo-current-email') || '',
+            email: p.email || currentEmail || '',
             profileImage: null,
             birthDate: p.birthDate ? String(p.birthDate).split('T')[0] : '1970-01-01',
             allergies: Array.isArray(p.allergies) ? p.allergies : (p.allergies ? String(p.allergies).split(', ') : []),
             diseaseIds: Array.isArray(p.chronicConditions || p.diseaseIds) ? (p.chronicConditions || p.diseaseIds) : [],
-            medications: [],
-            hasMedication: p.hasMedication
+            medications: medNames,
+            hasMedication: p.hasMedication ?? (medNames.length > 0)
           };
-          const localMock = (await mockGetProfile()).medications ?? [];
-          profile.medications = (Array.isArray(p.medications) ? p.medications : []).map((m) => toMedicationObject(m, localMock));
+
           await mockUpdateProfile(profile);
 
           inMemoryProfile = profile;
@@ -105,7 +110,6 @@ export const getProfile = async (token, { force = false } = {}) => {
           return profile;
         }
       } catch (e) {
-        // 서버 슬립(Render 502/CORS) 또는 일시적 네트워크 장애 시 부드럽게 로컬 캐시 사용
         console.warn('⚠️ [서버 DB] 프로필 조회 대기, 로컬 캐시를 사용합니다:', e.message);
       }
     }
@@ -118,7 +122,10 @@ export const getProfile = async (token, { force = false } = {}) => {
     }
 
     const local = await mockGetProfile();
-    const finalProfile = { ...local, medications: (local.medications ?? []).map((m) => toMedicationObject(m)) };
+    const finalProfile = {
+      ...local,
+      medications: (local.medications ?? []).map((m) => (typeof m === 'object' && m ? m.name : String(m))).filter(Boolean)
+    };
     inMemoryProfile = finalProfile;
     try {
       localStorage.setItem('soyo-user-profile', JSON.stringify(finalProfile));
@@ -137,9 +144,14 @@ export const getProfile = async (token, { force = false } = {}) => {
 
 export const updateProfile = async (token, changes) => {
   const currentUserId = localStorage.getItem('soyo-current-user-id') || localStorage.getItem('soyo-saved-id');
-  const updatedLocal = await mockUpdateProfile(changes);
+  const currentEmail = localStorage.getItem('soyo-current-email');
 
-  inMemoryProfile = { ...(inMemoryProfile || {}), ...updatedLocal };
+  // 1. 현재 로컬 저장 프로필과 변경사항 머지
+  const currentStored = readStoredProfile() || inMemoryProfile || {};
+  const mergedProfile = { ...currentStored, ...changes };
+
+  const updatedLocal = await mockUpdateProfile(mergedProfile);
+  inMemoryProfile = { ...mergedProfile, ...updatedLocal };
   lastFetchTime = Date.now();
   try {
     localStorage.setItem('soyo-user-profile', JSON.stringify(inMemoryProfile));
@@ -147,24 +159,65 @@ export const updateProfile = async (token, changes) => {
     // ignore
   }
 
-  if (currentUserId && changes && (changes.userName || changes.birthDate || changes.diseaseIds || changes.allergies || changes.medications)) {
+  // 2. 서버 DB에 저장 요청 (변경이 요청된 필드만 선별적으로 전송하여 기존 데이터 유실 방지)
+  if (currentUserId && changes) {
     try {
-      console.log('🚀 [서버 DB] 마이페이지 프로필 변경사항 DB 저장 중:', currentUserId);
-      await saveUserProfile({
+      console.log('🚀 [서버 DB] 마이페이지 프로필 변경사항 DB 저장 중:', currentUserId, changes);
+
+      const payload = {
         userId: currentUserId,
-        name: updatedLocal.userName,
-        birth: updatedLocal.birthDate,
-        allergies: updatedLocal.allergies || [],
-        diseases: updatedLocal.diseaseIds || [],
-        medications: updatedLocal.medications || [],
-        noAllergy: (updatedLocal.allergies || []).length === 0,
-        noDisease: (updatedLocal.diseaseIds || []).length === 0,
-        noMedication: (updatedLocal.medications || []).length === 0
-      });
+        email: currentEmail || inMemoryProfile.email || undefined,
+        name: inMemoryProfile.userName,
+        birth: inMemoryProfile.birthDate
+      };
+
+      if (changes.userName !== undefined) payload.name = changes.userName;
+      if (changes.birthDate !== undefined) payload.birth = changes.birthDate;
+
+      if (changes.allergies !== undefined) {
+        payload.allergies = changes.allergies;
+        payload.noAllergy = changes.allergies.length === 0;
+      }
+
+      if (changes.diseaseIds !== undefined || changes.diseases !== undefined) {
+        const d = changes.diseaseIds || changes.diseases;
+        payload.diseases = d;
+        payload.diseaseIds = d;
+        payload.noDisease = d.length === 0;
+      }
+
+      if (changes.medications !== undefined) {
+        const medNames = (changes.medications || []).map((m) => (typeof m === 'object' && m ? m.name : String(m))).filter(Boolean);
+        payload.medications = medNames;
+        payload.noMedication = medNames.length === 0;
+      }
+
+      const res = await saveUserProfile(payload);
+      if (res?.profile || res?.data) {
+        const p = res.profile || res.data;
+        const medNames = (Array.isArray(p.medicationNames) && p.medicationNames.length > 0)
+          ? p.medicationNames
+          : (Array.isArray(p.medications)
+              ? p.medications.map((m) => (typeof m === 'object' && m ? m.name : String(m))).filter(Boolean)
+              : inMemoryProfile.medications);
+
+        const normalized = {
+          ...inMemoryProfile,
+          userName: p.userName || inMemoryProfile.userName,
+          birthDate: p.birthDate ? String(p.birthDate).split('T')[0] : inMemoryProfile.birthDate,
+          allergies: Array.isArray(p.allergies) ? p.allergies : inMemoryProfile.allergies,
+          diseaseIds: Array.isArray(p.chronicConditions || p.diseaseIds) ? (p.chronicConditions || p.diseaseIds) : inMemoryProfile.diseaseIds,
+          medications: medNames,
+          hasMedication: p.hasMedication ?? (medNames.length > 0)
+        };
+        inMemoryProfile = normalized;
+        localStorage.setItem('soyo-user-profile', JSON.stringify(normalized));
+        await mockUpdateProfile(normalized);
+      }
       console.log('✅ [서버 DB] 마이페이지 변경사항 DB 영구 저장 완료');
     } catch (e) {
       console.warn('⚠️ [서버 DB] 마이페이지 프로필 DB 저장 대기 (로컬 캐시 우선 반영):', e.message);
     }
   }
-  return updatedLocal;
+  return inMemoryProfile;
 };

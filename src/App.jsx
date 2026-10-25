@@ -17,6 +17,12 @@ function readStoredLogin() {
 
 function profileFromServer(payload) {
   if (!payload) return null;
+  const medNames = (Array.isArray(payload.medicationNames) && payload.medicationNames.length > 0)
+    ? payload.medicationNames
+    : (Array.isArray(payload.medications)
+        ? payload.medications.map((m) => (typeof m === 'object' && m ? m.name : String(m))).filter(Boolean)
+        : []);
+
   return {
     userId: payload.userId,
     userName: payload.userName || '소요 여행자',
@@ -31,7 +37,8 @@ function profileFromServer(payload) {
     diseaseIds: Array.isArray(payload.chronicConditions || payload.diseaseIds)
       ? payload.chronicConditions || payload.diseaseIds
       : [],
-    medications: Array.isArray(payload.medications) ? payload.medications : [],
+    medications: medNames,
+    hasMedication: payload.hasMedication ?? (medNames.length > 0)
   };
 }
 
@@ -75,13 +82,14 @@ function App() {
   };
 
   const resolveProfile = useCallback(async (user) => {
-    if (user?.profile) return user.profile;
+    if (user?.profile) return profileFromServer(user.profile);
     const id = user?.supabaseUserId || user?.userId || user?.loginId;
-    if (!id) return null;
+    const email = user?.email || localStorage.getItem('soyo-current-email');
+    if (!id && !email) return null;
     try {
-      const res = await getUserProfile(id);
+      const res = await getUserProfile(id || email, email);
       if (res?.success && res.profile) {
-        return profileFromServer({ ...res.profile, userId: id });
+        return profileFromServer({ ...res.profile, userId: res.profile.userId || id });
       }
     } catch (error) {
       console.warn('⚠️ [로그인] 서버 프로필을 불러오지 못했습니다:', error.message);
@@ -101,7 +109,7 @@ function App() {
         ...profile,
         email: profile.email || email,
       });
-      await updateProfile(null, profile);
+      await mockUpdateProfile(profile);
     } else {
       localStorage.removeItem('soyo-user-profile');
     }
@@ -162,21 +170,21 @@ function App() {
       let isNewUser = false;
       let existingProfile = null;
       try {
-        console.log('🚀 [AWS RDS 백엔드] 소셜 사용자 프로필 조회:', userId);
-        const res = await getUserProfile(userId);
+        console.log('🚀 [AWS RDS 백엔드] 소셜 사용자 프로필 조회:', userId, email);
+        const res = await getUserProfile(userId, email);
         if (res?.success && res.profile) {
           const p = res.profile;
           const bDate = p.birthDate ? String(p.birthDate).split('T')[0] : '';
           const hasCustomBirth = bDate && !bDate.startsWith('1970-01-01');
-          const hasDiseases = Array.isArray(p.chronicConditions) && p.chronicConditions.length > 0;
+          const hasDiseases = Array.isArray(p.chronicConditions || p.diseaseIds) && (p.chronicConditions || p.diseaseIds).length > 0;
           const hasAllergies = Array.isArray(p.allergies) && p.allergies.length > 0;
-          const hasMedications = Array.isArray(p.medications) && p.medications.length > 0;
+          const hasMedications = (Array.isArray(p.medications) && p.medications.length > 0) || (Array.isArray(p.medicationNames) && p.medicationNames.length > 0);
 
           // DB에 자동 생성된 기본 더미값(1970-01-01, 건강정보 없음)만 있는 경우 최초 가입자로 판정
           if (!p.age && !hasCustomBirth && !hasDiseases && !hasAllergies && !hasMedications) {
             isNewUser = true;
           } else {
-            existingProfile = profileFromServer({ ...res.profile, userId });
+            existingProfile = profileFromServer({ ...res.profile, userId: res.profile.userId || userId });
           }
         } else {
           isNewUser = true;
@@ -205,7 +213,7 @@ function App() {
             ...existingProfile,
             email: existingProfile.email || email,
           });
-          await updateProfile(null, existingProfile);
+          await mockUpdateProfile(existingProfile);
         }
         setIsLoggedIn(true);
         setAuthNotice('');

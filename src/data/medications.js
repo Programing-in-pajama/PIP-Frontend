@@ -171,7 +171,10 @@ export const MEDICATIONS = [
   },
 ];
 
-export const findMedication = (name) => MEDICATIONS.find((med) => med.name === name);
+export const findMedication = (name) => {
+  const targetName = typeof name === 'object' && name !== null ? (name.name || '') : String(name || '');
+  return MEDICATIONS.find((med) => med.name === targetName);
+};
 
 /** 이름 일부 검색 (기획서: '다이' → 다이아벡스정 등) */
 export const searchMedications = (query) => {
@@ -187,7 +190,9 @@ export const searchMedications = (query) => {
 /** 여러 약물에서 겹치는 성분 찾기 */
 export const findDuplicateIngredients = (names = []) => {
   const count = new Map();
-  names.forEach((name) => {
+  (Array.isArray(names) ? names : []).forEach((item) => {
+    const name = typeof item === 'object' && item !== null ? (item.name || '') : String(item || '');
+    if (!name) return;
     const med = findMedication(name);
     (med?.ingredients ?? []).forEach((ingredient) => {
       if (!count.has(ingredient)) count.set(ingredient, []);

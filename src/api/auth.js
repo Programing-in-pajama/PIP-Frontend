@@ -24,9 +24,10 @@ export async function saveUserProfile(profileData) {
   });
 }
 
-// AWS RDS 사용자 프로필 조회 요청
-export async function getUserProfile(userId) {
-  return await apiFetch(`/api/auth/profile/${encodeURIComponent(userId)}`, {
+// AWS RDS 사용자 프로필 조회 요청 (UUID 및 이메일 조회 지원)
+export async function getUserProfile(userId, email) {
+  const cleanEmail = email ? `?email=${encodeURIComponent(email)}` : '';
+  return await apiFetch(`/api/auth/profile/${encodeURIComponent(userId)}${cleanEmail}`, {
     method: 'GET'
   });
 }

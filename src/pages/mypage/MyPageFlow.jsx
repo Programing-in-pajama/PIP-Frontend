@@ -27,20 +27,19 @@ function MyPageFlow({ session, resetKey, isLoggedIn, onLogin, onLogout }) {
     setActiveScreen('myPage');
   }, [resetKey]);
 
-  // 프로필 데이터 로드 (session 또는 로그인 상태 변경 시에만 실행 — resetKey에 반응하여 중복 fetch하지 않음)
+  // 프로필 데이터 로드 (마이페이지 진입 시 서버 DB 최신 데이터 동기화)
   useEffect(() => {
     if (!isLoggedIn) {
       setProfile(null);
       return;
     }
-    // 이미 프로필이 상태에 있으면 탭 전환 시 불필요한 네트워크 호출 및 로딩 스피너 방지
-    if (profile) return;
 
     let mounted = true;
+    // 캐시된 프로필이 없을 때만 풀스크린 로딩 표시 (있으면 부드러운 백그라운드 갱신)
     if (!profile) setIsLoading(true);
     setError(null);
 
-    getProfile(session?.access_token)
+    getProfile(session?.access_token, { force: true })
       .then((data) => {
         if (mounted && data) setProfile(data);
       })
@@ -56,7 +55,7 @@ function MyPageFlow({ session, resetKey, isLoggedIn, onLogin, onLogout }) {
     return () => {
       mounted = false;
     };
-  }, [session, isLoggedIn]);
+  }, [session, isLoggedIn, resetKey]);
 
   useEffect(() => {
     if (!toast) return undefined;

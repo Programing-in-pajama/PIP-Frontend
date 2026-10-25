@@ -6,9 +6,13 @@ import {
   searchMedications,
 } from '../../data/medications';
 
+const toMedName = (item) => (typeof item === 'object' && item !== null ? (item.name || '') : String(item || '')).trim();
+
 export default function MedicationFlow({ profile = {}, onSave, onBack }) {
   const [screen, setScreen] = useState('manage');
-  const [medications, setMedications] = useState(profile?.medications ?? []);
+  const [medications, setMedications] = useState(() =>
+    (profile?.medications ?? []).map(toMedName).filter(Boolean)
+  );
   const [selected, setSelected] = useState([]);
   const [detailMed, setDetailMed] = useState(null);
   const [query, setQuery] = useState('');
@@ -18,7 +22,7 @@ export default function MedicationFlow({ profile = {}, onSave, onBack }) {
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    setMedications(profile?.medications ?? []);
+    setMedications((profile?.medications ?? []).map(toMedName).filter(Boolean));
   }, [profile?.medications]);
 
   useEffect(() => {
@@ -45,19 +49,22 @@ export default function MedicationFlow({ profile = {}, onSave, onBack }) {
 
   const saveMedications = async (next, message) => {
     setIsSaving(true);
-    const saved = await onSave({ medications: next }, message);
+    const cleaned = next.map(toMedName).filter(Boolean);
+    const saved = await onSave({ medications: cleaned }, message);
     setIsSaving(false);
-    if (saved) setMedications(next);
+    if (saved) setMedications(cleaned);
     return saved;
   };
 
   const removeMedication = async (name) => {
-    const next = medications.filter((item) => item !== name);
+    const target = toMedName(name);
+    const next = medications.filter((item) => toMedName(item) !== target);
     await saveMedications(next, '약물을 삭제했어요');
   };
 
   const commitSelected = async () => {
-    const next = [...medications, ...selected.filter((name) => !medications.includes(name))];
+    const currentList = medications.map(toMedName);
+    const next = [...currentList, ...selected.map(toMedName).filter((name) => !currentList.includes(name))];
     const saved = await saveMedications(next, '복용 약물을 등록했어요');
     if (saved) {
       setSelected([]);
@@ -67,8 +74,9 @@ export default function MedicationFlow({ profile = {}, onSave, onBack }) {
   };
 
   const toggleSelected = (name) => {
+    const target = toMedName(name);
     setSelected((current) =>
-      current.includes(name) ? current.filter((item) => item !== name) : [...current, name],
+      current.includes(target) ? current.filter((item) => item !== target) : [...current, target],
     );
   };
 
@@ -360,7 +368,8 @@ export default function MedicationFlow({ profile = {}, onSave, onBack }) {
       <h2 className="section-count">등록한 약물 <strong>{medications.length}개</strong></h2>
 
       <div className="med-list">
-        {medications.map((name) => {
+        {medications.map((item) => {
+          const name = toMedName(item);
           const med = findMedication(name);
           return (
             <article key={name} className="med-card">
