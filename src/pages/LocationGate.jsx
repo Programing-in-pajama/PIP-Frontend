@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import SoyoMap from '../components/SoyoMap';
 import Icon from '../components/Icons';
+import { reverseGeocodeCoords } from '../lib/kakao';
 
 export default function LocationGate({ onAllowed }) {
   const [status, setStatus] = useState('prompt'); // prompt | loading | denied | error
@@ -44,8 +45,18 @@ export default function LocationGate({ onAllowed }) {
         resolved = true;
         localStorage.setItem('soyo-location-allowed', 'true');
         sessionStorage.setItem('soyo-location-allowed', 'true');
-        sessionStorage.setItem('soyo-location-lat', String(position.coords.latitude));
-        sessionStorage.setItem('soyo-location-lng', String(position.coords.longitude));
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        sessionStorage.setItem('soyo-location-lat', String(lat));
+        sessionStorage.setItem('soyo-location-lng', String(lng));
+        reverseGeocodeCoords(lat, lng)
+          .then((res) => {
+            if (res?.dong) {
+              sessionStorage.setItem('soyo-current-dong', res.dong);
+              sessionStorage.setItem('soyo-current-address', res.fullName);
+            }
+          })
+          .catch(() => {});
         onAllowed();
       },
       (error) => {

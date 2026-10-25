@@ -86,26 +86,7 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
     return () => clearTimeout(timer);
   }, [toast]);
 
-  const isPoppingHistoryRef = useRef(false);
 
-  // 브라우저 뒤로가기 시 로그인 화면으로 튕기지 않고 이전 핀 뷰(목록)로 자연스럽게 이동
-  useEffect(() => {
-    if (view !== 'list') {
-      window.history.pushState({ pinView: view }, '');
-      const handlePop = () => {
-        isPoppingHistoryRef.current = true;
-        setView('list');
-      };
-      window.addEventListener('popstate', handlePop, { once: true });
-      return () => {
-        window.removeEventListener('popstate', handlePop);
-        if (!isPoppingHistoryRef.current && window.history.state?.pinView) {
-          window.history.back();
-        }
-        isPoppingHistoryRef.current = false;
-      };
-    }
-  }, [view]);
 
   const activeFolder = useMemo(() => {
     if (!folderId || !Array.isArray(folders) || folders.length === 0) return null;

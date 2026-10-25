@@ -22,6 +22,18 @@ import {
   removeRoutePinEverywhere,
   saveRoutePin,
 } from '../api/pins';
+import { reverseGeocodeCoords } from '../lib/kakao';
+
+function buildUserRegion(dong, fullName, lat, lng) {
+  return {
+    id: 'my-location',
+    name: fullName || `${dong} 주변`,
+    short: dong,
+    distanceKm: 0,
+    center: { lat: Number(lat), lng: Number(lng) },
+    polygon: '118,205 292,118 342,250 176,330',
+  };
+}
 
 function renderManeuverIcon(maneuver) {
   switch (maneuver) {
@@ -92,11 +104,39 @@ export default function WalkFlow({
   }, [userProfile]);
 
   const [step, setStep] = useState(startRoute ? 'walking' : 'home');
-  const [region, setRegion] = useState(DEFAULT_REGION);
+  const [region, setRegion] = useState(() => {
+    const cachedDong = sessionStorage.getItem('soyo-current-dong');
+    const cachedAddr = sessionStorage.getItem('soyo-current-address');
+    const cachedLat = Number(sessionStorage.getItem('soyo-location-lat'));
+    const cachedLng = Number(sessionStorage.getItem('soyo-location-lng'));
+    if (cachedDong && cachedLat && cachedLng) {
+      return buildUserRegion(cachedDong, cachedAddr, cachedLat, cachedLng);
+    }
+    return DEFAULT_REGION;
+  });
+  const [detectedRegion, setDetectedRegion] = useState(() => {
+    const cachedDong = sessionStorage.getItem('soyo-current-dong');
+    const cachedAddr = sessionStorage.getItem('soyo-current-address');
+    const cachedLat = Number(sessionStorage.getItem('soyo-location-lat'));
+    const cachedLng = Number(sessionStorage.getItem('soyo-location-lng'));
+    if (cachedDong && cachedLat && cachedLng) {
+      return buildUserRegion(cachedDong, cachedAddr, cachedLat, cachedLng);
+    }
+    return null;
+  });
   const [regionQuery, setRegionQuery] = useState('');
   const [minutes, setMinutes] = useState(25);
   const [includeRestaurant, setIncludeRestaurant] = useState(true);
-  const [routes, setRoutes] = useState(() => getRoutes(DEFAULT_REGION, 25, userDiseases));
+  const [routes, setRoutes] = useState(() => {
+    const cachedDong = sessionStorage.getItem('soyo-current-dong');
+    const cachedAddr = sessionStorage.getItem('soyo-current-address');
+    const cachedLat = Number(sessionStorage.getItem('soyo-location-lat'));
+    const cachedLng = Number(sessionStorage.getItem('soyo-location-lng'));
+    const initialReg = (cachedDong && cachedLat && cachedLng)
+      ? buildUserRegion(cachedDong, cachedAddr, cachedLat, cachedLng)
+      : DEFAULT_REGION;
+    return getRoutes(initialReg, 25, userDiseases);
+  });
   const [selectedRoute, setSelectedRoute] = useState(startRoute);
   const [walkSeconds, setWalkSeconds] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -394,13 +434,72 @@ export default function WalkFlow({
     }
   }, [folderSelectRoute]);
 
+  // 🌿 실제 사용자 GPS 좌표 기반 거주지/현재 위치 '동' 역지오코딩 동기화
+  useEffect(() => {
+    const cachedLat = Number(sessionStorage.getItem('soyo-location-lat'));
+    const cachedLng = Number(sessionStorage.getItem('soyo-location-lng'));
+
+    const applyDong = (dong, fullName, lat, lng) => {
+      sessionStorage.setItem('soyo-current-dong', dong);
+      sessionStorage.setItem('soyo-current-address', fullName);
+      const userReg = buildUserRegion(dong, fullName, lat, lng);
+      setDetectedRegion(userReg);
+      setRegion((prev) => {
+        if (!prev || prev.id === DEFAULT_REGION.id || prev.id === 'my-location') {
+          return userReg;
+        }
+        return prev;
+      });
+      setRoutes((prevRoutes) => {
+        if (!prevRoutes || prevRoutes.length === 0 || prevRoutes[0]?.regionId === DEFAULT_REGION.id) {
+          return getRoutes(userReg, minutes, userDiseases, includeRestaurant);
+        }
+        return prevRoutes;
+      });
+    };
+
+    if (cachedLat && cachedLng) {
+      reverseGeocodeCoords(cachedLat, cachedLng).then((res) => {
+        if (res?.dong) {
+          applyDong(res.dong, res.fullName, cachedLat, cachedLng);
+        }
+      });
+    } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          sessionStorage.setItem('soyo-location-lat', String(latitude));
+          sessionStorage.setItem('soyo-location-lng', String(longitude));
+          reverseGeocodeCoords(latitude, longitude).then((res) => {
+            if (res?.dong) {
+              applyDong(res.dong, res.fullName, latitude, longitude);
+            }
+          });
+        },
+        () => {},
+        { enableHighAccuracy: false, timeout: 3500, maximumAge: 60000 }
+      );
+    }
+  }, []);
+
   const filteredRegions = useMemo(() => {
+    const list = detectedRegion
+      ? [
+          {
+            ...detectedRegion,
+            name: `내 현재 위치 (${detectedRegion.name})`,
+            short: detectedRegion.short,
+          },
+          ...REGIONS.filter((r) => r.short !== detectedRegion.short),
+        ]
+      : REGIONS;
+
     const keyword = regionQuery.trim();
-    if (!keyword) return REGIONS;
-    return REGIONS.filter(
+    if (!keyword) return list;
+    return list.filter(
       (item) => item.name.includes(keyword) || item.short.includes(keyword),
     );
-  }, [regionQuery]);
+  }, [regionQuery, detectedRegion]);
 
   const pinned = useMemo(
     () => (selectedRoute ? isRoutePinned(userId, selectedRoute.id, selectedRoute.title) : false),
@@ -667,7 +766,7 @@ export default function WalkFlow({
             <input
               value={regionQuery}
               onChange={(event) => setRegionQuery(event.target.value)}
-              placeholder="역곡"
+              placeholder={region.short || '역곡'}
               aria-label="지역 검색"
               autoFocus
             />

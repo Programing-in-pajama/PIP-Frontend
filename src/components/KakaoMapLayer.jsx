@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { loadKakaoMaps } from '../lib/kakao';
+import { loadKakaoMaps, reverseGeocodeCoords } from '../lib/kakao';
 import {
   DEFAULT_REGION,
   REGIONS,
@@ -340,10 +340,19 @@ export default function KakaoMapLayer({
         map.setLevel(4);
       }
 
+      const cachedLat = Number(sessionStorage.getItem('soyo-location-lat'));
+      const cachedLng = Number(sessionStorage.getItem('soyo-location-lng'));
+      const cachedDong = sessionStorage.getItem('soyo-current-dong');
+      const hasRealUserPos = Boolean(showUser && cachedLat && cachedLng);
+
+      const effectiveTargetLatLng = hasRealUserPos
+        ? new kakao.maps.LatLng(cachedLat, cachedLng)
+        : targetLatLng;
+
       setTimeout(() => {
         if (mapRef.current) {
           mapRef.current.relayout();
-          if (boundaryPoints && boundaryPoints.length > 2) {
+          if (boundaryPoints && boundaryPoints.length > 2 && !hasRealUserPos) {
             const bounds = new kakao.maps.LatLngBounds();
             boundaryPoints.forEach((p) => bounds.extend(new kakao.maps.LatLng(p.lat, p.lng)));
             try {
@@ -355,18 +364,19 @@ export default function KakaoMapLayer({
             if (lvl > 5) mapRef.current.setLevel(5);
             else if (lvl < 3) mapRef.current.setLevel(4);
           } else {
-            mapRef.current.setCenter(targetLatLng);
+            mapRef.current.setCenter(effectiveTargetLatLng);
+            mapRef.current.setLevel(4);
           }
         }
       }, 50);
 
-      const regionName = activeRegion?.short || activeRegion?.name || '역곡1동';
+      const initialRegionName = (hasRealUserPos && cachedDong) ? cachedDong : (activeRegion?.short || activeRegion?.name || '역곡1동');
       const regionMarker = new kakao.maps.CustomOverlay({
-        position: targetLatLng,
+        position: effectiveTargetLatLng,
         content: `
           <div style="background: rgba(17, 24, 39, 0.92); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); color: #ffffff; font-size: 11.5px; font-weight: 700; padding: 5px 13px; border-radius: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.22); border: 1.5px solid #22c55e; display: flex; align-items: center; gap: 6px; white-space: nowrap; transform: translateY(-8px); pointer-events: none;">
             <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e; box-shadow: 0 0 6px #22c55e;"></span>
-            <span>🌿 ${regionName} · 산책 권역</span>
+            <span class="soyo-region-label">🌿 ${initialRegionName} · 산책 권역</span>
           </div>
         `,
         xAnchor: 0.5,
@@ -374,6 +384,24 @@ export default function KakaoMapLayer({
         zIndex: 7,
       });
       addOverlay(regionMarker);
+
+      // 실제 GPS 위치가 있고 아직 동을 조회하지 못한 경우 카카오 지오코더로 즉시 조회 후 배너 갱신
+      if (hasRealUserPos && !cachedDong) {
+        reverseGeocodeCoords(cachedLat, cachedLng).then((res) => {
+          if (res?.dong) {
+            sessionStorage.setItem('soyo-current-dong', res.dong);
+            sessionStorage.setItem('soyo-current-address', res.fullName);
+            if (regionMarker) {
+              regionMarker.setContent(`
+                <div style="background: rgba(17, 24, 39, 0.92); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); color: #ffffff; font-size: 11.5px; font-weight: 700; padding: 5px 13px; border-radius: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.22); border: 1.5px solid #22c55e; display: flex; align-items: center; gap: 6px; white-space: nowrap; transform: translateY(-8px); pointer-events: none;">
+                  <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e; box-shadow: 0 0 6px #22c55e;"></span>
+                  <span class="soyo-region-label">🌿 ${res.dong} · 산책 권역</span>
+                </div>
+              `);
+            }
+          }
+        });
+      }
     }
 
     if (showUser && !isNavigating) {

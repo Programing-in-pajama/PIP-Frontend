@@ -97,3 +97,37 @@ export function loadKakaoMaps() {
 
   return loadPromise;
 }
+
+/**
+ * 🌿 GPS 위·경도를 바탕으로 실제 거주지/현재 위치의 '동' 및 도로명/지번 주소를 역지오코딩
+ * 예: 37.658, 126.832 -> { dong: '화정동', fullName: '경기 고양시 덕양구 화정동' }
+ */
+export async function reverseGeocodeCoords(lat, lng) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  try {
+    const kakao = await loadKakaoMaps();
+    if (!kakao?.maps?.services?.Geocoder) return null;
+    return new Promise((resolve) => {
+      const geocoder = new kakao.maps.services.Geocoder();
+      geocoder.coord2RegionCode(lng, lat, (result, status) => {
+        if (status === kakao.maps.services.Status.OK && Array.isArray(result) && result.length > 0) {
+          const admin = result.find((r) => r.region_type === 'H') || result[0];
+          const dong = admin.region_3depth_name || admin.region_2depth_name;
+          resolve({
+            dong,
+            fullName: admin.address_name,
+            code: admin.code,
+            lat,
+            lng,
+          });
+        } else {
+          resolve(null);
+        }
+      });
+    });
+  } catch (err) {
+    console.warn('⚠️ [Geocoder] 역지오코딩 처리 대기:', err?.message || err);
+    return null;
+  }
+}
+
