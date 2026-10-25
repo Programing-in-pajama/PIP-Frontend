@@ -392,6 +392,15 @@ export function getRoutes(region = DEFAULT_REGION, minutes = 25, userDiseases = 
   const safeList = list.filter(
     (c) => !c.hasRestaurant || !c.restaurant || c.restaurant.grade !== 'red'
   );
+  const candidates = safeList.length > 0 ? safeList : list;
 
-  return safeList.length > 0 ? safeList : list;
+  // 🌿 가장 안전한 안심(green) 식당 코스를 1순위로 우선 정렬 (green > yellow > 기타)
+  const gradeScores = { green: 3, yellow: 2, red: 1 };
+  const sortedList = [...candidates].sort((a, b) => {
+    const scoreA = a.restaurant ? (gradeScores[a.restaurant.grade] || 0) : 1.5;
+    const scoreB = b.restaurant ? (gradeScores[b.restaurant.grade] || 0) : 1.5;
+    return scoreB - scoreA;
+  });
+
+  return sortedList;
 }
