@@ -151,6 +151,20 @@ export function snapToPath(userPos, geoPath, cachedDistances = null) {
     }
   }
 
+  const isOffRoute = minDistance > 500;
+  if (isOffRoute) {
+    return {
+      snappedPoint: geoPath[0],
+      segmentIndex: 0,
+      distanceFromPath: Math.round(minDistance),
+      pathDistanceMeters: 0,
+      progress: 0,
+      remainingMeters: Math.round(totalDistanceMeters),
+      totalDistanceMeters: Math.round(totalDistanceMeters),
+      isOffRoute: true,
+    };
+  }
+
   const remainingMeters = Math.max(0, Math.round(totalDistanceMeters - bestPathDistance));
   const progress = Math.min(100, Math.max(0, Math.round((bestPathDistance / totalDistanceMeters) * 100)));
 
@@ -162,6 +176,7 @@ export function snapToPath(userPos, geoPath, cachedDistances = null) {
     progress,
     remainingMeters,
     totalDistanceMeters: Math.round(totalDistanceMeters),
+    isOffRoute: false,
   };
 }
 

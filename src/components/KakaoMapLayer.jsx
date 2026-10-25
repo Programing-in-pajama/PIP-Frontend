@@ -6,6 +6,7 @@ import {
   normalizedToLatLng,
   getRegionGeoPolygon,
 } from '../data/routes';
+import { getDistanceMeters } from '../utils/geo';
 
 const DEFAULT_CENTER = DEFAULT_REGION.center;
 
@@ -446,19 +447,19 @@ export default function KakaoMapLayer({
     }
 
     // 3.2) 지나온 경로(회색) vs 앞으로 갈 경로(선명한 파란색) 분할 표출
+    // 🌿 보행자 전용 도로망 좌표만 온전히 렌더링 (절대 건물 관통 일자선 금지!)
     const geoPath = route?.geoPath || [];
     if (geoPath.length > 1) {
       const splitIdx = Math.max(0, Math.min(geoPath.length - 1, navPathSplitIndex));
 
-      // 지나온 경로: 출발점 ~ splitIdx ~ 현재 사용자 위치
+      // 지나온 경로: 출발점 ~ splitIdx (100% 보행자 도로망)
       const traveledPoints = geoPath
         .slice(0, splitIdx + 1)
-        .concat([{ lat: navUserPos.lat, lng: navUserPos.lng }])
         .map((p) => new kakao.maps.LatLng(p.lat, p.lng));
 
-      // 앞으로 남은 경로: 현재 사용자 위치 ~ splitIdx+1 ~ 도착점
-      const remainingPoints = [{ lat: navUserPos.lat, lng: navUserPos.lng }]
-        .concat(geoPath.slice(splitIdx + 1))
+      // 앞으로 갈 경로: splitIdx ~ 도착점 (100% 보행자 도로망)
+      const remainingPoints = geoPath
+        .slice(splitIdx)
         .map((p) => new kakao.maps.LatLng(p.lat, p.lng));
 
       // 지나온 경로 (차분한 그레이)
@@ -509,9 +510,17 @@ export default function KakaoMapLayer({
 
     // 3.3) Follow-Me 카메라 자동 추적
     if (followUser) {
-      map.panTo(userLatLng);
-      if (map.getLevel() > 3) {
-        map.setLevel(3);
+      const startCoord = geoPath[0];
+      const distFromStart = startCoord && navUserPos ? getDistanceMeters(navUserPos, startCoord) : 0;
+      // 사용자가 코스 주변(1.5km 이내)에 있으면 사용자 실시간 위치 추적
+      if (distFromStart <= 1500) {
+        map.panTo(userLatLng);
+        if (map.getLevel() > 3) {
+          map.setLevel(3);
+        }
+      } else if (startCoord) {
+        // 사용자가 멀리 떨어진 타 지역(예: 집에서 테스트 등)에 있을 경우 코스 전체가 있는 지역을 포커스
+        map.panTo(new kakao.maps.LatLng(startCoord.lat, startCoord.lng));
       }
     }
 

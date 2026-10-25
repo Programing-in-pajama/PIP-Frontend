@@ -149,6 +149,32 @@ export default function WalkFlow({
       if (!selectedRoute?.geoPath || selectedRoute.geoPath.length === 0) return;
 
       const snapResult = snapToPath(pos, selectedRoute.geoPath, cachedDistancesRef.current);
+
+      if (snapResult.isOffRoute && !pos.isSimulated) {
+        setNavUserPos({
+          lat: pos.lat,
+          lng: pos.lng,
+          heading: pos.heading || 0,
+          isNavigating: true,
+          isOffRoute: true,
+          distanceFromPath: snapResult.distanceFromPath,
+        });
+        setNavPathSplitIndex(0);
+        setLiveMovedKm(0);
+        setLiveRemainingMeters(snapResult.remainingMeters);
+        setLiveProgress(0);
+        setCurrentGuidance({
+          maneuver: 'straight',
+          distanceText: '코스 이동 필요',
+          instruction: `${selectedRoute?.title || '코스'} 출발지로 이동하세요`,
+          subInstruction: `현재 코스와 ${(snapResult.distanceFromPath / 1000).toFixed(1)}km 떨어져 있습니다`,
+          isArrived: false,
+          waypointIndex: 0,
+          isOffRoute: true,
+        });
+        return;
+      }
+
       const guidance = getNextNavigationGuidance(
         snapResult.pathDistanceMeters,
         turnWaypoints,
@@ -160,6 +186,7 @@ export default function WalkFlow({
         lng: pos.lng,
         heading: pos.heading || 0,
         isNavigating: true,
+        isOffRoute: false,
       });
       setNavPathSplitIndex(snapResult.segmentIndex);
       setLiveMovedKm(snapResult.pathDistanceMeters / 1000);
