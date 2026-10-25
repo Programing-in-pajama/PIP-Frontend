@@ -7,7 +7,7 @@ import { DISEASE_CATEGORIES, getDiseaseName } from '../data/chronicDiseases';
 import { MEDICATIONS, searchMedications } from '../data/medications';
 import { isValidBirthDate } from '../utils/format';
 import { sendEmailCode, verifyEmailCode } from '../api/auth';
-import EmailDiagnosticModal from '../components/EmailDiagnosticModal';
+import { API_BASE_URL } from '../api/client';
 
 const PASSWORD_RULE = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
 
@@ -44,21 +44,30 @@ export default function SignupFlow({ onBack, onComplete, onFindAccount, initialD
   const [verified, setVerified] = useState(false);
   const [demoCode, setDemoCode] = useState(false);
   const [alreadyRegistered, setAlreadyRegistered] = useState(false); // 이미 가입된 이메일 (409)
-  const [authMessage, setAuthMessage] = useState('');
+  const [authMessage, setAuthMessageState] = useState('');
+  const [isAuthSuccess, setIsAuthSuccess] = useState(false);
+  const [emailHint, setEmailHint] = useState({ text: '', ok: false });
+  const [codeHint, setCodeHint] = useState({ text: '', ok: false });
   const [isSending, setIsSending] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [showDiagModal, setShowDiagModal] = useState(false);
   const [picker, setPicker] = useState(null); // allergy | disease | medication
 
   const isPasswordValid = PASSWORD_RULE.test(form.password);
   const hasHealthInfo =
     form.allergies.length > 0 || form.diseaseIds.length > 0 || form.medications.length > 0;
 
+  function setAuthMessage(text, isSuccess = false) {
+    setAuthMessageState(text);
+    setIsAuthSuccess(Boolean(isSuccess));
+  }
+
   function update(key, value) {
     setForm((current) => ({ ...current, [key]: value }));
     setAuthMessage('');
+    if (key === 'email') setEmailHint({ text: '', ok: false });
+    if (key === 'code') setCodeHint({ text: '', ok: false });
   }
 
   function toggleItem(key, item, emptyKey) {
@@ -89,43 +98,78 @@ export default function SignupFlow({ onBack, onComplete, onFindAccount, initialD
   }
 
   async function sendCode() {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      return setAuthMessage('먼저 올바른 E-mail 주소를 입력해 주세요.');
+    const cleanEmail = form.email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      console.warn('⚠️ [회원가입] 이메일 유효성 검사 실패: 올바른 이메일 형식이 아닙니다.', form.email);
+      setEmailHint({ text: '올바른 E-mail 주소를 입력해 주세요.', ok: false });
+      return;
     }
+
+    const endpoint = `${API_BASE_URL}/api/auth/email/send-code`;
+    const payload = { email: cleanEmail, type: 'signup' };
+    const timestamp = new Date().toISOString();
+
+    console.group(`📤 [회원가입] 이메일 인증번호 전송 요청 (${timestamp})`);
+    console.log('📌 화면: 회원가입 1단계 (SignupFlow)');
+    console.log('🎯 대상 이메일:', cleanEmail);
+    console.log('🌐 API 엔드포인트:', endpoint);
+    console.log('📦 요청 본문(Payload):', payload);
+    console.groupEnd();
 
     setIsSending(true);
     setAuthMessage('');
+    setEmailHint({ text: '인증번호를 발송하는 중입니다...', ok: true });
+    setCodeHint({ text: '', ok: false });
     setAlreadyRegistered(false);
+
     try {
-      const res = await sendEmailCode(form.email, 'signup');
+      const res = await sendEmailCode(cleanEmail, 'signup');
       setCodeSent(true);
       setVerified(false);
       setDemoCode(false);
 
       const serverCode = res?.code || res?.debugCode || res?.data?.code || res?.data?.debugCode;
+
+      console.group(`📥 [회원가입] 이메일 인증번호 전송 응답 (${new Date().toISOString()})`);
+      console.log('✅ 성공 여부 (success):', res?.success);
+      console.log('📧 메일함 발송 여부 (emailSent):', res?.emailSent);
+      console.log('🔑 발급된 인증번호 (code):', serverCode || '(메일함으로만 전송됨)');
+      console.log('💬 서버 메시지:', res?.message);
+      console.log('🔄 상태 업데이트:', { codeSent: true, verified: false, isSending: false });
+      console.groupEnd();
+
       if (res?.emailSent) {
-        setAuthMessage('인증번호가 이메일로 발송되었어요. 메일함을 확인해 주세요.');
+        setEmailHint({ text: '인증번호가 이메일로 발송되었어요. 메일함을 확인해 주세요.', ok: true });
       } else if (serverCode) {
-        setAuthMessage(`인증번호가 발송되었어요. [인증번호: ${serverCode}]`);
-        setForm((prev) => ({ ...prev, code: String(serverCode) }));
+        setEmailHint({ text: `인증번호가 발송되었어요. [인증번호: ${serverCode}]`, ok: true });
+        setForm((prev) => ({ ...prev, email: cleanEmail, code: String(serverCode) }));
+        setCodeHint({ text: '인증번호가 자동 입력되었어요. [인증 확인] 버튼을 눌러주세요.', ok: true });
       } else {
-        setAuthMessage(res?.message || '인증번호가 발송되었어요. 메일함을 확인해 주세요.');
+        setEmailHint({ text: res?.message || '인증번호가 발송되었어요. 메일함을 확인해 주세요.', ok: true });
       }
     } catch (error) {
+      console.group(`❌ [회원가입] 이메일 인증번호 전송 실패 (${new Date().toISOString()})`);
+      console.error('HTTP 상태코드:', error?.status || '네트워크 오류');
+      console.error('에러 코드:', error?.code);
+      console.error('에러 메시지:', error?.message);
+      console.error('상세 에러 내용:', error);
+      console.groupEnd();
+
       if (error.status === 409 || error.alreadyRegistered || error.code === 'ALREADY_REGISTERED') {
         setCodeSent(false);
         setVerified(false);
         setDemoCode(false);
         setAlreadyRegistered(true);
-        setAuthMessage(''); // 안내는 아래 alreadyRegistered 상자에서 보여줌
+        setEmailHint({ text: '이미 가입된 이메일입니다. 아이디/비밀번호 찾기를 이용해 주세요.', ok: false });
         return;
       }
-      // 백엔드가 아직 연결되지 않은 상태에서도 가입 흐름을 확인할 수 있게 합니다.
+      // 백엔드가 아직 연결되지 않은 상태에서도 가입 흐름을 확인할 수 있게 개발용 코드 지원
       setCodeSent(true);
       setVerified(false);
       setDemoCode(true);
-      setAuthMessage('인증번호가 발송되었어요. [인증번호: 123456]');
-      setForm((prev) => ({ ...prev, code: '123456' }));
+      setEmailHint({ text: '인증번호가 발송되었어요. [인증번호: 123456]', ok: true });
+      setForm((prev) => ({ ...prev, email: cleanEmail, code: '123456' }));
+      setCodeHint({ text: '개발용 인증번호가 입력되었어요. [인증 확인]을 눌러주세요.', ok: true });
       console.warn('⚠️ [회원가입] 메일 서버 대신 개발용 인증번호를 사용합니다:', error.message);
     } finally {
       setIsSending(false);
@@ -133,31 +177,54 @@ export default function SignupFlow({ onBack, onComplete, onFindAccount, initialD
   }
 
   async function verifyCode() {
-    if (!codeSent || !form.code) return setAuthMessage('인증번호를 입력해 주세요.');
+    const cleanEmail = form.email.trim();
+    const cleanCode = form.code.trim();
+    if (!codeSent || !cleanCode) {
+      console.warn('⚠️ [회원가입] 인증번호 미입력 상태에서 검증 시도');
+      return setCodeHint({ text: '인증번호를 입력해 주세요.', ok: false });
+    }
+
+    const endpoint = `${API_BASE_URL}/api/auth/email/verify-code`;
+    const payload = { email: cleanEmail, code: cleanCode };
+    console.group(`🔍 [회원가입] 이메일 인증번호 검증 요청 (${new Date().toISOString()})`);
+    console.log('🎯 대상 이메일:', cleanEmail);
+    console.log('🔑 인증번호:', cleanCode);
+    console.log('🌐 API 엔드포인트:', endpoint);
+    console.log('📦 요청 본문:', payload);
+    console.groupEnd();
 
     if (demoCode) {
-      if (form.code === '123456') {
+      if (cleanCode === '123456') {
         setVerified(true);
-        setAuthMessage('E-mail 인증이 완료됐어요.');
+        setCodeHint({ text: 'E-mail 인증이 완료됐어요.', ok: true });
       } else {
         setVerified(false);
-        setAuthMessage('인증번호를 확인해 주세요.');
+        setCodeHint({ text: '인증번호를 확인해 주세요.', ok: false });
       }
       return;
     }
 
     try {
-      const res = await verifyEmailCode(form.email, form.code);
+      const res = await verifyEmailCode(cleanEmail, cleanCode);
+      console.group(`📥 [회원가입] 이메일 인증번호 검증 응답 (${new Date().toISOString()})`);
+      console.log('✅ 검증 결과 (verified):', res?.verified || res?.success);
+      console.log('💬 응답 본문:', res);
+      console.groupEnd();
+
       if (res?.verified || res?.success) {
         setVerified(true);
-        setAuthMessage('E-mail 인증이 완료됐어요.');
+        setCodeHint({ text: 'E-mail 인증이 완료됐어요.', ok: true });
       } else {
         setVerified(false);
-        setAuthMessage(res?.error || '인증번호를 확인해 주세요.');
+        setCodeHint({ text: res?.error || '인증번호를 확인해 주세요.', ok: false });
       }
     } catch (error) {
+      console.group(`❌ [회원가입] 이메일 인증번호 검증 실패 (${new Date().toISOString()})`);
+      console.error('에러:', error);
+      console.groupEnd();
+
       setVerified(false);
-      setAuthMessage(error.message || '인증번호가 일치하지 않습니다.');
+      setCodeHint({ text: error.message || '인증번호가 일치하지 않습니다.', ok: false });
     }
   }
 
@@ -272,12 +339,28 @@ export default function SignupFlow({ onBack, onComplete, onFindAccount, initialD
                     setVerified(false);
                     setCodeSent(false);
                     setAlreadyRegistered(false);
+                    setEmailHint({ text: '', ok: false });
                   }}
                 />
                 <button type="button" className="pill-btn pill-btn--light" onClick={sendCode} disabled={isSending}>
-                  {isSending ? '전송 중' : codeSent ? '재전송' : '인증번호 전송'}
+                  {isSending ? '전송 중...' : codeSent ? '재전송' : '인증번호 전송'}
                 </button>
               </div>
+
+              {emailHint.text && (
+                <p
+                  className={`input-hint ${emailHint.ok ? 'is-success' : 'is-error'}`}
+                  style={{
+                    color: emailHint.ok ? '#15803d' : 'var(--red)',
+                    fontWeight: 500,
+                    margin: '-2px 4px 6px',
+                    fontSize: '12px',
+                    lineHeight: '1.4'
+                  }}
+                >
+                  {emailHint.text}
+                </p>
+              )}
 
               <div className="inline-fields">
                 <input
@@ -294,23 +377,20 @@ export default function SignupFlow({ onBack, onComplete, onFindAccount, initialD
                 </button>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-4px', marginBottom: '8px' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowDiagModal(true)}
+              {codeHint.text && (
+                <p
+                  className={`input-hint ${codeHint.ok ? 'is-success' : 'is-error'}`}
                   style={{
-                    background: 'transparent',
-                    border: 'none',
-                    fontSize: '11.5px',
-                    color: '#15803d',
-                    cursor: 'pointer',
-                    padding: '2px 4px',
-                    textDecoration: 'underline'
+                    color: codeHint.ok ? '#15803d' : 'var(--red)',
+                    fontWeight: 500,
+                    margin: '-2px 4px 6px',
+                    fontSize: '12px',
+                    lineHeight: '1.4'
                   }}
                 >
-                  📋 인증번호가 안 오나요? (실시간 로그/번호 확인)
-                </button>
-              </div>
+                  {codeHint.text}
+                </p>
+              )}
 
               <label className="check check--terms">
                 <input
@@ -334,7 +414,7 @@ export default function SignupFlow({ onBack, onComplete, onFindAccount, initialD
               )}
 
               {authMessage && (
-                <p className={`form-message ${verified ? 'is-success' : ''}`} role="status">
+                <p className={`form-message ${isAuthSuccess ? 'is-success' : ''}`} role="status">
                   {authMessage}
                 </p>
               )}
@@ -551,13 +631,6 @@ export default function SignupFlow({ onBack, onComplete, onFindAccount, initialD
           onClearNoMedication={() => update('noMedication', false)}
         />
       )}
-
-      <EmailDiagnosticModal
-        isOpen={showDiagModal}
-        onClose={() => setShowDiagModal(false)}
-        onSelectCode={(code) => update('code', code)}
-        targetEmail={form.email}
-      />
     </main>
   );
 }
