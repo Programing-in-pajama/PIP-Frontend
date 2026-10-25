@@ -143,6 +143,12 @@ export function Icon({ name, size = 20, className = '', strokeWidth }) {
           <path d="M8.3 10.3V8a3.7 3.7 0 0 1 7.4 0v2.3" />
         </svg>
       );
+    case 'folder':
+      return (
+        <svg {...props}>
+          <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
+        </svg>
+      );
     case 'edit':
       return (
         <svg {...props}>

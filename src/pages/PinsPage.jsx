@@ -97,7 +97,7 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
 
   const deletePin = (pin) => {
     if (!activeFolder) return;
-    const next = removeRoutePin(userId, activeFolder.id, pin.id);
+    const next = removeRoutePin(userId, activeFolder.id, pin.id, pin.title);
     setFolders(next);
     setSelectedPinId(null);
     setToast('핀을 삭제했어요');

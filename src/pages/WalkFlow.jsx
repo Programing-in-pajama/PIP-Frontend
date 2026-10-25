@@ -7,6 +7,9 @@ import { DEFAULT_REGION, REGIONS, WALK_MINUTES, getRoutes } from '../data/routes
 import { fetchRecommendedRoutes } from '../api/routes';
 import { formatClock, formatDistance } from '../utils/format';
 import {
+  createPinFolder,
+  fetchPinFolders,
+  getPinFolders,
   isRoutePinned,
   removeRoutePinEverywhere,
   saveRoutePin,
@@ -44,6 +47,7 @@ export default function WalkFlow({
   const [pinVersion, setPinVersion] = useState(0);
   const [toast, setToast] = useState('');
   const [loginPrompt, setLoginPrompt] = useState(false);
+  const [folderSelectRoute, setFolderSelectRoute] = useState(null);
   const [showComplete, setShowComplete] = useState(false);
   const [showNutritionDetail, setShowNutritionDetail] = useState(false);
 
@@ -144,14 +148,30 @@ export default function WalkFlow({
       setLoginPrompt(true);
       return;
     }
-    if (isRoutePinned(userId, route.id, route.title)) {
-      removeRoutePinEverywhere(userId, route.id);
+    const isPinned = isRoutePinned(userId, route?.id, route?.title);
+    if (isPinned) {
+      removeRoutePinEverywhere(userId, route?.id, route?.title);
       setToast('핀 저장을 해제했어요');
+      setPinVersion((version) => version + 1);
     } else {
-      saveRoutePin(userId, route);
-      setToast('내 핀에 경로를 저장했어요');
+      setFolderSelectRoute(route);
     }
-    setPinVersion((version) => version + 1);
+  };
+
+  const handleSaveToFolder = (folder) => {
+    if (!folderSelectRoute) return;
+    saveRoutePin(userId, folderSelectRoute, folder.id);
+    setToast(`‘${folder.name}’에 저장했어요`);
+    setFolderSelectRoute(null);
+    setPinVersion((v) => v + 1);
+  };
+
+  const handleCreateAndSave = (newFolder) => {
+    if (!folderSelectRoute) return;
+    saveRoutePin(userId, folderSelectRoute, newFolder.id);
+    setToast(`‘${newFolder.name}’ 폴더를 만들고 저장했어요`);
+    setFolderSelectRoute(null);
+    setPinVersion((v) => v + 1);
   };
 
   const beginWalk = () => {
@@ -484,6 +504,15 @@ export default function WalkFlow({
             }}
           />
         )}
+        {folderSelectRoute && (
+          <FolderSelectSheet
+            userId={userId}
+            route={folderSelectRoute}
+            onClose={() => setFolderSelectRoute(null)}
+            onSelectFolder={handleSaveToFolder}
+            onCreateAndSelect={handleCreateAndSave}
+          />
+        )}
       </div>
     );
   }
@@ -644,6 +673,15 @@ export default function WalkFlow({
             }}
           />
         )}
+        {folderSelectRoute && (
+          <FolderSelectSheet
+            userId={userId}
+            route={folderSelectRoute}
+            onClose={() => setFolderSelectRoute(null)}
+            onSelectFolder={handleSaveToFolder}
+            onCreateAndSelect={handleCreateAndSave}
+          />
+        )}
       </div>
     );
   }
@@ -740,6 +778,16 @@ export default function WalkFlow({
           }}
         />
       )}
+
+      {folderSelectRoute && (
+        <FolderSelectSheet
+          userId={userId}
+          route={folderSelectRoute}
+          onClose={() => setFolderSelectRoute(null)}
+          onSelectFolder={handleSaveToFolder}
+          onCreateAndSelect={handleCreateAndSave}
+        />
+      )}
     </div>
   );
 }
@@ -765,6 +813,127 @@ function LoginPrompt({ onClose, onLogin }) {
         <Icon name="lock" size={26} />
       </div>
       <p className="sheet-message">저장한 경로는 핀 탭에서 언제든 다시 확인할 수 있어요.</p>
+    </Sheet>
+  );
+}
+
+function FolderSelectSheet({
+  userId,
+  route,
+  onClose,
+  onSelectFolder,
+  onCreateAndSelect,
+}) {
+  const [folders, setFolders] = useState(() => getPinFolders(userId));
+  const [isCreating, setIsCreating] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+
+  useEffect(() => {
+    if (userId && userId !== 'guest') {
+      fetchPinFolders(userId)
+        .then((res) => {
+          if (Array.isArray(res) && res.length > 0) {
+            setFolders(res);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [userId]);
+
+  const handleCreateSubmit = (event) => {
+    event?.preventDefault();
+    const trimmed = newFolderName.trim();
+    if (!trimmed) {
+      setErrorMsg('폴더 이름을 입력해 주세요');
+      return;
+    }
+    if (folders.some((f) => f.name === trimmed)) {
+      setErrorMsg('이미 존재하는 폴더 이름입니다');
+      return;
+    }
+    const created = createPinFolder(userId, trimmed);
+    if (created) {
+      onCreateAndSelect(created);
+    } else {
+      setErrorMsg('폴더를 생성하지 못했습니다');
+    }
+  };
+
+  return (
+    <Sheet
+      title="어느 폴더에 저장할까요?"
+      subtitle={route ? `선택 코스: ${route.title}` : '저장할 폴더를 선택하세요'}
+      onClose={onClose}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '55vh', overflowY: 'auto' }}>
+        <div className="folder-list" style={{ overflowY: 'visible' }}>
+          {folders.map((folder) => (
+            <button
+              key={folder.id}
+              type="button"
+              className="folder-row"
+              onClick={() => onSelectFolder(folder)}
+            >
+              <span className="folder-icon">
+                <Icon name="folder" size={18} />
+              </span>
+              <span className="folder-text">
+                <strong>{folder.name}</strong>
+                <small>저장 코스 {folder.pins?.length || 0}개</small>
+              </span>
+              <Icon name="chevron-right" size={18} />
+            </button>
+          ))}
+        </div>
+
+        {isCreating ? (
+          <form className="folder-form" onSubmit={handleCreateSubmit} style={{ marginTop: '8px' }}>
+            <label
+              className="field-label"
+              htmlFor="new-sheet-folder-name"
+              style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}
+            >
+              새 폴더 이름
+            </label>
+            <div className="input-wrap" style={{ display: 'flex', gap: '8px' }}>
+              <input
+                id="new-sheet-folder-name"
+                className="input"
+                placeholder="예: 우리 동네, 주말 코스"
+                value={newFolderName}
+                onChange={(event) => {
+                  setNewFolderName(event.target.value);
+                  setErrorMsg('');
+                }}
+                autoFocus
+                style={{ flex: 1 }}
+              />
+              <button
+                type="submit"
+                className="btn btn-primary"
+                style={{ flex: 'none', padding: '0 16px', height: '44px', minHeight: '44px' }}
+              >
+                만들고 저장
+              </button>
+            </div>
+            {errorMsg && (
+              <p className="form-message" style={{ color: '#e53e3e', fontSize: '12px', marginTop: '4px' }}>
+                {errorMsg}
+              </p>
+            )}
+          </form>
+        ) : (
+          <button
+            type="button"
+            className="btn btn-ghost folder-add"
+            onClick={() => setIsCreating(true)}
+            style={{ width: '100%', marginTop: '4px' }}
+          >
+            <Icon name="plus" size={17} /> 새 폴더 만들기
+          </button>
+        )}
+      </div>
     </Sheet>
   );
 }

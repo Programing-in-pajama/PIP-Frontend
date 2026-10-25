@@ -212,10 +212,14 @@ export function saveRoutePin(userId = getCurrentUserId(), route, folderId = 'def
 }
 
 /** 특정 폴더에서 핀 삭제 */
-export function removeRoutePin(userId = getCurrentUserId(), folderId, routeId) {
+export function removeRoutePin(userId = getCurrentUserId(), folderId, routeId, title) {
   const folders = getPinFolders(userId).map((folder) => {
     if (folder.id !== folderId) return folder;
-    const filteredPins = folder.pins.filter((pin) => pin.id !== routeId);
+    const filteredPins = folder.pins.filter((pin) => {
+      if (routeId && pin.id === routeId) return false;
+      if (title && pin.title === title) return false;
+      return true;
+    });
     return {
       ...folder,
       pins: filteredPins,
@@ -229,7 +233,8 @@ export function removeRoutePin(userId = getCurrentUserId(), folderId, routeId) {
 
   // 백엔드 서버 동기화
   if (userId && userId !== 'guest') {
-    apiFetch(`/api/pins/folders/${encodeURIComponent(folderId)}/routes/${encodeURIComponent(routeId)}?userId=${encodeURIComponent(userId)}`, {
+    const query = title ? `?userId=${encodeURIComponent(userId)}&title=${encodeURIComponent(title)}` : `?userId=${encodeURIComponent(userId)}`;
+    apiFetch(`/api/pins/folders/${encodeURIComponent(folderId)}/routes/${encodeURIComponent(routeId || 'by-title')}${query}`, {
       method: 'DELETE'
     }).catch((err) => {
       console.warn('⚠️ [Pins] 서버 핀 삭제 대기:', err.message);
@@ -240,9 +245,13 @@ export function removeRoutePin(userId = getCurrentUserId(), folderId, routeId) {
 }
 
 /** 모든 폴더에서 해당 핀 제거 (북마크 토글 해제 시 사용) */
-export function removeRoutePinEverywhere(userId = getCurrentUserId(), routeId) {
+export function removeRoutePinEverywhere(userId = getCurrentUserId(), routeId, title) {
   const folders = getPinFolders(userId).map((folder) => {
-    const filteredPins = folder.pins.filter((pin) => pin.id !== routeId);
+    const filteredPins = folder.pins.filter((pin) => {
+      if (routeId && pin.id === routeId) return false;
+      if (title && pin.title === title) return false;
+      return true;
+    });
     return {
       ...folder,
       pins: filteredPins,
@@ -256,7 +265,8 @@ export function removeRoutePinEverywhere(userId = getCurrentUserId(), routeId) {
 
   // 백엔드 서버 동기화
   if (userId && userId !== 'guest') {
-    apiFetch(`/api/pins/folders/default/routes/${encodeURIComponent(routeId)}?userId=${encodeURIComponent(userId)}`, {
+    const query = title ? `?userId=${encodeURIComponent(userId)}&title=${encodeURIComponent(title)}` : `?userId=${encodeURIComponent(userId)}`;
+    apiFetch(`/api/pins/folders/default/routes/${encodeURIComponent(routeId || 'by-title')}${query}`, {
       method: 'DELETE'
     }).catch(() => {});
   }
