@@ -45,6 +45,7 @@ export default function WalkFlow({
   const [toast, setToast] = useState('');
   const [loginPrompt, setLoginPrompt] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
+  const [showNutritionDetail, setShowNutritionDetail] = useState(false);
 
   useEffect(() => {
     onSectionChange?.(step);
@@ -134,6 +135,7 @@ export default function WalkFlow({
 
   const openRoute = (route) => {
     setSelectedRoute(route);
+    setShowNutritionDetail(false);
     setStep('detail');
   };
 
@@ -518,7 +520,14 @@ export default function WalkFlow({
 
           {selectedRoute.restaurant && (
             <div className="restaurant-detail-box">
-              <div className="restaurant-detail-header">
+              <div
+                className="restaurant-detail-header"
+                style={{
+                  borderBottom: showNutritionDetail ? '1px dashed #cbd5e1' : 'none',
+                  marginBottom: showNutritionDetail ? '12px' : '0',
+                  paddingBottom: showNutritionDetail ? '10px' : '0'
+                }}
+              >
                 <div className="restaurant-title-row">
                   <span className="restaurant-badge">🍴 추천 식당</span>
                   <strong>{selectedRoute.restaurant.name}</strong>
@@ -529,58 +538,93 @@ export default function WalkFlow({
                 <p className="restaurant-address">{selectedRoute.restaurant.address || selectedRoute.restaurant.category}</p>
               </div>
 
-              {selectedRoute.restaurant.substituteNotice && (
-                <div style={{ background: '#fef3c7', color: '#92400e', padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, margin: '8px 0 12px', border: '1px solid #fde68a' }}>
-                  📢 {selectedRoute.restaurant.substituteNotice}
-                </div>
-              )}
+              {/* 🔽 지도를 가리지 않는 '대표메뉴 및 영양정보' 아코디언 토글 버튼 */}
+              <button
+                type="button"
+                className="nutrition-toggle-btn"
+                onClick={() => setShowNutritionDetail((prev) => !prev)}
+                style={{
+                  width: '100%',
+                  marginTop: '10px',
+                  padding: '10px 14px',
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '12px',
+                  fontSize: '12.5px',
+                  fontWeight: 600,
+                  color: '#334155',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                  cursor: 'pointer'
+                }}
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  🥗 {selectedRoute.restaurant.bestFood?.name ? `대표메뉴: ${selectedRoute.restaurant.bestFood.name}` : '대표메뉴 및 영양정보'}
+                </span>
+                <span style={{ fontSize: '11px', color: '#059669', fontWeight: 700 }}>
+                  {showNutritionDetail ? '영양정보 접기 ▲' : '영양정보 보기 ▼'}
+                </span>
+              </button>
 
-              {selectedRoute.restaurant.threshold && (
-                <div className="disease-threshold-box">
-                  <div className="threshold-title">
-                    <span>🩺 {selectedRoute.restaurant.threshold.isDefault ? '일반 성인 1끼 권장 기준' : `${selectedRoute.restaurant.threshold.name} 1끼 상한`}</span>
-                  </div>
-                  <div className="threshold-chips">
-                    <span>나트륨 ≤ {selectedRoute.restaurant.threshold.sodium}mg</span>
-                    <span>당류 ≤ {selectedRoute.restaurant.threshold.sugar}g</span>
-                    <span>열량 {selectedRoute.restaurant.threshold.calMin}~{selectedRoute.restaurant.threshold.calMax}kcal</span>
-                  </div>
-                </div>
-              )}
-
-              {selectedRoute.restaurant.foods && selectedRoute.restaurant.foods.length > 0 && (
-                <div className="restaurant-foods-list">
-                  <div className="foods-list-title">식약처 영양성분 DB 기반 대표 메뉴</div>
-                  {selectedRoute.restaurant.foods.map((food, idx) => (
-                    <div key={idx} className="food-item-card">
-                      <div className="food-item-header">
-                        <strong className="food-name">
-                          {food.name}
-                          {food.isSubstitute && (
-                            <span style={{ marginLeft: '6px', fontSize: '11px', background: '#dcfce7', color: '#166534', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
-                              추천 메뉴
-                            </span>
-                          )}
-                        </strong>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span className="food-cal">{food.calories} kcal</span>
-                          <span className={`food-grade-badge food-grade-badge--${food.grade || 'green'}`}>
-                            {food.dot || '🟢'} {food.gradeText || (food.grade === 'green' ? '안심' : '주의')}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="food-nutr-row">
-                        <span className="nutr-chip">나트륨 {food.sodium}mg {food.rSod ? `(R: ${food.rSod})` : ''}</span>
-                        <span className="nutr-chip">당류 {food.sugar}g {food.rSug ? `(R: ${food.rSug})` : ''}</span>
-                        {food.protein ? <span className="nutr-chip">단백질 {food.protein}g</span> : null}
-                      </div>
-                      {food.guideAdvice && (
-                        <div className={`food-guide-advice food-guide-advice--${food.grade || 'green'}`}>
-                          💡 {food.guideAdvice}
-                        </div>
-                      )}
+              {/* 토글 펼침 시에만 렌더링되는 상세 영양 및 메뉴 영역 */}
+              {showNutritionDetail && (
+                <div style={{ marginTop: '14px' }}>
+                  {selectedRoute.restaurant.substituteNotice && (
+                    <div style={{ background: '#fef3c7', color: '#92400e', padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, marginBottom: '12px', border: '1px solid #fde68a' }}>
+                      📢 {selectedRoute.restaurant.substituteNotice}
                     </div>
-                  ))}
+                  )}
+
+                  {selectedRoute.restaurant.threshold && (
+                    <div className="disease-threshold-box">
+                      <div className="threshold-title">
+                        <span>🩺 {selectedRoute.restaurant.threshold.isDefault ? '일반 성인 1끼 권장 기준' : `${selectedRoute.restaurant.threshold.name} 1끼 상한`}</span>
+                      </div>
+                      <div className="threshold-chips">
+                        <span>나트륨 ≤ {selectedRoute.restaurant.threshold.sodium}mg</span>
+                        <span>당류 ≤ {selectedRoute.restaurant.threshold.sugar}g</span>
+                        <span>열량 {selectedRoute.restaurant.threshold.calMin}~{selectedRoute.restaurant.threshold.calMax}kcal</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedRoute.restaurant.foods && selectedRoute.restaurant.foods.length > 0 && (
+                    <div className="restaurant-foods-list">
+                      <div className="foods-list-title">대표메뉴</div>
+                      {selectedRoute.restaurant.foods.map((food, idx) => (
+                        <div key={idx} className="food-item-card">
+                          <div className="food-item-header">
+                            <strong className="food-name">
+                              {food.name}
+                              {food.isSubstitute && (
+                                <span style={{ marginLeft: '6px', fontSize: '11px', background: '#dcfce7', color: '#166534', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                                  추천 메뉴
+                                </span>
+                              )}
+                            </strong>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span className="food-cal">{food.calories} kcal</span>
+                              <span className={`food-grade-badge food-grade-badge--${food.grade || 'green'}`}>
+                                {food.dot || '🟢'} {food.gradeText || (food.grade === 'green' ? '안심' : '주의')}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="food-nutr-row">
+                            <span className="nutr-chip">나트륨 {food.sodium}mg {food.rSod ? `(R: ${food.rSod})` : ''}</span>
+                            <span className="nutr-chip">당류 {food.sugar}g {food.rSug ? `(R: ${food.rSug})` : ''}</span>
+                            {food.protein ? <span className="nutr-chip">단백질 {food.protein}g</span> : null}
+                          </div>
+                          {food.guideAdvice && (
+                            <div className={`food-guide-advice food-guide-advice--${food.grade || 'green'}`}>
+                              💡 {food.guideAdvice}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
