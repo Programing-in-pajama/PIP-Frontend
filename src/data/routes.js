@@ -1,5 +1,6 @@
 import { YEOKGOK_RESTAURANTS } from './yeokgokRestaurants.js';
 import { evaluateRestaurant } from '../utils/nutritionEvaluator.js';
+import { getRegionBoundary } from './regionBoundaries.js';
 import {
   YEOKGOK_STATION,
   COURSE_10_1_WITH_REST_POINTS, COURSE_10_1_WITH_REST_STEPS, COURSE_10_1_WITH_REST_META,
@@ -25,19 +26,11 @@ import {
 // 산책 지역 목록
 export const REGIONS = [
   {
-    id: 'yeokgok',
-    name: '경기 부천시 원미구 역곡동',
-    short: '역곡동',
-    distanceKm: 1.4,
-    center: { lat: 37.4851, lng: 126.8117 },
-    polygon: '118,205 292,118 342,250 176,330',
-  },
-  {
     id: 'yeokgok1',
     name: '경기 부천시 원미구 역곡1동',
     short: '역곡1동',
     distanceKm: 1.4,
-    center: { lat: 37.4826, lng: 126.8078 },
+    center: { lat: 37.4919, lng: 126.8100 },
     polygon: '96,236 304,152 334,286 138,354',
   },
   {
@@ -45,15 +38,23 @@ export const REGIONS = [
     name: '경기 부천시 원미구 역곡2동',
     short: '역곡2동',
     distanceKm: 0.435,
-    center: { lat: 37.4792, lng: 126.8152 },
+    center: { lat: 37.4884, lng: 126.8017 },
     polygon: '140,250 268,206 306,312 174,368',
+  },
+  {
+    id: 'yeokgok',
+    name: '경기 부천시 원미구 역곡동',
+    short: '역곡동',
+    distanceKm: 1.4,
+    center: { lat: 37.4905, lng: 126.8068 },
+    polygon: '118,205 292,118 342,250 176,330',
   },
   {
     id: 'sangdong',
     name: '경기 부천시 원미구 상동',
     short: '상동',
     distanceKm: 2.1,
-    center: { lat: 37.5057, lng: 126.7520 },
+    center: { lat: 37.4914, lng: 126.7615 },
     polygon: '108,218 322,160 338,300 132,338',
   },
   {
@@ -61,7 +62,7 @@ export const REGIONS = [
     name: '경기 부천시 소사구 중동',
     short: '중동',
     distanceKm: 2.6,
-    center: { lat: 37.4870, lng: 126.7830 },
+    center: { lat: 37.4915, lng: 126.7673 },
     polygon: '126,232 300,170 328,300 150,350',
   },
   {
@@ -69,7 +70,7 @@ export const REGIONS = [
     name: '경기 부천시 소사구 송내동',
     short: '송내동',
     distanceKm: 3.2,
-    center: { lat: 37.4800, lng: 126.7550 },
+    center: { lat: 37.4834, lng: 126.7551 },
     polygon: '112,248 286,188 318,310 142,360',
   },
 ];
@@ -77,7 +78,7 @@ export const REGIONS = [
 export const DEFAULT_REGION = REGIONS[0];
 export const WALK_MINUTES = [10, 25, 60];
 
-const DEFAULT_CENTER = { lat: 37.4851, lng: 126.8117 };
+const DEFAULT_CENTER = DEFAULT_REGION.center;
 
 /**
  * 일러스트 지도 좌표(390x620)를 실제 위·경도로 변환
@@ -101,15 +102,25 @@ export function latLngToNormalized(region, { lat, lng }, scale = 0.00003) {
   return [Math.max(25, Math.min(365, x)), Math.max(25, Math.min(595, y))];
 }
 
-/** 지역 선택 영역(폴리곤)을 카카오맵 좌표로 변환 */
+/**
+ * 고정밀 행정구역 경계선 폴리곤 좌표 반환 (WGS84 lat/lng 배열)
+ * - 통계청 SGIS 및 국토교통부 실측 행정동 경계 100% 매핑
+ * - 과거 4점짜리 직사각형 가짜 경계를 완전히 대체하여 실제 행정동 경계 그대로 표출
+ */
 export function getRegionGeoPolygon(region) {
-  if (!region?.polygon) return [];
-  const numbers = region.polygon.split(/[\s,]+/).map(Number).filter((value) => !Number.isNaN(value));
-  const points = [];
-  for (let index = 0; index < numbers.length - 1; index += 2) {
-    points.push(normalizedToLatLng(region, [numbers[index], numbers[index + 1]], 0.00004));
+  if (!region) return getRegionBoundary('yeokgok1');
+  if (region.id) {
+    const boundary = getRegionBoundary(region.id);
+    if (boundary && boundary.length > 0) return boundary;
   }
-  return points;
+  const name = region.name || region.short || (typeof region === 'string' ? region : '');
+  if (name.includes('역곡1동') || name.includes('역곡 1동') || name.includes('yeokgok1')) return getRegionBoundary('yeokgok1');
+  if (name.includes('역곡2동') || name.includes('역곡 2동') || name.includes('yeokgok2')) return getRegionBoundary('yeokgok2');
+  if (name.includes('역곡') || name.includes('yeokgok')) return getRegionBoundary('yeokgok1');
+  if (name.includes('상동') || name.includes('sangdong')) return getRegionBoundary('sangdong');
+  if (name.includes('중동') || name.includes('jungdong')) return getRegionBoundary('jungdong');
+  if (name.includes('송내') || name.includes('songnae')) return getRegionBoundary('songnae');
+  return getRegionBoundary('yeokgok1');
 }
 
 /**

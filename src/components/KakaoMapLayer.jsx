@@ -4,6 +4,7 @@ import {
   DEFAULT_REGION,
   REGIONS,
   normalizedToLatLng,
+  getRegionGeoPolygon,
 } from '../data/routes';
 
 const DEFAULT_CENTER = DEFAULT_REGION.center;
@@ -207,34 +208,95 @@ export default function KakaoMapLayer({ route = null, region = null, showUser = 
         }
       }, 30);
     } else {
-      const center = region?.center || DEFAULT_CENTER;
+      const activeRegion = region || DEFAULT_REGION;
+      const boundaryPoints = getRegionGeoPolygon(activeRegion);
+      const center = activeRegion?.center || (boundaryPoints?.length > 0 ? {
+        lat: boundaryPoints.reduce((sum, p) => sum + p.lat, 0) / boundaryPoints.length,
+        lng: boundaryPoints.reduce((sum, p) => sum + p.lng, 0) / boundaryPoints.length,
+      } : DEFAULT_CENTER);
       const targetLatLng = new kakao.maps.LatLng(center.lat, center.lng);
-      map.setCenter(targetLatLng);
-      map.setLevel(4);
+
+      if (boundaryPoints && boundaryPoints.length > 2) {
+        const polygonPath = boundaryPoints.map((p) => new kakao.maps.LatLng(p.lat, p.lng));
+
+        // 고정밀 행정구역 경계선 (네모 박스가 아닌 실측 굴곡 행정동 폴리곤)
+        // 외곽선: 선명한 초록색 (#16a34a, 2.5px), 내부: 부드러운 반투명 초록 채움 (#22c55e, 0.20)
+        const regionPolygon = new kakao.maps.Polygon({
+          path: polygonPath,
+          strokeWeight: 2.5,
+          strokeColor: '#16a34a',
+          strokeOpacity: 0.95,
+          strokeStyle: 'solid',
+          fillColor: '#22c55e',
+          fillOpacity: 0.20,
+          zIndex: 2,
+        });
+        addOverlay(regionPolygon);
+
+        // 영역 전체가 화면에 완벽하게 들어오도록 자동 줌/바운드 조절
+        const bounds = new kakao.maps.LatLngBounds();
+        polygonPath.forEach((pt) => bounds.extend(pt));
+
+        const clientW = containerRef.current?.clientWidth || 390;
+        const clientH = containerRef.current?.clientHeight || 600;
+        if (clientW > 250 && clientH > 350) {
+          try {
+            // 상단 검색바/헤더 및 하단 시트(bottom sheet) 영역을 고려한 넉넉한 여백 배분
+            map.setBounds(bounds, 70, 28, 190, 28);
+          } catch {
+            map.setBounds(bounds);
+          }
+        } else {
+          map.setBounds(bounds);
+        }
+
+        // 최적 가시성 줌 레벨 범위 유지 (4~5)
+        const currLevel = map.getLevel();
+        if (currLevel > 5) {
+          map.setLevel(5);
+        } else if (currLevel < 3) {
+          map.setLevel(4);
+        }
+      } else {
+        map.setCenter(targetLatLng);
+        map.setLevel(4);
+      }
 
       setTimeout(() => {
         if (mapRef.current) {
           mapRef.current.relayout();
-          mapRef.current.setCenter(targetLatLng);
+          if (boundaryPoints && boundaryPoints.length > 2) {
+            const bounds = new kakao.maps.LatLngBounds();
+            boundaryPoints.forEach((p) => bounds.extend(new kakao.maps.LatLng(p.lat, p.lng)));
+            try {
+              mapRef.current.setBounds(bounds, 70, 28, 190, 28);
+            } catch {
+              mapRef.current.setBounds(bounds);
+            }
+            const lvl = mapRef.current.getLevel();
+            if (lvl > 5) mapRef.current.setLevel(5);
+            else if (lvl < 3) mapRef.current.setLevel(4);
+          } else {
+            mapRef.current.setCenter(targetLatLng);
+          }
         }
-      }, 30);
+      }, 50);
 
-      // 지역 검색(search) 모드일 때 선택된 지역 중심에 직관적이고 깔끔한 위치 배지 마커 표시
-      if (variant === 'search' && region) {
-        const regionMarker = new kakao.maps.CustomOverlay({
-          position: targetLatLng,
-          content: `
-            <div style="background: #111827; color: #ffffff; font-size: 11.5px; font-weight: 700; padding: 5px 12px; border-radius: 18px; box-shadow: 0 4px 12px rgba(0,0,0,0.25); display: flex; align-items: center; gap: 6px; white-space: nowrap; transform: translateY(-8px);">
-              <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e;"></span>
-              <span>${region.short || region.name}</span>
-            </div>
-          `,
-          xAnchor: 0.5,
-          yAnchor: 1.0,
-          zIndex: 7,
-        });
-        addOverlay(regionMarker);
-      }
+      // 선택된 지역 중심에 직관적이고 세련된 위치 배지 마커 표시
+      const regionName = activeRegion?.short || activeRegion?.name || '역곡1동';
+      const regionMarker = new kakao.maps.CustomOverlay({
+        position: targetLatLng,
+        content: `
+          <div style="background: rgba(17, 24, 39, 0.92); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); color: #ffffff; font-size: 11.5px; font-weight: 700; padding: 5px 13px; border-radius: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.22); border: 1.5px solid #22c55e; display: flex; align-items: center; gap: 6px; white-space: nowrap; transform: translateY(-8px); pointer-events: none;">
+            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e; box-shadow: 0 0 6px #22c55e;"></span>
+            <span>🌿 ${regionName} · 산책 권역</span>
+          </div>
+        `,
+        xAnchor: 0.5,
+        yAnchor: 1.0,
+        zIndex: 7,
+      });
+      addOverlay(regionMarker);
     }
 
     if (showUser) {
