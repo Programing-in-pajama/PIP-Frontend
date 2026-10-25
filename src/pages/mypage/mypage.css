@@ -29,7 +29,7 @@
 }
 
 .mp-page { display: flex; flex-direction: column; }
-.mp-form { min-height: calc(100vh - 128px); }
+.mp-form { flex: 1; display: flex; flex-direction: column; }
 
 /* 제목 */
 .mp-title { margin: 12px 0 6px; font-size: 22px; font-weight: 700; line-height: 1.2; }

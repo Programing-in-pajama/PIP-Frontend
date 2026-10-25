@@ -15,10 +15,11 @@ export default function HealthPage({ profile = {}, onBack, onAllergy, onDisease,
         <button type="button" className="back-btn" onClick={onBack} aria-label="뒤로">
           <Icon name="chevron-left" size={22} />
         </button>
-        <div>
+        <div className="page-head-text">
           <h1>건강정보 관리</h1>
           <p>등록한 정보를 확인하고 수정하세요</p>
         </div>
+        <img src="/pic/SOYO.png" alt="SOYO" className="head-logo" />
       </header>
 
       <div className="info-banner">

@@ -23,10 +23,11 @@ export default function ProfileEditPage({ profile = {}, isLoading, onSave, onBac
         <button type="button" className="back-btn" onClick={onBack} aria-label="뒤로">
           <Icon name="chevron-left" size={22} />
         </button>
-        <div>
+        <div className="page-head-text">
           <h1>회원정보 수정</h1>
           <p>저장된 회원정보를 수정할 수 있어요</p>
         </div>
+        <img src="/pic/SOYO.png" alt="SOYO" className="head-logo" />
       </header>
 
       <form className="mp-form" onSubmit={handleSubmit}>
@@ -61,7 +62,7 @@ export default function ProfileEditPage({ profile = {}, isLoading, onSave, onBac
 
         {notice && <p className="form-message" role="status">{notice}</p>}
 
-        <div style={{ marginTop: '28px', marginBottom: '40px' }}>
+        <div style={{ marginTop: '28px', marginBottom: '16px' }}>
           <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={isLoading}>
             {isLoading ? '저장 중...' : '회원정보 저장하기'}
           </button>

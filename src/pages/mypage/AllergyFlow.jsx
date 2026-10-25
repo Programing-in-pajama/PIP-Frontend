@@ -36,10 +36,11 @@ export default function AllergyFlow({ profile = {}, onSave, onBack }) {
         <button type="button" className="back-btn" onClick={onBack} aria-label="뒤로">
           <Icon name="chevron-left" size={22} />
         </button>
-        <div>
+        <div className="page-head-text">
           <h1>알레르기 관리</h1>
           <p>등록한 알레르기를 확인하고 관리하세요</p>
         </div>
+        <img src="/pic/SOYO.png" alt="SOYO" className="head-logo" />
       </header>
 
       <div className={`allergy-summary ${allergies.length ? 'has-allergy' : ''}`}>
@@ -130,10 +131,11 @@ function AllergyEditor({ initial, onSave, onBack }) {
         <button type="button" className="back-btn" onClick={onBack} aria-label="뒤로">
           <Icon name="chevron-left" size={22} />
         </button>
-        <div>
+        <div className="page-head-text">
           <h1>알레르기 수정</h1>
           <p>알레르기 여부를 알려주세요</p>
         </div>
+        <img src="/pic/SOYO.png" alt="SOYO" className="head-logo" />
       </header>
 
       <h2 className="edit-question">알레르기가 있나요?</h2>

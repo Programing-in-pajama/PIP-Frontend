@@ -94,10 +94,11 @@ export default function MedicationFlow({ profile = {}, onSave, onBack }) {
       <button type="button" className="back-btn" onClick={onBackClick} aria-label="뒤로">
         <Icon name="chevron-left" size={22} />
       </button>
-      <div>
+      <div className="page-head-text">
         <h1>{title}</h1>
         <p>{subtitle}</p>
       </div>
+      <img src="/pic/SOYO.png" alt="SOYO" className="head-logo" />
     </header>
   );
 
@@ -337,15 +338,11 @@ export default function MedicationFlow({ profile = {}, onSave, onBack }) {
   // ── No.14 복용 약물 관리 ────────────────────────────────────
   return (
     <>
-      <header className="page-head page-head--back">
-        <button type="button" className="back-btn" onClick={onBack} aria-label="뒤로">
-          <Icon name="chevron-left" size={22} />
-        </button>
-        <div>
-          <h1>복용 약물 관리</h1>
-          <p>등록한 약물을 확인하고 관리하세요</p>
-        </div>
-      </header>
+      <BackHeader
+        title="복용 약물 관리"
+        subtitle="등록한 약물을 확인하고 관리하세요"
+        onBackClick={onBack}
+      />
 
       {duplicateGroups.length > 0 && (
         <div className="warning-box">

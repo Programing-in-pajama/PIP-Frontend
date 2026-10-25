@@ -18,10 +18,11 @@ export default function DiseaseSelectPage({ profile = {}, isLoading, onSave, onB
         <button type="button" className="back-btn" onClick={onBack} aria-label="뒤로">
           <Icon name="chevron-left" size={22} />
         </button>
-        <div>
+        <div className="page-head-text">
           <h1>기저질환 선택</h1>
           <p>해당하는 질환을 모두 선택해 주세요</p>
         </div>
+        <img src="/pic/SOYO.png" alt="SOYO" className="head-logo" />
       </header>
 
       <ul className="disease-list">

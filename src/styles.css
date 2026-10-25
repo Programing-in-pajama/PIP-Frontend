@@ -194,8 +194,14 @@ img {
 .page-head--back {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
   gap: 8px;
+}
+
+.page-head--back > div:first-of-type,
+.page-head--back .page-head-text {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
 }
 
 .head-logo {
