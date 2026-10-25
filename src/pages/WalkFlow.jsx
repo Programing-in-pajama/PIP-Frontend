@@ -878,50 +878,113 @@ function NewFolderForm({ onSubmit, onCancel, existingFolders = [] }) {
   };
 
   return (
-    <form className="folder-form" onSubmit={handleSubmit} style={{ marginTop: '8px' }}>
-      <label
-        className="field-label"
-        htmlFor="new-sheet-folder-name"
-        style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}
-      >
-        새 폴더 이름
-      </label>
-      <div className="input-wrap" style={{ display: 'flex', gap: '8px' }}>
+    <form
+      className="new-folder-card"
+      onSubmit={handleSubmit}
+      style={{
+        marginTop: '12px',
+        padding: '16px',
+        background: '#f8faf9',
+        border: '1.5px solid #d7e3dc',
+        borderRadius: '18px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px'
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <label
+          htmlFor="new-sheet-folder-name"
+          style={{ fontSize: '13px', fontWeight: 700, color: '#1a221e' }}
+        >
+          📁 새 폴더 이름
+        </label>
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '12px',
+              color: '#87938c',
+              cursor: 'pointer',
+              padding: '2px 4px'
+            }}
+          >
+            닫기 ✕
+          </button>
+        )}
+      </div>
+
+      <div style={{ width: '100%', position: 'relative' }}>
         <input
           ref={inputRef}
           id="new-sheet-folder-name"
           className="input"
           placeholder="예: 우리 동네, 주말 코스"
           value={name}
+          maxLength={20}
           onChange={(event) => {
             setName(event.target.value);
             setErrorMsg('');
           }}
-          style={{ flex: 1 }}
+          style={{
+            width: '100%',
+            height: '46px',
+            fontSize: '14px',
+            boxSizing: 'border-box',
+            borderRadius: '12px',
+            background: '#ffffff',
+            border: errorMsg ? '1.5px solid #e53e3e' : '1px solid #d7e3dc'
+          }}
         />
+      </div>
+
+      {errorMsg && (
+        <p style={{ color: '#e53e3e', fontSize: '12px', margin: '-4px 0 0 2px', fontWeight: 600 }}>
+          {errorMsg}
+        </p>
+      )}
+
+      <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
         {onCancel && (
           <button
             type="button"
-            className="btn btn-ghost"
             onClick={onCancel}
-            style={{ flex: 'none', padding: '0 12px', height: '44px', minHeight: '44px' }}
+            style={{
+              flex: 1,
+              height: '44px',
+              borderRadius: '12px',
+              border: '1px solid #d7e3dc',
+              background: '#ffffff',
+              color: '#4e5b53',
+              fontSize: '14px',
+              fontWeight: 700,
+              cursor: 'pointer'
+            }}
           >
             취소
           </button>
         )}
         <button
           type="submit"
-          className="btn btn-primary"
-          style={{ flex: 'none', padding: '0 16px', height: '44px', minHeight: '44px' }}
+          style={{
+            flex: onCancel ? 1.4 : 1,
+            height: '44px',
+            borderRadius: '12px',
+            border: 'none',
+            background: 'var(--emerald, #5fb294)',
+            color: '#ffffff',
+            fontSize: '14px',
+            fontWeight: 700,
+            cursor: 'pointer',
+            boxShadow: '0 3px 10px rgba(95, 178, 148, 0.28)'
+          }}
         >
-          만들고 저장
+          폴더 생성 및 저장
         </button>
       </div>
-      {errorMsg && (
-        <p className="form-message" style={{ color: '#e53e3e', fontSize: '12px', marginTop: '4px' }}>
-          {errorMsg}
-        </p>
-      )}
     </form>
   );
 }
