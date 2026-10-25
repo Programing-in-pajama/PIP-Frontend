@@ -12,9 +12,6 @@ import { updateProfile, clearProfileCache } from './api/user';
 import { supabase } from './supabaseClient';
 
 function readStoredLogin() {
-  if (typeof window !== 'undefined' && sessionStorage.getItem('soyo-logged-out') === 'true') {
-    return false;
-  }
   const uid = localStorage.getItem('soyo-current-user-id');
   return Boolean(uid && uid !== 'guest');
 }
@@ -104,24 +101,13 @@ function App() {
     return null;
   }, []);
 
-  const finishLogin = useCallback(async ({ loginId, user, session: loginSession }) => {
-    sessionStorage.removeItem('soyo-logged-out');
+  const finishLogin = useCallback(({ loginId, user, session: loginSession }) => {
     const id = user?.supabaseUserId || user?.userId || loginSession?.user?.id || user?.loginId || loginId;
     const email = user?.email || loginSession?.user?.email || localStorage.getItem('soyo-current-email') || '';
     if (id) localStorage.setItem('soyo-current-user-id', id);
     if (email) localStorage.setItem('soyo-current-email', email);
 
-    const profile = await resolveProfile({ ...user, loginId: id, email });
-    if (profile) {
-      storeProfile({
-        ...profile,
-        email: profile.email || email,
-      });
-      await mockUpdateProfile(profile);
-    } else {
-      localStorage.removeItem('soyo-user-profile');
-    }
-
+    // 즉시 로그인 완료 처리하여 화면 전환 지연 차단
     if (loginSession) setSession(loginSession);
     setIsLoggedIn(true);
     setAuthNotice('');
@@ -129,6 +115,19 @@ function App() {
     setWalkKey((key) => key + 1);
     setNavVisible(true);
     setScreen('main');
+
+    // 프로필 정보는 백그라운드에서 비동기 조회 및 캐시 갱신
+    resolveProfile({ ...user, loginId: id, email }).then((profile) => {
+      if (profile) {
+        storeProfile({
+          ...profile,
+          email: profile.email || email,
+        });
+        mockUpdateProfile(profile);
+      }
+    }).catch((err) => {
+      console.warn('⚠️ [로그인] 프로필 동기화 대기:', err?.message);
+    });
   }, [resolveProfile]);
 
   // 네이버 로그인 콜백 처리
@@ -137,8 +136,8 @@ function App() {
     const code = params.get('code');
     const state = params.get('state');
     const naverSavedState = sessionStorage.getItem('naver_oauth_state');
-    // 네이버 로그인 시 발급한 state와 일치할 때만 처리 (타 OAuth 충돌 방지)
-    if (!code || !state || !naverSavedState || naverSavedState !== state) return;
+    if (!code || !state) return;
+    if (naverSavedState && naverSavedState !== state) return;
     sessionStorage.removeItem('naver_oauth_state');
     window.history.replaceState({}, '', window.location.pathname);
     naverAuthCallback(code, state)
@@ -162,12 +161,7 @@ function App() {
     if (!supabase) return;
 
     const handleSupabaseSession = async (sessionUser, event) => {
-      if (sessionStorage.getItem('soyo-logged-out') === 'true') {
-        console.log('🛑 [로그아웃 상태 유지] 잔여 세션 자동 로그인 차단');
-        return;
-      }
       if (!sessionUser) return;
-      sessionStorage.removeItem('soyo-logged-out');
 
       const userMeta = sessionUser.user_metadata || {};
       const userName = userMeta.full_name || userMeta.name || userMeta.user_name || sessionUser.email?.split('@')[0] || '소요 여행자';
@@ -204,7 +198,7 @@ function App() {
         }
       } catch (e) {
         console.warn('⚠️ [AWS RDS 백엔드] 프로필 조회 대기:', e.message);
-        isNewUser = true;
+        isNewUser = false;
       }
 
       if (isNewUser) {
@@ -239,10 +233,6 @@ function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
       console.log('🔔 [Supabase Auth 상태 변경 알림]:', event, newSession?.user?.email);
-      if (sessionStorage.getItem('soyo-logged-out') === 'true') {
-        console.log('🛑 [로그아웃 상태] Stale Supabase 세션 무시:', event);
-        return;
-      }
       setSession(newSession);
       if (newSession?.user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
         handleSupabaseSession(newSession.user, event);
@@ -275,7 +265,6 @@ function App() {
   };
 
   const handleLogout = async () => {
-    sessionStorage.setItem('soyo-logged-out', 'true');
     localStorage.removeItem('soyo-current-user-id');
     localStorage.removeItem('soyo-current-email');
     localStorage.removeItem('soyo-jwt-token');
@@ -310,7 +299,6 @@ function App() {
   };
 
   const handleSkip = () => {
-    sessionStorage.setItem('soyo-logged-out', 'true');
     localStorage.removeItem('soyo-current-user-id');
     localStorage.removeItem('soyo-current-email');
     localStorage.removeItem('soyo-user-profile');
@@ -324,7 +312,6 @@ function App() {
   };
 
   const handleSignupComplete = async (form) => {
-    sessionStorage.removeItem('soyo-logged-out');
     const profile = {
       userName: form.name,
       email: form.email,

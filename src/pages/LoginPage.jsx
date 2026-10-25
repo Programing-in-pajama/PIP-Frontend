@@ -7,6 +7,7 @@ import { isTestAccountLogin, TEST_PROFILE } from '../dev/testAccount';
 
 const SOCIAL_LOGINS = [
   { name: '카카오', image: '/pic/카카오톡.png', className: 'kakao', provider: 'kakao' },
+  { name: '네이버', image: '/pic/네이버.png', className: 'naver', provider: 'naver' },
   { name: '구글', image: '/pic/구글.png', className: 'google', provider: 'google' },
 ];
 
@@ -38,7 +39,6 @@ export default function LoginPage({ onSignup, onLogin, onSkip, onFindAccount, in
 
     // 🧪 테스트 계정 (아이디: test / 비밀번호: 1234)
     if (isTestAccountLogin(trimmedId, password)) {
-      sessionStorage.removeItem('soyo-logged-out');
       localStorage.setItem('soyo-user-profile', JSON.stringify(TEST_PROFILE));
       if (rememberId) localStorage.setItem('soyo-saved-id', trimmedId);
       else localStorage.removeItem('soyo-saved-id');
@@ -58,7 +58,6 @@ export default function LoginPage({ onSignup, onLogin, onSkip, onFindAccount, in
     try {
       const res = await loginUser(trimmedId, password);
       if (res?.success && res?.user) {
-        sessionStorage.removeItem('soyo-logged-out');
         if (rememberId) localStorage.setItem('soyo-saved-id', trimmedId);
         else localStorage.removeItem('soyo-saved-id');
         if (res.token) localStorage.setItem('soyo-jwt-token', res.token);
@@ -78,7 +77,6 @@ export default function LoginPage({ onSignup, onLogin, onSkip, onFindAccount, in
           password,
         });
         if (!error && data?.session) {
-          sessionStorage.removeItem('soyo-logged-out');
           if (rememberId) localStorage.setItem('soyo-saved-id', trimmedId);
           setIsSubmitting(false);
           onLogin({ loginId: trimmedId, session: data.session });
@@ -101,7 +99,6 @@ export default function LoginPage({ onSignup, onLogin, onSkip, onFindAccount, in
     );
 
     if (matched) {
-      sessionStorage.removeItem('soyo-logged-out');
       if (rememberId) localStorage.setItem('soyo-saved-id', trimmedId);
       else localStorage.removeItem('soyo-saved-id');
       setIsSubmitting(false);
@@ -113,13 +110,26 @@ export default function LoginPage({ onSignup, onLogin, onSkip, onFindAccount, in
   }
 
   async function handleSocialLogin(provider) {
+    if (provider === 'naver') {
+      const clientId = import.meta.env.VITE_NAVER_CLIENT_ID;
+      if (!clientId) {
+        setAuthMessage('네이버 로그인 설정이 아직 준비되지 않았어요.');
+        return;
+      }
+      const redirectUri =
+        import.meta.env.VITE_NAVER_REDIRECT_URI || `${window.location.origin}/oauth/callback/naver`;
+      const state = Math.random().toString(36).substring(2, 15);
+      sessionStorage.setItem('naver_oauth_state', state);
+      window.location.href = `https://nid.naver.com/oauth2.0/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`;
+      return;
+    }
+
     if (!supabase) {
       setAuthMessage('소셜 로그인 설정이 아직 준비되지 않았어요.');
       return;
     }
 
     setIsSubmitting(true);
-    sessionStorage.removeItem('soyo-logged-out');
     setAuthMessage('소셜 로그인으로 이동 중...');
 
     try {
