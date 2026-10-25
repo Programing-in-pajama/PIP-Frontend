@@ -51,6 +51,8 @@ function FindIdForm({ onBack, onDone }) {
   const [foundId, setFoundId] = useState('');
   const [emailHint, setEmailHint] = useState({ text: '', ok: false });
   const [codeHint, setCodeHint] = useState({ text: '', ok: false });
+  const [fallbackCode, setFallbackCode] = useState('');
+  const [showCodeHelp, setShowCodeHelp] = useState(false);
   const [formMessage, setFormMessage] = useState({ text: '', ok: false });
 
   async function sendCode() {
@@ -98,6 +100,8 @@ function FindIdForm({ onBack, onDone }) {
           : '인증번호가 이메일로 발송되었어요. 메일함을 확인해 주세요.',
         ok: true
       });
+      setFallbackCode(String(serverCode || ''));
+      setShowCodeHelp(false);
       setCode('');
       setCodeHint({
         text: '메일로 도착한 6자리 인증번호를 입력해 주세요.',
@@ -280,6 +284,46 @@ function FindIdForm({ onBack, onDone }) {
         </p>
       )}
 
+      {codeSent && fallbackCode && (
+        <div style={{ margin: '-2px 4px 10px', fontSize: '12px' }}>
+          <button
+            type="button"
+            onClick={() => setShowCodeHelp((prev) => !prev)}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              color: '#6b7280',
+              textDecoration: 'underline',
+              cursor: 'pointer',
+              fontSize: '12px'
+            }}
+          >
+            {showCodeHelp ? '안내 닫기' : '이메일이 도착하지 않나요?'}
+          </button>
+          {showCodeHelp && (
+            <div
+              style={{
+                marginTop: '6px',
+                padding: '10px 12px',
+                backgroundColor: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                borderRadius: '8px',
+                color: '#166534',
+                lineHeight: '1.5'
+              }}
+            >
+              <p style={{ margin: '0 0 4px 0', fontSize: '12px' }}>
+                메일함/스팸함에 메일이 오지 않은 경우 아래 발급 번호를 직접 입력해 주세요:
+              </p>
+              <strong style={{ fontSize: '16px', letterSpacing: '2px', color: '#15803d' }}>
+                {fallbackCode}
+              </strong>
+            </div>
+          )}
+        </div>
+      )}
+
       {formMessage.text && (
         <p className={`form-message ${formMessage.ok ? 'is-success' : ''}`} role="status">
           {formMessage.text}
@@ -311,6 +355,8 @@ function FindPasswordForm({ initialLoginId, onBack, onDone }) {
   const [isSending, setIsSending] = useState(false);
   const [idHint, setIdHint] = useState({ text: '', ok: false });
   const [codeHint, setCodeHint] = useState({ text: '', ok: false });
+  const [fallbackCode, setFallbackCode] = useState('');
+  const [showCodeHelp, setShowCodeHelp] = useState(false);
   const [formMessage, setFormMessage] = useState({ text: '', ok: false });
 
   const isPasswordValid = PASSWORD_RULE.test(password);
@@ -361,6 +407,8 @@ function FindPasswordForm({ initialLoginId, onBack, onDone }) {
           : (maskedEmail ? `등록된 이메일(${maskedEmail})로 인증번호를 발송했어요. 메일함을 확인해 주세요.` : '등록된 이메일로 인증번호를 발송했어요. 메일함을 확인해 주세요.'),
         ok: true
       });
+      setFallbackCode(String(serverCode || ''));
+      setShowCodeHelp(false);
       setCode('');
       setCodeHint({
         text: '메일로 도착한 6자리 인증번호를 입력해 주세요.',
@@ -530,6 +578,46 @@ function FindPasswordForm({ initialLoginId, onBack, onDone }) {
         >
           {codeHint.text}
         </p>
+      )}
+
+      {sentTo && fallbackCode && (
+        <div style={{ margin: '-2px 4px 10px', fontSize: '12px' }}>
+          <button
+            type="button"
+            onClick={() => setShowCodeHelp((prev) => !prev)}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              color: '#6b7280',
+              textDecoration: 'underline',
+              cursor: 'pointer',
+              fontSize: '12px'
+            }}
+          >
+            {showCodeHelp ? '안내 닫기' : '이메일이 도착하지 않나요?'}
+          </button>
+          {showCodeHelp && (
+            <div
+              style={{
+                marginTop: '6px',
+                padding: '10px 12px',
+                backgroundColor: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                borderRadius: '8px',
+                color: '#166534',
+                lineHeight: '1.5'
+              }}
+            >
+              <p style={{ margin: '0 0 4px 0', fontSize: '12px' }}>
+                메일함/스팸함에 메일이 오지 않은 경우 아래 발급 번호를 직접 입력해 주세요:
+              </p>
+              <strong style={{ fontSize: '16px', letterSpacing: '2px', color: '#15803d' }}>
+                {fallbackCode}
+              </strong>
+            </div>
+          )}
+        </div>
       )}
 
       <div className="input-wrap">
