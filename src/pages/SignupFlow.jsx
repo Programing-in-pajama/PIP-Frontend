@@ -95,12 +95,20 @@ export default function SignupFlow({ onBack, onComplete, onFindAccount, initialD
     setAuthMessage('');
     setAlreadyRegistered(false);
     try {
-      await sendEmailCode(form.email);
+      const res = await sendEmailCode(form.email, 'signup');
       setCodeSent(true);
       setVerified(false);
       setDemoCode(false);
-      // 서버 메시지(res.message)에 인증번호가 들어 있을 수 있어서 화면에는 고정 문구만 보여줘요.
-      setAuthMessage('인증번호가 발송되었어요. 메일함을 확인해 주세요.');
+
+      const serverCode = res?.code || res?.debugCode || res?.data?.code || res?.data?.debugCode;
+      if (res?.emailSent) {
+        setAuthMessage('인증번호가 이메일로 발송되었어요. 메일함을 확인해 주세요.');
+      } else if (serverCode) {
+        setAuthMessage(`인증번호가 발송되었어요. [인증번호: ${serverCode}]`);
+        setForm((prev) => ({ ...prev, code: String(serverCode) }));
+      } else {
+        setAuthMessage(res?.message || '인증번호가 발송되었어요. 메일함을 확인해 주세요.');
+      }
     } catch (error) {
       if (error.status === 409 || error.alreadyRegistered || error.code === 'ALREADY_REGISTERED') {
         setCodeSent(false);
@@ -114,7 +122,8 @@ export default function SignupFlow({ onBack, onComplete, onFindAccount, initialD
       setCodeSent(true);
       setVerified(false);
       setDemoCode(true);
-      setAuthMessage('인증번호가 발송되었어요. (개발용 인증번호: 123456)');
+      setAuthMessage('인증번호가 발송되었어요. [인증번호: 123456]');
+      setForm((prev) => ({ ...prev, code: '123456' }));
       console.warn('⚠️ [회원가입] 메일 서버 대신 개발용 인증번호를 사용합니다:', error.message);
     } finally {
       setIsSending(false);
@@ -137,7 +146,7 @@ export default function SignupFlow({ onBack, onComplete, onFindAccount, initialD
 
     try {
       const res = await verifyEmailCode(form.email, form.code);
-      if (res?.verified) {
+      if (res?.verified || res?.success) {
         setVerified(true);
         setAuthMessage('E-mail 인증이 완료됐어요.');
       } else {

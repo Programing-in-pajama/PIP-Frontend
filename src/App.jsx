@@ -402,7 +402,7 @@ function App() {
     }
 
     try {
-      await saveUserProfile({
+      const saveRes = await saveUserProfile({
         userId: newUserId,
         loginId: form.loginId,
         password: form.password,
@@ -416,8 +416,12 @@ function App() {
         noDisease: form.noDisease,
         noMedication: form.noMedication,
       });
+      console.log('✅ [회원가입] 서버 프로필 저장 성공:', saveRes);
     } catch (error) {
-      console.warn('⚠️ [회원가입] 서버 저장은 나중에 연결됩니다:', error.message);
+      console.warn('⚠️ [회원가입] 서버 저장 실패:', error.message);
+      if (navigator.onLine) {
+        throw new Error(error.message || '회원정보 저장에 실패했습니다. 다시 시도해 주세요.');
+      }
     }
 
     await updateProfile(null, profile);

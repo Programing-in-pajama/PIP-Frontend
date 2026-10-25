@@ -55,10 +55,19 @@ function FindIdForm({ onBack, onDone }) {
     if (!EMAIL_RULE.test(email)) return say('먼저 올바른 E-mail 주소를 입력해 주세요.');
     try {
       say('인증번호를 발송하는 중입니다...');
-      await sendEmailCode(email, 'find');
+      const res = await sendEmailCode(email, 'find');
       setCodeSent(true);
       setVerified(false);
-      say('인증번호를 발송했어요. 메일함을 확인해 주세요.', true); // 서버 메시지에 인증번호가 들어 있을 수 있어 그대로 안 씀
+
+      const serverCode = res?.code || res?.debugCode || res?.data?.code || res?.data?.debugCode;
+      if (res?.emailSent) {
+        say('인증번호를 발송했어요. 메일함을 확인해 주세요.', true);
+      } else if (serverCode) {
+        say(`인증번호가 발송되었어요. [인증번호: ${serverCode}]`, true);
+        setCode(String(serverCode));
+      } else {
+        say(res?.message || '인증번호를 발송했어요. 메일함을 확인해 주세요.', true);
+      }
     } catch (err) {
       say(err.message || '인증번호 발송에 실패했습니다. 다시 시도해 주세요.');
     }
@@ -140,12 +149,21 @@ function FindPasswordForm({ initialLoginId, onBack, onDone }) {
     if (id.length < 4 || id === sentTo) return;
     try {
       say('인증번호를 발송하는 중입니다...');
-      await sendPasswordResetCode(id);
+      const res = await sendPasswordResetCode(id);
       setSentTo(id);
       setVerified(false);
-      say('');
+
+      const serverCode = res?.code || res?.debugCode || res?.data?.code || res?.data?.debugCode;
+      if (res?.emailSent) {
+        say('등록된 이메일로 인증번호를 발송했어요. 메일함을 확인해 주세요.', true);
+      } else if (serverCode) {
+        say(`인증번호가 발송되었어요. [인증번호: ${serverCode}]`, true);
+        setCode(String(serverCode));
+      } else {
+        say(res?.message || '등록된 이메일로 인증번호를 발송했어요. 메일함을 확인해 주세요.', true);
+      }
     } catch (err) {
-      say(err.status === 404 ? '비밀번호 찾기 기능은 서버 준비 중이에요.' : (err.message || '인증번호 발송에 실패했습니다.'));
+      say(err.status === 404 ? '존재하지 않는 아이디이거나 등록된 이메일이 없습니다.' : (err.message || '인증번호 발송에 실패했습니다.'));
     }
   }
 

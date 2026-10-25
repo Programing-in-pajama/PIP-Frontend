@@ -68,6 +68,10 @@ export default function LoginPage({ onSignup, onLogin, onSkip, onFindAccount, in
       }
     } catch (apiError) {
       console.warn('⚠️ [로그인] 서버 로그인 실패:', apiError.message);
+      if (apiError.status === 401) {
+        failLogin();
+        return;
+      }
     }
 
     if (supabase && trimmedId.includes('@')) {
