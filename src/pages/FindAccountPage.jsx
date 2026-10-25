@@ -73,7 +73,7 @@ function FindIdForm({ onBack, onDone }) {
     console.groupEnd();
 
     setIsSending(true);
-    setEmailHint({ text: '인증번호를 발송하는 중입니다...', ok: true });
+    setEmailHint({ text: codeSent ? '인증번호를 재전송하는 중입니다...' : '인증번호를 발송하는 중입니다...', ok: true });
     setCodeHint({ text: '', ok: false });
     setFormMessage({ text: '', ok: false });
 
@@ -95,14 +95,19 @@ function FindIdForm({ onBack, onDone }) {
       if (serverCode) {
         setEmailHint({
           text: res?.emailSent
-            ? `인증번호를 발송했어요. (도착 지연 대비 자동입력: ${serverCode})`
-            : `인증번호가 발송되었어요. [인증번호: ${serverCode}]`,
+            ? (codeSent ? `인증번호를 재전송했어요! 메일함을 확인해 주세요. [인증번호: ${serverCode}]` : `인증번호를 발송했어요. 메일함을 확인해 주세요. [인증번호: ${serverCode}]`)
+            : (codeSent ? `새 인증번호가 재전송되었어요. [인증번호: ${serverCode}] (자동 입력 완료)` : `인증번호가 발급되었어요. [인증번호: ${serverCode}] (자동 입력 완료)`),
           ok: true
         });
         setCode(String(serverCode));
-        setCodeHint({ text: '인증번호가 자동 입력되었어요. 바로 [인증 확인] 버튼을 눌러주세요.', ok: true });
+        setCodeHint({
+          text: codeSent
+            ? '새 인증번호가 자동 입력되었어요. 바로 [인증 확인] 버튼을 눌러주세요.'
+            : '인증번호가 자동 입력되었어요. 바로 [인증 확인] 버튼을 눌러주세요.',
+          ok: true
+        });
       } else if (res?.emailSent) {
-        setEmailHint({ text: '인증번호를 발송했어요. 메일함을 확인해 주세요.', ok: true });
+        setEmailHint({ text: codeSent ? '인증번호를 재전송했어요! 메일함을 확인해 주세요.' : '인증번호를 발송했어요. 메일함을 확인해 주세요.', ok: true });
       } else {
         setEmailHint({ text: res?.message || '인증번호를 발송했어요. 메일함을 확인해 주세요.', ok: true });
       }
@@ -230,7 +235,7 @@ function FindIdForm({ onBack, onDone }) {
           }}
         />
         <button className="pill-btn pill-btn--light" type="button" onClick={sendCode} disabled={isSending}>
-          {isSending ? '전송 중...' : codeSent ? '재전송' : '인증번호 전송'}
+          {isSending ? (codeSent ? '재전송 중...' : '전송 중...') : codeSent ? '재전송' : '인증번호 전송'}
         </button>
       </div>
 
@@ -337,7 +342,7 @@ function FindPasswordForm({ initialLoginId, onBack, onDone }) {
     console.groupEnd();
 
     setIsSending(true);
-    setIdHint({ text: '인증번호를 발송하는 중입니다...', ok: true });
+    setIdHint({ text: sentTo ? '인증번호를 재전송하는 중입니다...' : '인증번호를 발송하는 중입니다...', ok: true });
     setCodeHint({ text: '', ok: false });
     setFormMessage({ text: '', ok: false });
 
@@ -359,14 +364,19 @@ function FindPasswordForm({ initialLoginId, onBack, onDone }) {
       if (serverCode) {
         setIdHint({
           text: res?.emailSent
-            ? `인증번호를 발송했어요. (도착 지연 대비 자동입력: ${serverCode})`
-            : `인증번호가 발송되었어요. [인증번호: ${serverCode}]`,
+            ? (sentTo ? `인증번호를 재전송했어요! 메일함을 확인해 주세요. [인증번호: ${serverCode}]` : `등록된 이메일로 인증번호를 발송했어요. [인증번호: ${serverCode}]`)
+            : (sentTo ? `새 인증번호가 재전송되었어요. [인증번호: ${serverCode}] (자동 입력 완료)` : `인증번호가 발급되었어요. [인증번호: ${serverCode}] (자동 입력 완료)`),
           ok: true
         });
         setCode(String(serverCode));
-        setCodeHint({ text: '인증번호가 자동 입력되었어요. 바로 [인증 확인] 버튼을 눌러주세요.', ok: true });
+        setCodeHint({
+          text: sentTo
+            ? '새 인증번호가 자동 입력되었어요. 바로 [인증 확인] 버튼을 눌러주세요.'
+            : '인증번호가 자동 입력되었어요. 바로 [인증 확인] 버튼을 눌러주세요.',
+          ok: true
+        });
       } else if (res?.emailSent) {
-        setIdHint({ text: '등록된 이메일로 인증번호를 발송했어요. 메일함을 확인해 주세요.', ok: true });
+        setIdHint({ text: sentTo ? '인증번호를 재전송했어요! 메일함을 확인해 주세요.' : '등록된 이메일로 인증번호를 발송했어요. 메일함을 확인해 주세요.', ok: true });
       } else {
         setIdHint({ text: res?.message || '등록된 이메일로 인증번호를 발송했어요. 메일함을 확인해 주세요.', ok: true });
       }
@@ -483,7 +493,7 @@ function FindPasswordForm({ initialLoginId, onBack, onDone }) {
           onClick={sendCode}
           disabled={isSending}
         >
-          {isSending ? '전송 중...' : sentTo ? '재전송' : '인증번호 전송'}
+          {isSending ? (sentTo ? '재전송 중...' : '전송 중...') : sentTo ? '재전송' : '인증번호 전송'}
         </button>
       </div>
 
