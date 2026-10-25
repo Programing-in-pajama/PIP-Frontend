@@ -138,12 +138,17 @@ export default function SignupFlow({ onBack, onComplete, onFindAccount, initialD
       console.log('🔄 상태 업데이트:', { codeSent: true, verified: false, isSending: false });
       console.groupEnd();
 
-      if (res?.emailSent) {
-        setEmailHint({ text: '인증번호가 이메일로 발송되었어요. 메일함을 확인해 주세요.', ok: true });
-      } else if (serverCode) {
-        setEmailHint({ text: `인증번호가 발송되었어요. [인증번호: ${serverCode}]`, ok: true });
+      if (serverCode) {
+        setEmailHint({
+          text: res?.emailSent
+            ? `인증번호를 발송했어요. (도착 지연 대비 자동입력: ${serverCode})`
+            : `인증번호가 발송되었어요. [인증번호: ${serverCode}]`,
+          ok: true
+        });
         setForm((prev) => ({ ...prev, email: cleanEmail, code: String(serverCode) }));
-        setCodeHint({ text: '인증번호가 자동 입력되었어요. [인증 확인] 버튼을 눌러주세요.', ok: true });
+        setCodeHint({ text: '인증번호가 자동 입력되었어요. 바로 [인증 확인] 버튼을 눌러주세요.', ok: true });
+      } else if (res?.emailSent) {
+        setEmailHint({ text: '인증번호가 이메일로 발송되었어요. 메일함을 확인해 주세요.', ok: true });
       } else {
         setEmailHint({ text: res?.message || '인증번호가 발송되었어요. 메일함을 확인해 주세요.', ok: true });
       }
