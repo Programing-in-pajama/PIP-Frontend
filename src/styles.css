@@ -666,11 +666,14 @@ img {
 .kakao-live-map {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
   z-index: 1;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.35s ease;
   background: #eef2ee;
+  overflow: hidden;
 }
 
 .kakao-live-map.is-ready {

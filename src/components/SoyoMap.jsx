@@ -112,13 +112,6 @@ export default function SoyoMap({
           </>
         )}
 
-        {region?.polygon && (
-          <g>
-            <polygon points={region.polygon} fill="rgba(182, 235, 255, 0.55)" stroke="#5FB294" strokeWidth="2.4" />
-            <circle cx="186" cy="232" r="8" fill="#4C9BE8" stroke="#FFFFFF" strokeWidth="3" />
-            <circle cx="266" cy="300" r="7" fill="#EF5B5B" stroke="#FFFFFF" strokeWidth="3" />
-          </g>
-        )}
 
         <RouteLine route={route} />
 

@@ -3,7 +3,6 @@ import { loadKakaoMaps } from '../lib/kakao';
 import {
   DEFAULT_REGION,
   REGIONS,
-  getRegionGeoPolygon,
   normalizedToLatLng,
 } from '../data/routes';
 
@@ -36,7 +35,18 @@ export default function KakaoMapLayer({ route = null, region = null, showUser = 
           center: new kakao.maps.LatLng(center.lat, center.lng),
           level: 4,
         });
+        map.setMinLevel(1);
+        map.setMaxLevel(7);
         mapRef.current = map;
+
+        const relayoutWithCenter = () => {
+          if (!mapRef.current) return;
+          const currCenter = mapRef.current.getCenter();
+          mapRef.current.relayout();
+          if (currCenter) {
+            mapRef.current.setCenter(currCenter);
+          }
+        };
 
         const markReady = () => {
           if (cancelled || readyRef.current) return;
@@ -47,7 +57,7 @@ export default function KakaoMapLayer({ route = null, region = null, showUser = 
 
         onTilesLoaded = () => {
           markReady();
-          setTimeout(() => mapRef.current?.relayout(), 30);
+          setTimeout(() => relayoutWithCenter(), 30);
         };
         kakao.maps.event.addListener(map, 'tilesloaded', onTilesLoaded);
 
@@ -57,12 +67,12 @@ export default function KakaoMapLayer({ route = null, region = null, showUser = 
         }, 5500);
 
         if (typeof ResizeObserver !== 'undefined') {
-          observer = new ResizeObserver(() => mapRef.current?.relayout());
+          observer = new ResizeObserver(() => relayoutWithCenter());
           observer.observe(containerRef.current);
         }
 
         setTimeout(() => {
-          if (!cancelled) mapRef.current?.relayout();
+          if (!cancelled) relayoutWithCenter();
         }, 120);
       })
       .catch(() => {
@@ -174,39 +184,57 @@ export default function KakaoMapLayer({ route = null, region = null, showUser = 
 
       const bounds = new kakao.maps.LatLngBounds();
       path.forEach((point) => bounds.extend(point));
-      try {
-        map.setBounds(bounds, 56, 46, 190, 46);
-      } catch {
+
+      const clientW = containerRef.current?.clientWidth || 390;
+      const clientH = containerRef.current?.clientHeight || 600;
+      if (clientW > 250 && clientH > 350) {
+        try {
+          map.setBounds(bounds, 50, 30, 160, 30);
+        } catch {
+          map.setBounds(bounds);
+        }
+      } else {
         map.setBounds(bounds);
       }
-      setTimeout(() => mapRef.current?.relayout(), 30);
-    } else if (variant === 'search' && region?.polygon) {
-      const polygonPath = getRegionGeoPolygon(region).map(
-        (point) => new kakao.maps.LatLng(point.lat, point.lng),
-      );
-      if (polygonPath.length > 2) {
-        addOverlay(
-          new kakao.maps.Polygon({
-            path: polygonPath,
-            strokeWeight: 2,
-            strokeColor: '#5FB294',
-            strokeOpacity: 0.95,
-            fillColor: '#B6EBFF',
-            fillOpacity: 0.45,
-            zIndex: 1,
-          }),
-        );
+
+      if (map.getLevel() > 6) {
+        map.setLevel(5);
       }
-      map.setCenter(new kakao.maps.LatLng(region.center.lat, region.center.lng));
-      map.setLevel(variant === 'search' ? 4 : 5);
-      if (variant === 'search' && polygonPath.length > 1) {
-        addDot(polygonPath[0], 'kakao-dot--start');
-        addDot(polygonPath[2] || polygonPath[1], 'kakao-dot--blue');
-      }
+
+      setTimeout(() => {
+        if (mapRef.current) {
+          mapRef.current.relayout();
+        }
+      }, 30);
     } else {
       const center = region?.center || DEFAULT_CENTER;
-      map.setCenter(new kakao.maps.LatLng(center.lat, center.lng));
+      const targetLatLng = new kakao.maps.LatLng(center.lat, center.lng);
+      map.setCenter(targetLatLng);
       map.setLevel(4);
+
+      setTimeout(() => {
+        if (mapRef.current) {
+          mapRef.current.relayout();
+          mapRef.current.setCenter(targetLatLng);
+        }
+      }, 30);
+
+      // 지역 검색(search) 모드일 때 선택된 지역 중심에 직관적이고 깔끔한 위치 배지 마커 표시
+      if (variant === 'search' && region) {
+        const regionMarker = new kakao.maps.CustomOverlay({
+          position: targetLatLng,
+          content: `
+            <div style="background: #111827; color: #ffffff; font-size: 11.5px; font-weight: 700; padding: 5px 12px; border-radius: 18px; box-shadow: 0 4px 12px rgba(0,0,0,0.25); display: flex; align-items: center; gap: 6px; white-space: nowrap; transform: translateY(-8px);">
+              <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e;"></span>
+              <span>${region.short || region.name}</span>
+            </div>
+          `,
+          xAnchor: 0.5,
+          yAnchor: 1.0,
+          zIndex: 7,
+        });
+        addOverlay(regionMarker);
+      }
     }
 
     if (showUser) {

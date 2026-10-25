@@ -47,6 +47,7 @@ function App() {
   const [signupDraft, setSignupDraft] = useState({ loginId: '', password: '' });
   const [walkStart, setWalkStart] = useState(null);
   const [walkKey, setWalkKey] = useState(0);
+  const [homeResetTrigger, setHomeResetTrigger] = useState(0);
   const [navVisible, setNavVisible] = useState(true);
   const [myPageResetKey, setMyPageResetKey] = useState(0);
   const [isOnline, setIsOnline] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true));
@@ -229,8 +230,12 @@ function App() {
   const handleTabChange = (tab) => {
     if (tab === 'main') {
       setWalkStart(null);
-      setWalkKey((key) => key + 1);
       setNavVisible(true);
+      if (screen !== 'main') {
+        setScreen('main');
+      }
+      setHomeResetTrigger((count) => count + 1);
+      return;
     }
     if (tab === 'mypage') {
       setMyPageResetKey((key) => key + 1);
@@ -421,6 +426,7 @@ function App() {
         isLoggedIn={isLoggedIn}
         userId={userId}
         startRoute={walkStart}
+        homeResetTrigger={homeResetTrigger}
         onRequireLogin={handleRequireLogin}
         onSectionChange={(step) => setNavVisible(step === 'home')}
       />

@@ -19,6 +19,7 @@ export default function WalkFlow({
   isLoggedIn,
   userId = 'guest',
   startRoute = null,
+  homeResetTrigger = 0,
   onRequireLogin,
   onSectionChange,
 }) {
@@ -54,6 +55,17 @@ export default function WalkFlow({
   useEffect(() => {
     onSectionChange?.(step);
   }, [step, onSectionChange]);
+
+  useEffect(() => {
+    if (homeResetTrigger > 0) {
+      setStep('home');
+      setSelectedRoute(null);
+      setToast('');
+      setFolderSelectRoute(null);
+      setShowNutritionDetail(false);
+      setShowComplete(false);
+    }
+  }, [homeResetTrigger]);
 
   useEffect(() => {
     setRoutes(getRoutes(region, minutes, userDiseases, includeRestaurant));
