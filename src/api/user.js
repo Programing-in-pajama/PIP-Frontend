@@ -159,27 +159,14 @@ export const updateProfile = async (token, changes) => {
     // ignore
   }
 
-  // 2. 서버 DB에 저장 요청 (기존 프로필의 건강 정보를 항상 온전히 유지하여 다른 항목 수정 시 유실 방지)
+  // 2. 서버 DB에 저장 요청 (수정된 항목만 명시적으로 전송하여 다른 건강정보가 유실되지 않도록 완벽 보존)
   if (currentUserId && changes) {
     try {
       console.log('🚀 [서버 DB] 마이페이지 프로필 변경사항 DB 저장 중:', currentUserId, changes);
 
-      const existingMedNames = (inMemoryProfile.medications || []).map((m) => (typeof m === 'object' && m ? m.name : String(m))).filter(Boolean);
-      const existingAllergies = inMemoryProfile.allergies || [];
-      const existingDiseases = inMemoryProfile.diseaseIds || [];
-
       const payload = {
         userId: currentUserId,
         email: currentEmail || inMemoryProfile.email || undefined,
-        name: inMemoryProfile.userName,
-        birth: inMemoryProfile.birthDate,
-        allergies: existingAllergies,
-        diseases: existingDiseases,
-        diseaseIds: existingDiseases,
-        medications: existingMedNames,
-        noAllergy: existingAllergies.length === 0,
-        noDisease: existingDiseases.length === 0,
-        noMedication: existingMedNames.length === 0,
       };
 
       if (changes.userName !== undefined) payload.name = changes.userName;
@@ -227,7 +214,8 @@ export const updateProfile = async (token, changes) => {
       }
       console.log('✅ [서버 DB] 마이페이지 변경사항 DB 영구 저장 완료');
     } catch (e) {
-      console.warn('⚠️ [서버 DB] 마이페이지 프로필 DB 저장 대기 (로컬 캐시 우선 반영):', e.message);
+      console.error('❌ [서버 DB] 마이페이지 프로필 DB 저장 오류:', e.message);
+      throw e;
     }
   }
   return inMemoryProfile;

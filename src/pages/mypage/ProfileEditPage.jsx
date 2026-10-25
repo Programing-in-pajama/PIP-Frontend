@@ -19,25 +19,14 @@ export default function ProfileEditPage({ profile = {}, isLoading, onSave, onBac
 
   return (
     <>
-      <header className="page-head page-head--back" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button type="button" className="back-btn" onClick={onBack} aria-label="뒤로">
-            <Icon name="chevron-left" size={22} />
-          </button>
-          <div>
-            <h1>회원정보 수정</h1>
-            <p>저장된 회원정보를 수정할 수 있어요</p>
-          </div>
-        </div>
-        <button
-          type="button"
-          className="pill-btn pill-btn--dark"
-          onClick={handleSubmit}
-          disabled={isLoading}
-          style={{ minWidth: '60px', height: '36px', fontSize: '13px', fontWeight: 700 }}
-        >
-          {isLoading ? '저장 중' : '저장'}
+      <header className="page-head page-head--back">
+        <button type="button" className="back-btn" onClick={onBack} aria-label="뒤로">
+          <Icon name="chevron-left" size={22} />
         </button>
+        <div>
+          <h1>회원정보 수정</h1>
+          <p>저장된 회원정보를 수정할 수 있어요</p>
+        </div>
       </header>
 
       <form className="mp-form" onSubmit={handleSubmit}>
