@@ -102,7 +102,10 @@ export default function WalkFlow({
   const [liveRemainingMeters, setLiveRemainingMeters] = useState(0);
   const [liveProgress, setLiveProgress] = useState(0);
   const [currentGuidance, setCurrentGuidance] = useState(null);
+  const [gpsDistanceMeters, setGpsDistanceMeters] = useState(0);
 
+  const lastGpsPointRef = useRef(null);
+  const totalGpsDistanceRef = useRef(0);
   const lastPosRef = useRef(null);
   const lastHeadingRef = useRef(0);
   const lastSpokenIndexRef = useRef(-1);
@@ -228,6 +231,24 @@ export default function WalkFlow({
         const { latitude: lat, longitude: lng, heading: devHeading, speed, accuracy } = pos.coords;
         sessionStorage.setItem('soyo-location-lat', String(lat));
         sessionStorage.setItem('soyo-location-lng', String(lng));
+
+        // 🌿 실시간 실제 GPS 물리 이동 거리 누적 (정지 시 시간 비례 증가 원천 차단)
+        if (!isPaused && (accuracy == null || accuracy <= 45)) {
+          if (lastGpsPointRef.current) {
+            const stepDist = getDistanceMeters(lastGpsPointRef.current, { lat, lng });
+            // 2.5m 이상 물리적 이동 감지 시 누적 (정지 시 GPS 미세 진동 0.5~2m 필터링)
+            // 50m 초과 급격한 텔레포트 점프는 누적 배제하고 기준점만 재설정
+            if (stepDist >= 2.5 && stepDist <= 50) {
+              totalGpsDistanceRef.current += stepDist;
+              setGpsDistanceMeters(totalGpsDistanceRef.current);
+              lastGpsPointRef.current = { lat, lng };
+            } else if (stepDist > 50) {
+              lastGpsPointRef.current = { lat, lng };
+            }
+          } else {
+            lastGpsPointRef.current = { lat, lng };
+          }
+        }
 
         let heading = devHeading;
         if (heading == null || Number.isNaN(heading) || heading === 0) {
@@ -371,30 +392,44 @@ export default function WalkFlow({
     [userId, selectedRoute, pinVersion],
   );
 
-  const progress = selectedRoute
-    ? Math.min(99, Math.round((walkSeconds / Math.max(1, selectedRoute.durationMin * 60)) * 100))
-    : 0;
-  const movedKm = selectedRoute ? (selectedRoute.distanceKm * progress) / 100 : 0;
-  const remainingMeters = selectedRoute
-    ? Math.max(0, Math.round(selectedRoute.distanceKm * 1000 * (1 - progress / 100)))
-    : 0;
+  // 🌿 실제 이동 거리 및 진행률 (시간 비례 자동 증가 완전 배제, 실측 GPS 기반)
+  const totalCourseMeters = useMemo(() => {
+    if (!selectedRoute?.distanceKm) return 1400;
+    return Math.round(selectedRoute.distanceKm * 1000);
+  }, [selectedRoute]);
+
+  const displayMovedKm = useMemo(() => {
+    if (navMode === 'simulation') {
+      return Number(liveMovedKm.toFixed(2));
+    }
+    const realGpsKm = gpsDistanceMeters / 1000;
+    if (navUserPos?.isOffRoute) {
+      return Number(realGpsKm.toFixed(2));
+    }
+    return Number(Math.max(realGpsKm, liveMovedKm).toFixed(2));
+  }, [navMode, liveMovedKm, gpsDistanceMeters, navUserPos?.isOffRoute]);
+
+  const displayProgress = useMemo(() => {
+    if (navUserPos?.isOffRoute) return 0;
+    return Math.min(100, Math.max(0, liveProgress));
+  }, [navUserPos?.isOffRoute, liveProgress]);
+
+  const displayRemainingMeters = useMemo(() => {
+    if (navUserPos?.isOffRoute) return totalCourseMeters;
+    if (liveRemainingMeters > 0) return liveRemainingMeters;
+    return Math.max(0, totalCourseMeters - Math.round(displayMovedKm * 1000));
+  }, [navUserPos?.isOffRoute, totalCourseMeters, liveRemainingMeters, displayMovedKm]);
 
   const nextDirection = useMemo(() => {
     if (Array.isArray(selectedRoute?.turnByTurn) && selectedRoute.turnByTurn.length > 0) {
       const idx = Math.min(
         selectedRoute.turnByTurn.length - 1,
-        Math.floor((progress / 100) * selectedRoute.turnByTurn.length)
+        Math.floor((displayProgress / 100) * selectedRoute.turnByTurn.length)
       );
       return selectedRoute.turnByTurn[idx];
     }
-    return progress < 25
-      ? '잠시 후 오른쪽 골목으로 이동하세요'
-      : progress < 55
-        ? '120m 앞에서 오른쪽으로 이동'
-        : progress < 85
-          ? '곧 왼쪽으로 크게 돌아가세요'
-          : '목적지가 바로 앞에 있어요';
-  }, [selectedRoute, progress]);
+    return '보행로를 따라 직진하세요';
+  }, [selectedRoute, displayProgress]);
 
   const startRegion = (nextRegion) => {
     setRegion(nextRegion);
@@ -467,6 +502,9 @@ export default function WalkFlow({
     setFollowUser(true);
     setLiveMovedKm(0);
     setLiveProgress(0);
+    setGpsDistanceMeters(0);
+    totalGpsDistanceRef.current = 0;
+    lastGpsPointRef.current = null;
     lastPosRef.current = null;
     lastHeadingRef.current = 0;
     lastSpokenIndexRef.current = -1;
@@ -474,7 +512,15 @@ export default function WalkFlow({
     simIndexRef.current = 0;
     setStep('walking');
 
-    if (selectedRoute?.geoPath?.[0]) {
+    const cachedLat = Number(sessionStorage.getItem('soyo-location-lat'));
+    const cachedLng = Number(sessionStorage.getItem('soyo-location-lng'));
+    if (cachedLat && cachedLng) {
+      handlePositionUpdate({
+        lat: cachedLat,
+        lng: cachedLng,
+        heading: 0,
+      });
+    } else if (selectedRoute?.geoPath?.[0]) {
       const startPt = selectedRoute.geoPath[0];
       const nextPt = selectedRoute.geoPath[1] || startPt;
       const initialHeading = getBearing(startPt, nextPt);
@@ -487,7 +533,7 @@ export default function WalkFlow({
   };
 
   const finishWalk = () => {
-    const finalDistance = liveMovedKm > 0 ? Number(liveMovedKm.toFixed(2)) : Number(movedKm.toFixed(2));
+    const finalDistance = Number(displayMovedKm.toFixed(2));
     try {
       const records = JSON.parse(localStorage.getItem('soyo-walk-records') || '[]');
       records.unshift({
@@ -995,9 +1041,6 @@ export default function WalkFlow({
   }
 
   // ── No.10 산책 진행 (실시간 내비게이션 모드) ──────────────────────────
-  const displayMovedKm = liveMovedKm > 0 ? liveMovedKm : movedKm;
-  const displayRemainingMeters = liveRemainingMeters > 0 ? liveRemainingMeters : remainingMeters;
-  const displayProgress = Math.min(100, Math.max(liveProgress, progress));
   const activeGuidance = currentGuidance || {
     maneuver: 'straight',
     distanceToTurnMeters: displayRemainingMeters,
@@ -1170,7 +1213,7 @@ export default function WalkFlow({
             </div>
             <div>
               <span>이동 거리</span>
-              <strong>{movedKm.toFixed(2)} km</strong>
+              <strong>{displayMovedKm.toFixed(2)} km</strong>
             </div>
           </div>
           <p className="complete-note">{selectedRoute?.title}</p>
