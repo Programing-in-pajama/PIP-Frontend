@@ -76,7 +76,7 @@ export default function WalkFlow({
   }, [regionQuery]);
 
   const pinned = useMemo(
-    () => (selectedRoute ? isRoutePinned(userId, selectedRoute.id) : false),
+    () => (selectedRoute ? isRoutePinned(userId, selectedRoute.id, selectedRoute.title) : false),
     [userId, selectedRoute, pinVersion],
   );
 
@@ -144,7 +144,7 @@ export default function WalkFlow({
       setLoginPrompt(true);
       return;
     }
-    if (isRoutePinned(userId, route.id)) {
+    if (isRoutePinned(userId, route.id, route.title)) {
       removeRoutePinEverywhere(userId, route.id);
       setToast('핀 저장을 해제했어요');
     } else {
@@ -440,7 +440,7 @@ export default function WalkFlow({
 
         <div className="course-list">
           {routes.map((route) => {
-            const saved = isRoutePinned(userId, route.id);
+            const saved = isRoutePinned(userId, route.id, route.title);
             return (
               <article key={route.id} className="course-card">
                 <button type="button" className="course-card-main" onClick={() => openRoute(route)}>

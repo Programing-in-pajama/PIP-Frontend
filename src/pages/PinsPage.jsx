@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Icon from '../components/Icons';
 import SoyoMap from '../components/SoyoMap';
 import { REGIONS } from '../data/routes';
@@ -7,6 +7,7 @@ import {
   createPinFolder,
   deletePinFolder,
   DEFAULT_FOLDER_ID,
+  fetchPinFolders,
   getPinFolders,
   removeRoutePin,
   reorderPins,
@@ -16,7 +17,7 @@ const SORT_OPTIONS = [
   { value: 'latest', label: '최신순' },
   { value: 'distance', label: '거리순' },
   { value: 'duration', label: '소요시간순' },
-  { value: 'custom', label: '커스텀' },
+  { value: 'custom', label: '직접 정렬' },
 ];
 
 const FILTER_OPTIONS = [
@@ -34,13 +35,24 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
   const [selectedPinId, setSelectedPinId] = useState(null);
   const [confirmPin, setConfirmPin] = useState(null);
   const [confirmDeleteFolder, setConfirmDeleteFolder] = useState(false);
+  const [confirmDeletePin, setConfirmDeletePin] = useState(null);
   const [dragId, setDragId] = useState(null);
   const [toast, setToast] = useState('');
   const [folderName, setFolderName] = useState('');
   const [folderError, setFolderError] = useState('');
+  const cardRefs = useRef(new Map());
 
   useEffect(() => {
-    setFolders(isLoggedIn ? getPinFolders(userId) : []);
+    if (isLoggedIn) {
+      setFolders(getPinFolders(userId));
+      fetchPinFolders(userId).then((res) => {
+        if (Array.isArray(res) && res.length > 0) {
+          setFolders(res);
+        }
+      }).catch(() => {});
+    } else {
+      setFolders([]);
+    }
     setView('list');
     setFolderId(null);
   }, [isLoggedIn, userId]);
@@ -62,11 +74,13 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
     if (sort === 'latest') {
       pins.sort((a, b) => new Date(b.savedAt ?? 0) - new Date(a.savedAt ?? 0));
     } else if (sort === 'duration') {
-      pins.sort((a, b) => a.durationMin - b.durationMin);
+      pins.sort((a, b) => (Number(a.durationMin) || 0) - (Number(b.durationMin) || 0));
     } else if (sort === 'distance') {
-      const distanceOf = (pin) =>
-        REGIONS.find((region) => region.id === pin.regionId)?.distanceKm ?? 9;
-      pins.sort((a, b) => distanceOf(a) - distanceOf(b));
+      pins.sort((a, b) => {
+        const distA = Number(a.distanceKm ?? a.distanceToStartKm ?? 0);
+        const distB = Number(b.distanceKm ?? b.distanceToStartKm ?? 0);
+        return distA - distB;
+      });
     }
     return pins;
   }, [activeFolder, filter, sort]);
@@ -77,12 +91,14 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
     setFilter('all');
     setSelectedPinId(null);
     setConfirmDeleteFolder(false);
+    setConfirmDeletePin(null);
     setView('folder');
   };
 
   const deletePin = (pin) => {
     if (!activeFolder) return;
-    setFolders(removeRoutePin(userId, activeFolder.id, pin.id));
+    const next = removeRoutePin(userId, activeFolder.id, pin.id);
+    setFolders(next);
     setSelectedPinId(null);
     setToast('핀을 삭제했어요');
   };
@@ -97,14 +113,50 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
     setToast(`‘${name}’ 폴더를 삭제했어요`);
   };
 
+  // 마우스 드래그 앤 드롭
   const handleDrop = (targetPin) => {
     if (sort !== 'custom' || !dragId || !activeFolder || dragId === targetPin.id) return;
     const fromIndex = activeFolder.pins.findIndex((pin) => pin.id === dragId);
     const toIndex = activeFolder.pins.findIndex((pin) => pin.id === targetPin.id);
-    const next = reorderPins(userId, activeFolder.id, fromIndex, toIndex);
-    setFolders(next);
+    if (fromIndex !== -1 && toIndex !== -1 && fromIndex !== toIndex) {
+      const next = reorderPins(userId, activeFolder.id, fromIndex, toIndex);
+      setFolders(next);
+      setToast('순서를 변경했어요');
+    }
     setDragId(null);
-    setToast('순서를 변경했어요');
+  };
+
+  // 모바일/터치 포인터 드래그 지원
+  const handlePointerDown = (event, id) => {
+    if (sort !== 'custom') return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDragId(id);
+  };
+
+  const handlePointerMove = (event) => {
+    if (!dragId || !activeFolder || sort !== 'custom') return;
+    const y = event.clientY;
+    const pins = activeFolder.pins;
+    const targetPin = pins.find((p) => {
+      if (p.id === dragId) return false;
+      const rect = cardRefs.current.get(p.id)?.getBoundingClientRect();
+      return rect && y > rect.top && y < rect.bottom;
+    });
+    if (!targetPin) return;
+    const fromIndex = pins.findIndex((p) => p.id === dragId);
+    const toIndex = pins.findIndex((p) => p.id === targetPin.id);
+    if (fromIndex !== -1 && toIndex !== -1 && fromIndex !== toIndex) {
+      const next = reorderPins(userId, activeFolder.id, fromIndex, toIndex);
+      setFolders(next);
+    }
+  };
+
+  const handlePointerUp = () => {
+    if (dragId) {
+      setDragId(null);
+      setToast('순서를 변경했어요');
+    }
   };
 
   const createFolder = (event) => {
@@ -131,6 +183,9 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
         <section className="map-sheet pin-sheet pin-sheet--locked">
           <div className="sheet-grip" />
           <h1 className="pin-title">내 핀</h1>
+          <p style={{ margin: '-10px 0 16px', fontSize: '13px', color: 'var(--muted)' }}>
+            마음에 드는 산책 코스를 저장해 보세요
+          </p>
           <div className="pin-locked-area">
             <button type="button" className="login-required-box" onClick={onRequireLogin}>
               <strong>로그인이 필요합니다</strong>
@@ -187,6 +242,7 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
 
   // ── No.21 저장 경로 시작 확인 ───────────────────────────────
   if (view === 'confirm' && confirmPin) {
+    const dist = confirmPin.distanceKm ?? confirmPin.distanceToStartKm ?? 0.8;
     return (
       <div className="screen screen--map">
         <SoyoMap route={confirmPin} className="map-fill" />
@@ -196,17 +252,23 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
           </button>
         </div>
         <section className="map-sheet start-sheet">
+          <div className="sheet-grip" />
           <h2>해당 경로를 시작하시겠습니까?</h2>
           <div className="start-summary">
             <strong>{confirmPin.title}</strong>
             <span>
-              약 {confirmPin.durationMin}분 · {confirmPin.hasRestaurant ? '식당 포함' : '산책만'}
+              약 {confirmPin.durationMin}분 · 거리 {formatDistance(dist)} · {confirmPin.hasRestaurant ? '식당 포함' : '산책만'}
             </span>
-            <span>
-              내 위치에서 {formatDistance(
-                REGIONS.find((region) => region.id === confirmPin.regionId)?.distanceKm ?? 0.8,
-              )} 떨어져 있어요
-            </span>
+            {confirmPin.restaurant && (
+              <span style={{ color: 'var(--emerald-dark)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span>🍴</span>
+                <span>{confirmPin.restaurant.name}</span>
+                <span style={{ fontSize: '10.5px', background: 'var(--emerald-soft)', padding: '1px 6px', borderRadius: '4px' }}>
+                  {confirmPin.restaurant.dot || '🟢'} {confirmPin.restaurant.badgeLabel || '안심식당'}
+                </span>
+              </span>
+            )}
+            {confirmPin.roadType && <span>{confirmPin.roadType}</span>}
           </div>
           <div className="stack-8">
             <button type="button" className="btn btn-primary" onClick={() => onStartRoute(confirmPin)}>
@@ -262,17 +324,27 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
         </div>
 
         {sort === 'custom' && (
-          <p className="helper custom-hint">커스텀 정렬에서는 카드를 끌어 순서를 바꿀 수 있어요.</p>
+          <p className="helper custom-hint">직접 정렬에서는 카드를 위아래로 끌어 순서를 바꿀 수 있어요.</p>
         )}
 
-        <div className="pin-list">
+        <div
+          className="pin-list"
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+        >
           {visiblePins.map((pin) => {
-            const distance = REGIONS.find((region) => region.id === pin.regionId)?.distanceKm ?? 0.8;
+            const distance = pin.distanceKm ?? pin.distanceToStartKm ?? 0.8;
             const selected = selectedPinId === pin.id;
+            const isDragging = dragId === pin.id;
             return (
               <article
                 key={pin.id}
-                className={`pin-card ${selected ? 'is-selected' : ''}`}
+                ref={(node) => {
+                  if (node) cardRefs.current.set(pin.id, node);
+                  else cardRefs.current.delete(pin.id);
+                }}
+                className={`pin-card ${selected ? 'is-selected' : ''} ${isDragging ? 'is-dragging' : ''}`}
                 draggable={sort === 'custom'}
                 onDragStart={() => setDragId(pin.id)}
                 onDragOver={(event) => event.preventDefault()}
@@ -285,20 +357,39 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
                 >
                   <strong>{pin.title}</strong>
                   <span className="pin-meta">
-                    내 위치에서 {formatDistance(distance)} · 약 {pin.durationMin}분
+                    거리 {formatDistance(distance)} · 약 {pin.durationMin}분
                   </span>
                   <span className="pin-sub">
-                    {pin.hasRestaurant ? '식당 포함' : '산책만'} · {pin.roadType?.split(' · ')[0]}
+                    {pin.hasRestaurant ? '식당 포함' : '산책만'} · {pin.roadType?.split(' · ')[0] || '안심 산책길'}
                   </span>
+                  {pin.hasRestaurant && pin.restaurant && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#16a34a', fontWeight: 600, marginTop: '2px' }}>
+                      <span>🍴</span>
+                      <span>{pin.restaurant.name}</span>
+                      <span style={{ fontSize: '10px', background: 'rgba(22,163,74,0.1)', padding: '1px 5px', borderRadius: '4px' }}>
+                        {pin.restaurant.dot || '🟢'} {pin.restaurant.badgeLabel || '안심식당'}
+                      </span>
+                    </div>
+                  )}
                 </button>
 
-                {sort === 'custom' && <span className="drag-handle" aria-hidden="true"><Icon name="grip" size={18} /></span>}
+                {sort === 'custom' && (
+                  <button
+                    type="button"
+                    className="drag-handle"
+                    aria-label={`${pin.title} 순서 변경`}
+                    style={{ background: 'none', border: 0, padding: 0 }}
+                    onPointerDown={(event) => handlePointerDown(event, pin.id)}
+                  >
+                    <Icon name="grip" size={18} />
+                  </button>
+                )}
                 <button
                   type="button"
                   className="danger-link"
                   onClick={(event) => {
                     event.stopPropagation();
-                    deletePin(pin);
+                    setConfirmDeletePin(pin);
                   }}
                 >
                   삭제
@@ -333,6 +424,29 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
             저장 코스 선택
           </button>
         </div>
+
+        {confirmDeletePin && (
+          <div className="pin-dialog-backdrop" role="presentation" onClick={() => setConfirmDeletePin(null)}>
+            <section
+              className="pin-dialog"
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="pin-delete-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <h2 id="pin-delete-title">저장한 코스를 삭제할까요?</h2>
+              <strong>{confirmDeletePin.title}</strong>
+              <p>삭제한 코스는 폴더에서 사라져요.</p>
+              <div className="pin-dialog-actions">
+                <button type="button" className="btn btn-ghost" onClick={() => setConfirmDeletePin(null)}>취소</button>
+                <button type="button" className="btn btn-primary" onClick={() => {
+                  deletePin(confirmDeletePin);
+                  setConfirmDeletePin(null);
+                }}>삭제</button>
+              </div>
+            </section>
+          </div>
+        )}
 
         {confirmDeleteFolder && (
           <div className="pin-dialog-backdrop" role="presentation" onClick={() => setConfirmDeleteFolder(false)}>

@@ -324,8 +324,10 @@ export async function reorderPinCourses(folderId, ids) {
   return folders;
 }
 
-export function isRoutePinned(userId = getCurrentUserId(), routeId) {
-  return getPinFolders(userId).some((folder) => folder.pins.some((pin) => pin.id === routeId));
+export function isRoutePinned(userId = getCurrentUserId(), routeId, title) {
+  return getPinFolders(userId).some((folder) =>
+    folder.pins.some((pin) => pin.id === routeId || (title && pin.title === title))
+  );
 }
 
 export function countPins(folders = []) {
