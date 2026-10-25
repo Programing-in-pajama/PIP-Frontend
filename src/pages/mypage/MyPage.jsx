@@ -11,8 +11,9 @@ function MyPage({ profile, isLoggedIn, onNavigate, onLogout, onLogin }) {
   if (!isLoggedIn) {
     return (
       <>
-        <header className="mp-head">
-          <h1>마이페이지</h1>
+        <header className="mp-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+          <h1 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>마이페이지</h1>
+          <img src="/pic/SOYO.png" alt="SOYO" className="mp-header-logo" />
         </header>
 
         <section className="profile-card profile-card--locked" aria-label="내 정보">
@@ -55,8 +56,9 @@ function MyPage({ profile, isLoggedIn, onNavigate, onLogout, onLogin }) {
 
   return (
     <>
-      <header className="mp-head">
-        <h1>마이페이지</h1>
+      <header className="mp-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+        <h1 style={{ fontSize: '22px', fontWeight: 700, margin: 0 }}>마이페이지</h1>
+        <img src="/pic/SOYO.png" alt="SOYO" className="mp-header-logo" />
       </header>
 
       <section className="profile-card">

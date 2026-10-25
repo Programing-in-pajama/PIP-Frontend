@@ -43,7 +43,16 @@
 .mp-gap-top { margin-top: 20px; }
 
 /* ‹ 제목 */
-.mp-header-row { display: flex; align-items: center; gap: 6px; }
+.mp-header-row { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 6px; }
+.mp-header-logo {
+  height: 24px;
+  width: auto;
+  max-width: 90px;
+  object-fit: contain;
+  margin-left: auto;
+  flex-shrink: 0;
+  display: block;
+}
 .mp-back {
   flex: none; width: 16px; height: 28px; margin: 12px 0 6px; padding: 0;
   border: 0; background: none; font-size: 26px; line-height: 1; color: var(--mp-text); cursor: pointer;

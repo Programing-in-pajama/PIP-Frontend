@@ -642,13 +642,16 @@ export default function WalkFlow({
 
         <div className="region-header-overlay">
           <header className="page-head page-head--back" style={{ marginBottom: 12 }}>
-            <button type="button" className="back-btn" onClick={() => setStep('home')} aria-label="뒤로">
-              <Icon name="chevron-left" size={22} />
-            </button>
-            <div>
-              <h1 style={{ fontSize: '20px' }}>지역 검색</h1>
-              <p style={{ fontSize: '11.5px', color: 'var(--muted)' }}>1 / 3 산책할 지역을 선택하세요</p>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1, minWidth: 0 }}>
+              <button type="button" className="back-btn" onClick={() => setStep('home')} aria-label="뒤로">
+                <Icon name="chevron-left" size={22} />
+              </button>
+              <div>
+                <h1 style={{ fontSize: '20px' }}>지역 검색</h1>
+                <p style={{ fontSize: '11.5px', color: 'var(--muted)' }}>1 / 3 산책할 지역을 선택하세요</p>
+              </div>
             </div>
+            <img src="/pic/SOYO.png" alt="SOYO" className="head-logo" />
           </header>
 
           <div className="search-bar search-bar--input">
@@ -723,13 +726,16 @@ export default function WalkFlow({
     return (
       <div className="screen page">
         <header className="page-head page-head--back">
-          <button type="button" className="back-btn" onClick={() => setStep('region')} aria-label="뒤로">
-            <Icon name="chevron-left" size={22} />
-          </button>
-          <div>
-            <h1>코스 설정</h1>
-            <p>2 / 2 코스를 설정하세요</p>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1, minWidth: 0 }}>
+            <button type="button" className="back-btn" onClick={() => setStep('region')} aria-label="뒤로">
+              <Icon name="chevron-left" size={22} />
+            </button>
+            <div>
+              <h1>코스 설정</h1>
+              <p>2 / 2 코스를 설정하세요</p>
+            </div>
           </div>
+          <img src="/pic/SOYO.png" alt="SOYO" className="head-logo" />
         </header>
 
         <div className="setup-body">
@@ -793,13 +799,16 @@ export default function WalkFlow({
     return (
       <div className="screen page">
         <header className="page-head page-head--back">
-          <button type="button" className="back-btn" onClick={() => setStep('setup')} aria-label="뒤로">
-            <Icon name="chevron-left" size={22} />
-          </button>
-          <div>
-            <h1>추천 코스</h1>
-            <p>조건에 맞는 {routes.length}가지 코스를 찾았어요</p>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1, minWidth: 0 }}>
+            <button type="button" className="back-btn" onClick={() => setStep('setup')} aria-label="뒤로">
+              <Icon name="chevron-left" size={22} />
+            </button>
+            <div>
+              <h1>추천 코스</h1>
+              <p>조건에 맞는 {routes.length}가지 코스를 찾았어요</p>
+            </div>
           </div>
+          <img src="/pic/SOYO.png" alt="SOYO" className="head-logo" />
         </header>
 
         <div className="filter-chips">

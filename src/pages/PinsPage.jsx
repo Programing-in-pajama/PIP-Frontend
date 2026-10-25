@@ -278,13 +278,16 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
         <section className="map-sheet pin-sheet">
           <div className="sheet-grip" />
           <header className="page-head page-head--back" style={{ marginBottom: '16px' }}>
-            <button type="button" className="back-btn" onClick={() => setView('list')} aria-label="뒤로">
-              <Icon name="chevron-left" size={22} />
-            </button>
-            <div>
-              <h1 style={{ fontSize: '18px', fontWeight: 800 }}>새 폴더 만들기</h1>
-              <p style={{ fontSize: '12px', color: 'var(--muted)' }}>산책 코스를 모을 폴더 이름을 입력하세요</p>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1, minWidth: 0 }}>
+              <button type="button" className="back-btn" onClick={() => setView('list')} aria-label="뒤로">
+                <Icon name="chevron-left" size={22} />
+              </button>
+              <div>
+                <h1 style={{ fontSize: '18px', fontWeight: 800 }}>새 폴더 만들기</h1>
+                <p style={{ fontSize: '12px', color: 'var(--muted)' }}>산책 코스를 모을 폴더 이름을 입력하세요</p>
+              </div>
             </div>
+            <img src="/pic/SOYO.png" alt="SOYO" className="head-logo" />
           </header>
 
           <form className="folder-form" onSubmit={createFolder} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -331,10 +334,11 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
     return (
       <div className="screen screen--map">
         <SoyoMap route={confirmPin} className="map-fill" />
-        <div className="map-top map-top--compact">
+        <div className="map-top map-top--compact" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px' }}>
           <button type="button" className="map-round" onClick={() => setView('folder')} aria-label="뒤로">
             <Icon name="chevron-left" size={21} />
           </button>
+          <img src="/pic/SOYO.png" alt="SOYO" className="head-logo" />
         </div>
         <section className="map-sheet start-sheet">
           <div className="sheet-grip" />
@@ -374,13 +378,16 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
       return (
         <div className="screen page">
           <header className="page-head page-head--back">
-            <button type="button" className="back-btn" onClick={() => setView('list')} aria-label="뒤로">
-              <Icon name="chevron-left" size={22} />
-            </button>
-            <div className="page-head-text">
-              <h1>저장 코스</h1>
-              <p>코스를 불러오는 중...</p>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1, minWidth: 0 }}>
+              <button type="button" className="back-btn" onClick={() => setView('list')} aria-label="뒤로">
+                <Icon name="chevron-left" size={22} />
+              </button>
+              <div className="page-head-text">
+                <h1>저장 코스</h1>
+                <p>코스를 불러오는 중...</p>
+              </div>
             </div>
+            <img src="/pic/SOYO.png" alt="SOYO" className="head-logo" />
           </header>
           <div className="pin-list" style={{ padding: '32px', textAlign: 'center', color: 'var(--muted)' }}>
             잠시만 기다려 주세요...
@@ -392,19 +399,24 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
     return (
       <div className="screen page">
         <header className="page-head page-head--back">
-          <button type="button" className="back-btn" onClick={() => setView('list')} aria-label="뒤로">
-            <Icon name="chevron-left" size={22} />
-          </button>
-          <div className="page-head-text">
-            <h1>{activeFolder.name}</h1>
-            <p>저장한 코스 {folderPins.length}개</p>
-          </div>
-          {/* 기본 '내 핀' 폴더는 핀 저장 기본 위치라 삭제 버튼을 숨김 */}
-          {activeFolder.id !== DEFAULT_FOLDER_ID && activeFolder.name !== '내 핀' && activeFolder.sortOrder !== 0 && (
-            <button type="button" className="danger-link folder-delete" onClick={() => setConfirmDeleteFolder(true)}>
-              폴더 삭제
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1, minWidth: 0 }}>
+            <button type="button" className="back-btn" onClick={() => setView('list')} aria-label="뒤로">
+              <Icon name="chevron-left" size={22} />
             </button>
-          )}
+            <div className="page-head-text">
+              <h1>{activeFolder.name}</h1>
+              <p>저장한 코스 {folderPins.length}개</p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* 기본 '내 핀' 폴더는 핀 저장 기본 위치라 삭제 버튼을 숨김 */}
+            {activeFolder.id !== DEFAULT_FOLDER_ID && activeFolder.name !== '내 핀' && activeFolder.sortOrder !== 0 && (
+              <button type="button" className="danger-link folder-delete" onClick={() => setConfirmDeleteFolder(true)}>
+                폴더 삭제
+              </button>
+            )}
+            <img src="/pic/SOYO.png" alt="SOYO" className="head-logo" />
+          </div>
         </header>
 
         <div className="control-row">

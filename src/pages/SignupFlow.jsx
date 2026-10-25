@@ -272,8 +272,13 @@ export default function SignupFlow({ onBack, onComplete, onFindAccount, initialD
         {step === 1 ? (
           <>
             <header className="signup-head">
-              <h1>회원가입</h1>
-              <p>1 / 2 계정 정보를 입력해 주세요</p>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+                <div>
+                  <h1>회원가입</h1>
+                  <p>1 / 2 계정 정보를 입력해 주세요</p>
+                </div>
+                <img src="/pic/SOYO.png" alt="SOYO" className="head-logo" />
+              </div>
             </header>
 
             <form className="signup-form" onSubmit={continueToProfile} noValidate>
@@ -474,23 +479,28 @@ export default function SignupFlow({ onBack, onComplete, onFindAccount, initialD
         ) : (
           <>
             <header className="signup-head signup-head--profile">
-              <div className="signup-head-row">
-                {!isSocialUser && (
-                  <button
-                    type="button"
-                    className="back-btn"
-                    onClick={() => {
-                      setStep(1);
-                      setAuthMessage('');
-                    }}
-                    aria-label="이전 단계"
-                  >
-                    <Icon name="chevron-left" size={20} />
-                  </button>
-                )}
-                <h1>나의 정보 입력</h1>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+                <div>
+                  <div className="signup-head-row">
+                    {!isSocialUser && (
+                      <button
+                        type="button"
+                        className="back-btn"
+                        onClick={() => {
+                          setStep(1);
+                          setAuthMessage('');
+                        }}
+                        aria-label="이전 단계"
+                      >
+                        <Icon name="chevron-left" size={20} />
+                      </button>
+                    )}
+                    <h1>나의 정보 입력</h1>
+                  </div>
+                  <p>2 / 2 맞춤 추천에 활용됩니다</p>
+                </div>
+                <img src="/pic/SOYO.png" alt="SOYO" className="head-logo" />
               </div>
-              <p>2 / 2 맞춤 추천에 활용됩니다</p>
             </header>
 
             <form className="signup-form profile-form" onSubmit={completeProfile} noValidate>

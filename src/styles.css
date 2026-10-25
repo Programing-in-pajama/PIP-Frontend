@@ -194,7 +194,19 @@ img {
 .page-head--back {
   display: flex;
   align-items: flex-start;
+  justify-content: space-between;
   gap: 8px;
+}
+
+.head-logo {
+  height: 24px;
+  width: auto;
+  max-width: 90px;
+  object-fit: contain;
+  margin-left: auto;
+  margin-top: 2px;
+  flex-shrink: 0;
+  display: block;
 }
 
 .back-btn {
@@ -1844,9 +1856,11 @@ img {
 }
 
 .auth-logo {
-  width: 158px;
+  width: 170px;
   height: auto;
-  margin: 24px auto 30px;
+  max-width: 80%;
+  margin: 20px auto 26px;
+  display: block;
   object-fit: contain;
 }
 

@@ -7,10 +7,13 @@ export function PageHeader({ title, subtitle, onBack }) {
   return (
     <header className="mp-header">
       <div className="mp-header-row">
-        {onBack && (
-          <button type="button" className="mp-back" aria-label="뒤로 가기" onClick={onBack}>‹</button>
-        )}
-        <h1 className="mp-title mp-title-left">{title}</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {onBack && (
+            <button type="button" className="mp-back" aria-label="뒤로 가기" onClick={onBack}>‹</button>
+          )}
+          <h1 className="mp-title mp-title-left">{title}</h1>
+        </div>
+        <img src="/pic/SOYO.png" alt="SOYO" className="mp-header-logo" />
       </div>
       {subtitle && <p className="mp-subtitle">{subtitle}</p>}
     </header>
