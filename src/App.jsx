@@ -105,6 +105,31 @@ function App() {
     };
   }, []);
 
+  // 로그인 상태에서 브라우저 뒤로가기 시 로그인 화면으로 튕기지 않도록 전역 히스토리 가드
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const handleGlobalPopState = (event) => {
+      // 바텀시트나 핀 하위 뷰 등 컴포넌트 내부 팝스태이트는 해당 컴포넌트가 우선 처리
+      if (event.state?.sheet || event.state?.pinView) return;
+
+      // 핀, 마이페이지 등 서브 탭에서 뒤로가기 시 홈(main)으로 이동
+      if (screen !== 'main') {
+        setScreen('main');
+        setNavVisible(true);
+        window.history.replaceState({ appScreen: 'main' }, '');
+      } else {
+        // 이미 메인 화면일 때 로그인 화면으로 이탈하지 않도록 현재 상태 보존
+        window.history.pushState({ appScreen: 'main' }, '');
+      }
+    };
+
+    window.addEventListener('popstate', handleGlobalPopState);
+    return () => {
+      window.removeEventListener('popstate', handleGlobalPopState);
+    };
+  }, [isLoggedIn, screen]);
+
   const userId = localStorage.getItem('soyo-current-user-id') || 'guest';
 
   const storeProfile = (profile) => {

@@ -83,16 +83,23 @@ export default function WalkFlow({
     return () => clearTimeout(timer);
   }, [toast]);
 
+  const isPoppingHistoryRef = useRef(false);
+
   // 폴더 선택 바텀시트가 열려 있을 때 브라우저 뒤로가기 시 로그인 화면으로 튕기지 않고 시트만 닫히도록 처리
   useEffect(() => {
     if (folderSelectRoute) {
       window.history.pushState({ sheet: 'folder' }, '');
       const handlePop = () => {
+        isPoppingHistoryRef.current = true;
         setFolderSelectRoute(null);
       };
       window.addEventListener('popstate', handlePop, { once: true });
       return () => {
         window.removeEventListener('popstate', handlePop);
+        if (!isPoppingHistoryRef.current && window.history.state?.sheet === 'folder') {
+          window.history.back();
+        }
+        isPoppingHistoryRef.current = false;
       };
     }
   }, [folderSelectRoute]);

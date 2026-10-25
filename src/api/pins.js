@@ -186,9 +186,15 @@ export function saveRoutePin(userId = getCurrentUserId(), route, folderId = 'def
   if (!route) return { saved: false, folders: getPinFolders(userId) };
 
   const folders = getPinFolders(userId);
-  const target = folders.find((folder) => folder.id === folderId) ?? folders[0];
-  const alreadyInTarget = target.pins.some((pin) => pin.id === route.id || pin.title === route.title);
+  if (!folders || folders.length === 0) return { saved: false, folders: [] };
+
+  const target = folders.find((folder) => folder.id === folderId) || folders[0];
+  if (!target) return { saved: false, folders };
+
+  const targetPins = Array.isArray(target.pins) ? target.pins : [];
+  const alreadyInTarget = targetPins.some((pin) => pin?.id === route.id || pin?.title === route.title);
   if (alreadyInTarget) return { saved: false, folders };
+
   const newPin = {
     ...route,
     savedAt: new Date().toISOString()
@@ -198,8 +204,8 @@ export function saveRoutePin(userId = getCurrentUserId(), route, folderId = 'def
     folder.id === target.id
       ? {
           ...folder,
-          pins: [newPin, ...folder.pins],
-          courses: [newPin, ...(folder.courses || folder.pins)]
+          pins: [newPin, ...targetPins],
+          courses: [newPin, ...(Array.isArray(folder.courses) ? folder.courses : targetPins)]
         }
       : folder
   );

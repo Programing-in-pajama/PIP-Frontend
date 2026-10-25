@@ -63,16 +63,23 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
     return () => clearTimeout(timer);
   }, [toast]);
 
+  const isPoppingHistoryRef = useRef(false);
+
   // 브라우저 뒤로가기 시 로그인 화면으로 튕기지 않고 이전 핀 뷰(목록)로 자연스럽게 이동
   useEffect(() => {
     if (view !== 'list') {
       window.history.pushState({ pinView: view }, '');
       const handlePop = () => {
+        isPoppingHistoryRef.current = true;
         setView('list');
       };
       window.addEventListener('popstate', handlePop, { once: true });
       return () => {
         window.removeEventListener('popstate', handlePop);
+        if (!isPoppingHistoryRef.current && window.history.state?.pinView) {
+          window.history.back();
+        }
+        isPoppingHistoryRef.current = false;
       };
     }
   }, [view]);
@@ -214,42 +221,54 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
   // ── No.22 새 폴더 만들기 ────────────────────────────────────
   if (view === 'create') {
     return (
-      <div className="screen page">
-        <header className="page-head page-head--back">
-          <button type="button" className="back-btn" onClick={() => setView('list')} aria-label="뒤로">
-            <Icon name="chevron-left" size={22} />
-          </button>
-          <div>
-            <h1>새 폴더 만들기</h1>
-            <p>산책 코스를 모을 폴더 이름을 입력하세요</p>
-          </div>
-        </header>
+      <div className="screen screen--map">
+        <SoyoMap className="map-fill map-fill--faded" />
+        <section className="map-sheet pin-sheet">
+          <div className="sheet-grip" />
+          <header className="page-head page-head--back" style={{ marginBottom: '16px' }}>
+            <button type="button" className="back-btn" onClick={() => setView('list')} aria-label="뒤로">
+              <Icon name="chevron-left" size={22} />
+            </button>
+            <div>
+              <h1 style={{ fontSize: '18px', fontWeight: 800 }}>새 폴더 만들기</h1>
+              <p style={{ fontSize: '12px', color: 'var(--muted)' }}>산책 코스를 모을 폴더 이름을 입력하세요</p>
+            </div>
+          </header>
 
-        <form className="folder-form" onSubmit={createFolder}>
-          <label className="field-label" htmlFor="folder-name">폴더 이름</label>
-          <div className="input-wrap">
-            <input
-              id="folder-name"
-              className="input has-icon"
-              placeholder="예: 주말 산책"
-              value={folderName}
-              onChange={(event) => {
-                setFolderName(event.target.value);
-                setFolderError('');
-              }}
-              autoFocus
-            />
-            <span className="input-icon-static"><Icon name="search" size={18} /></span>
-          </div>
-          {folderError && <p className="form-message">{folderError}</p>}
-          <p className="helper">언제든 폴더에 마음에 드는 코스를 저장할 수 있어요.</p>
-        </form>
+          <form className="folder-form" onSubmit={createFolder} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <label className="field-label" htmlFor="folder-name" style={{ fontSize: '13px', fontWeight: 600 }}>
+              폴더 이름
+            </label>
+            <div className="input-wrap">
+              <input
+                id="folder-name"
+                className="input has-icon"
+                placeholder="예: 주말 산책"
+                value={folderName}
+                onChange={(event) => {
+                  setFolderName(event.target.value);
+                  setFolderError('');
+                }}
+                autoFocus
+              />
+              <span className="input-icon-static"><Icon name="search" size={18} /></span>
+            </div>
+            {folderError && <p className="form-message" style={{ color: '#e53e3e', fontSize: '12px' }}>{folderError}</p>}
+            <p className="helper" style={{ fontSize: '12px', color: 'var(--muted)' }}>
+              언제든 폴더에 마음에 드는 코스를 저장할 수 있어요.
+            </p>
 
-        <div className="bottom-cta">
-          <button type="button" className="btn btn-primary" onClick={createFolder}>
-            저장
-          </button>
-        </div>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+              <button type="button" className="btn btn-ghost" onClick={() => setView('list')} style={{ flex: 1 }}>
+                취소
+              </button>
+              <button type="submit" className="btn btn-primary" onClick={createFolder} style={{ flex: 1 }}>
+                저장
+              </button>
+            </div>
+          </form>
+        </section>
+        {toast && <div className="toast">{toast}</div>}
       </div>
     );
   }
