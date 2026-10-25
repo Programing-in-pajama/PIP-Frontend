@@ -6,7 +6,7 @@ import {
   normalizedToLatLng,
   getRegionGeoPolygon,
 } from '../data/routes';
-import { getDistanceMeters } from '../utils/geo';
+import { getDistanceMeters, smoothAndDensifyPath } from '../utils/geo';
 
 const DEFAULT_CENTER = DEFAULT_REGION.center;
 
@@ -192,9 +192,10 @@ export default function KakaoMapLayer({
 
     const isNavigating = Boolean(navUserPos?.isNavigating);
     const routeRegion = REGIONS.find((item) => item.id === route?.regionId) || region || DEFAULT_REGION;
-    const geoPath = route?.geoPath?.length
+    const rawGeoPath = route?.geoPath?.length
       ? route.geoPath
       : (route?.path || []).map((point) => normalizedToLatLng(routeRegion, point));
+    const geoPath = smoothAndDensifyPath(rawGeoPath);
 
     if (geoPath.length > 1) {
       const path = geoPath.map((point) => new kakao.maps.LatLng(point.lat, point.lng));
@@ -447,8 +448,9 @@ export default function KakaoMapLayer({
     }
 
     // 3.2) 지나온 경로(회색) vs 앞으로 갈 경로(선명한 파란색) 분할 표출
-    // 🌿 보행자 전용 도로망 좌표만 온전히 렌더링 (절대 건물 관통 일자선 금지!)
-    const geoPath = route?.geoPath || [];
+    // 🌿 보행자 전용 도로망 좌표만 온전히 렌더링 (곡선 보간 & 건물 관통 일자선 차단)
+    const rawNavPath = route?.geoPath || [];
+    const geoPath = smoothAndDensifyPath(rawNavPath);
     if (geoPath.length > 1) {
       const splitIdx = Math.max(0, Math.min(geoPath.length - 1, navPathSplitIndex));
 

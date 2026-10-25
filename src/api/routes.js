@@ -1,5 +1,6 @@
 import { apiData } from './client';
 import { getRoutes } from '../data/routes';
+import { smoothAndDensifyPath } from '../utils/geo';
 
 /**
  * 백엔드 Tmap 기반 멀티 세그먼트 보행 코스 추천 API 호출
@@ -34,7 +35,10 @@ export async function fetchRecommendedRoutes({
     ]);
 
     if (data?.courses && Array.isArray(data.courses) && data.courses.length > 0) {
-      return data.courses;
+      return data.courses.map((course) => ({
+        ...course,
+        geoPath: Array.isArray(course.geoPath) ? smoothAndDensifyPath(course.geoPath) : course.geoPath,
+      }));
     }
   } catch (err) {
     console.warn('⚠️ [백엔드 Tmap 코스 조회 실패/대기시간 초과, 로컬 고정밀 도로망으로 즉시 대체]:', err.message);

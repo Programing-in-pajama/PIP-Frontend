@@ -1,6 +1,7 @@
 import { YEOKGOK_RESTAURANTS } from './yeokgokRestaurants.js';
 import { evaluateRestaurant } from '../utils/nutritionEvaluator.js';
 import { getRegionBoundary } from './regionBoundaries.js';
+import { smoothAndDensifyPath } from '../utils/geo.js';
 import {
   YEOKGOK_STATION,
   COURSE_10_1_WITH_REST_POINTS, COURSE_10_1_WITH_REST_STEPS, COURSE_10_1_WITH_REST_META,
@@ -361,8 +362,11 @@ export function getRoutes(region = DEFAULT_REGION, minutes = 25, userDiseases = 
       };
     }
 
+    // 🌿 고정밀 실측 도로망 세분화 및 코너 곡선화 (Path Densification & Bezier Fillet)
+    const smoothedGeoPath = smoothAndDensifyPath(geoPath);
+
     // 일러스트 지도용 SVG 좌표 변환
-    const svgPath = geoPath.map((pt) => latLngToNormalized(targetRegion, pt));
+    const svgPath = smoothedGeoPath.map((pt) => latLngToNormalized(targetRegion, pt));
 
     const hubShort = targetRegion.short || '역곡역';
     const trailShort = cand.title.split(' ')[0];
@@ -382,18 +386,18 @@ export function getRoutes(region = DEFAULT_REGION, minutes = 25, userDiseases = 
       roadType: cand.roadType,
       features: cand.features,
       waypoints: waypointsText,
-      geoPath, // 식당 정문(0.0m)을 물리적으로 통과하는 고정밀 실측 도로망
+      geoPath: smoothedGeoPath, // 식당 정문(0.0m)을 물리적으로 통과하는 고밀도 실측 도로망 (곡선 보간)
       path: svgPath,
       turnByTurn,
       startPoint: {
         name: `${targetRegion.short} 시작 지점`,
-        lat: geoPath[0]?.lat,
-        lng: geoPath[0]?.lng,
+        lat: smoothedGeoPath[0]?.lat,
+        lng: smoothedGeoPath[0]?.lng,
       },
       destPoint: {
         name: `${targetRegion.short} 도착 지점`,
-        lat: geoPath[geoPath.length - 1]?.lat,
-        lng: geoPath[geoPath.length - 1]?.lng,
+        lat: smoothedGeoPath[smoothedGeoPath.length - 1]?.lat,
+        lng: smoothedGeoPath[smoothedGeoPath.length - 1]?.lng,
       },
       restaurant: restaurantData,
       savedAt: null,

@@ -341,3 +341,121 @@ export function getNextNavigationGuidance(userPathDistanceMeters, waypoints, tot
     waypointIndex: activeIdx,
   };
 }
+
+/**
+ * 🌿 보행자 도로망 경로 세분화 및 코너 곡선화 (Path Densification & Bezier Corner Smoothing)
+ * - Tmap 등 라우팅 API가 반환하는 저밀도 꼭짓점(각진 모서리, 긴 직선 링크)을
+ *   실제 도로 형상에 맞춰 부드러운 곡선(Curve)과 고밀도 좌표(3~6m 간격)로 보간.
+ * - 모서리(Corner) 회전 구간을 2차 베지에(Quadratic Bezier) 곡선 필렛으로 라운딩하여
+ *   지도 확대 시에도 뚝뚝 끊기거나 각진 일자선 없이 실크처럼 매끄러운 곡선 도로망 연출.
+ */
+export function smoothAndDensifyPath(geoPath, options = {}) {
+  if (!Array.isArray(geoPath) || geoPath.length < 2) {
+    return geoPath || [];
+  }
+
+  const {
+    maxSegmentLength = 6, // 최대 선분 길이 (미터) - 긴 직선 구간을 6m 단위로 세분화
+    cornerFilletRadius = 8, // 코너 라운딩 반경 (미터) - 모서리를 부드럽게 깎는 곡선 반경
+    bezierSteps = 5, // 각 코너 라운딩에 삽입할 곡선 좌표 개수
+  } = options;
+
+  // 1. 연속 중복 좌표 제거
+  const cleaned = [];
+  for (let i = 0; i < geoPath.length; i += 1) {
+    const pt = geoPath[i];
+    if (
+      !cleaned.length ||
+      Math.abs(cleaned[cleaned.length - 1].lat - pt.lat) > 1e-6 ||
+      Math.abs(cleaned[cleaned.length - 1].lng - pt.lng) > 1e-6
+    ) {
+      cleaned.push({ lat: Number(pt.lat), lng: Number(pt.lng) });
+    }
+  }
+
+  if (cleaned.length < 3) {
+    return cleaned;
+  }
+
+  // 2. 모서리(코너) 곡률 탐지 및 2차 베지에 곡선 필렛 생성
+  const curvedPath = [cleaned[0]];
+
+  for (let i = 1; i < cleaned.length - 1; i += 1) {
+    const pPrev = cleaned[i - 1];
+    const pCurr = cleaned[i];
+    const pNext = cleaned[i + 1];
+
+    const d1 = getDistanceMeters(pPrev, pCurr);
+    const d2 = getDistanceMeters(pCurr, pNext);
+
+    // 회전 각도(각 변위) 계산
+    const bearing1 = getBearing(pPrev, pCurr);
+    const bearing2 = getBearing(pCurr, pNext);
+    let diffAngle = Math.abs(bearing2 - bearing1);
+    if (diffAngle > 180) diffAngle = 360 - diffAngle;
+
+    // 모서리 회전 구간 판정: 회전각이 10도 이상 165도 이하이고 인접 거리가 충분할 때
+    const r = Math.min(cornerFilletRadius, d1 * 0.35, d2 * 0.35);
+
+    if (diffAngle >= 10 && diffAngle <= 165 && r >= 2.0 && d1 > 3 && d2 > 3) {
+      // 시작 접점 S (pPrev -> pCurr 방향에서 r 미터 전)
+      const t1 = Math.max(0, 1 - r / d1);
+      const startFillet = {
+        lat: pPrev.lat + t1 * (pCurr.lat - pPrev.lat),
+        lng: pPrev.lng + t1 * (pCurr.lng - pPrev.lng),
+      };
+
+      // 끝 접점 E (pCurr -> pNext 방향에서 r 미터 후)
+      const t2 = Math.min(1, r / d2);
+      const endFillet = {
+        lat: pCurr.lat + t2 * (pNext.lat - pCurr.lat),
+        lng: pCurr.lng + t2 * (pNext.lng - pCurr.lng),
+      };
+
+      // 시작 접점 추가
+      curvedPath.push(startFillet);
+
+      // S -> pCurr -> E 를 잇는 2차 베지에 곡선(Quadratic Bezier) 샘플링
+      for (let step = 1; step < bezierSteps; step += 1) {
+        const u = step / bezierSteps;
+        const invU = 1 - u;
+        const bLat = invU * invU * startFillet.lat + 2 * invU * u * pCurr.lat + u * u * endFillet.lat;
+        const bLng = invU * invU * startFillet.lng + 2 * invU * u * pCurr.lng + u * u * endFillet.lng;
+        curvedPath.push({
+          lat: Number(bLat.toFixed(6)),
+          lng: Number(bLng.toFixed(6)),
+        });
+      }
+
+      // 끝 접점 추가
+      curvedPath.push(endFillet);
+    } else {
+      curvedPath.push(pCurr);
+    }
+  }
+
+  curvedPath.push(cleaned[cleaned.length - 1]);
+
+  // 3. 직선 구간 고밀도 세분화 (Densification): maxSegmentLength를 초과하는 긴 구간 균등 분할
+  const densePath = [curvedPath[0]];
+
+  for (let i = 1; i < curvedPath.length; i += 1) {
+    const p1 = curvedPath[i - 1];
+    const p2 = curvedPath[i];
+    const dist = getDistanceMeters(p1, p2);
+
+    if (dist > maxSegmentLength) {
+      const splits = Math.ceil(dist / maxSegmentLength);
+      for (let s = 1; s < splits; s += 1) {
+        const frac = s / splits;
+        densePath.push({
+          lat: Number((p1.lat + frac * (p2.lat - p1.lat)).toFixed(6)),
+          lng: Number((p1.lng + frac * (p2.lng - p1.lng)).toFixed(6)),
+        });
+      }
+    }
+    densePath.push(p2);
+  }
+
+  return densePath;
+}
