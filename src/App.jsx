@@ -43,6 +43,40 @@ function profileFromServer(payload) {
   };
 }
 
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error('⚠️ [App 화면 오류 포착]:', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="screen page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px', textAlign: 'center', minHeight: '60vh' }}>
+          <h2 style={{ fontSize: '17px', fontWeight: 700, marginBottom: '8px' }}>화면을 표시하는 중 일시적인 문제가 생겼습니다</h2>
+          <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '20px' }}>잠시 후 다시 시도해 주세요.</p>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              this.setState({ hasError: false, error: null });
+              if (this.props.onReset) this.props.onReset();
+            }}
+          >
+            홈으로 이동
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function App() {
   const [locationAllowed, setLocationAllowed] = useState(
     () => localStorage.getItem('soyo-location-allowed') === 'true' || sessionStorage.getItem('soyo-location-allowed') === 'true',
@@ -487,7 +521,9 @@ function App() {
             <span>⚡ 인터넷 연결이 끊겼습니다. 저장된 캐시 모드로 안전하게 작동합니다.</span>
           </div>
         )}
-        {content}
+        <ErrorBoundary onReset={() => setScreen('main')}>
+          {content}
+        </ErrorBoundary>
         {showNav && <BottomNav activeTab={screen} onChange={handleTabChange} />}
       </div>
     </div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Icon from '../components/Icons';
 import Sheet from '../components/Sheet';
 import SoyoMap from '../components/SoyoMap';
@@ -82,6 +82,20 @@ export default function WalkFlow({
     const timer = setTimeout(() => setToast(''), 2400);
     return () => clearTimeout(timer);
   }, [toast]);
+
+  // 폴더 선택 바텀시트가 열려 있을 때 브라우저 뒤로가기 시 로그인 화면으로 튕기지 않고 시트만 닫히도록 처리
+  useEffect(() => {
+    if (folderSelectRoute) {
+      window.history.pushState({ sheet: 'folder' }, '');
+      const handlePop = () => {
+        setFolderSelectRoute(null);
+      };
+      window.addEventListener('popstate', handlePop, { once: true });
+      return () => {
+        window.removeEventListener('popstate', handlePop);
+      };
+    }
+  }, [folderSelectRoute]);
 
   const filteredRegions = useMemo(() => {
     const keyword = regionQuery.trim();
@@ -829,7 +843,7 @@ function LoginPrompt({ onClose, onLogin }) {
   );
 }
 
-function NewFolderForm({ onSubmit, existingFolders }) {
+function NewFolderForm({ onSubmit, onCancel, existingFolders = [] }) {
   const [name, setName] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const inputRef = useRef(null);
@@ -849,7 +863,7 @@ function NewFolderForm({ onSubmit, existingFolders }) {
       setErrorMsg('폴더 이름을 입력해 주세요');
       return;
     }
-    if (existingFolders.some((f) => f.name === trimmed)) {
+    if ((existingFolders || []).some((f) => f?.name === trimmed)) {
       setErrorMsg('이미 존재하는 폴더 이름입니다');
       return;
     }
@@ -878,6 +892,16 @@ function NewFolderForm({ onSubmit, existingFolders }) {
           }}
           style={{ flex: 1 }}
         />
+        {onCancel && (
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={onCancel}
+            style={{ flex: 'none', padding: '0 12px', height: '44px', minHeight: '44px' }}
+          >
+            취소
+          </button>
+        )}
         <button
           type="submit"
           className="btn btn-primary"
@@ -953,7 +977,7 @@ const FolderSelectSheet = React.memo(function FolderSelectSheet({
         </div>
 
         {isCreating ? (
-          <NewFolderForm onSubmit={handleCreateSubmit} existingFolders={folders} />
+          <NewFolderForm onSubmit={handleCreateSubmit} onCancel={() => setIsCreating(false)} existingFolders={folders} />
         ) : (
           <button
             type="button"
