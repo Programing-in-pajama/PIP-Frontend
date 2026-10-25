@@ -13,12 +13,46 @@ function dotContent(className) {
   return `<div class="kakao-dot ${className}"></div>`;
 }
 
-export default function KakaoMapLayer({ route = null, region = null, showUser = false, variant = 'plain' }) {
+function navMarkerContent(heading = 0) {
+  return `
+    <div class="soyo-nav-marker">
+      <div class="soyo-nav-pulse"></div>
+      <div class="soyo-nav-heading" style="transform: rotate(${Math.round(heading || 0)}deg);">
+        <div class="soyo-nav-cone"></div>
+        <div class="soyo-nav-arrow">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L20.5 20.5L12 16.5L3.5 20.5L12 2Z" fill="#1d4ed8" stroke="#ffffff" stroke-width="2.2" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+export default function KakaoMapLayer({
+  route = null,
+  region = null,
+  showUser = false,
+  variant = 'plain',
+  navUserPos = null,
+  navPathSplitIndex = 0,
+  followUser = true,
+  onUserDrag = null,
+}) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const overlaysRef = useRef([]);
+  const navMarkerRef = useRef(null);
+  const navTraveledPolylineRef = useRef(null);
+  const navRemainingCasingRef = useRef(null);
+  const navRemainingPolylineRef = useRef(null);
+  const onUserDragRef = useRef(onUserDrag);
   const readyRef = useRef(false);
   const [status, setStatus] = useState('loading'); // loading | ready | fallback
+
+  useEffect(() => {
+    onUserDragRef.current = onUserDrag;
+  }, [onUserDrag]);
 
   // 1) 지도 생성
   useEffect(() => {
@@ -27,6 +61,7 @@ export default function KakaoMapLayer({ route = null, region = null, showUser = 
     let observer = null;
     let fallbackTimer = null;
     let onTilesLoaded = null;
+    let onDragStart = null;
 
     loadKakaoMaps()
       .then((kakao) => {
@@ -62,6 +97,11 @@ export default function KakaoMapLayer({ route = null, region = null, showUser = 
         };
         kakao.maps.event.addListener(map, 'tilesloaded', onTilesLoaded);
 
+        onDragStart = () => {
+          onUserDragRef.current?.();
+        };
+        kakao.maps.event.addListener(map, 'dragstart', onDragStart);
+
         // 지도 타일이 실제로 그려지지 않으면(도메인 미등록 등) 일러스트 지도를 유지합니다.
         fallbackTimer = setTimeout(() => {
           if (!cancelled && !readyRef.current) setStatus('fallback');
@@ -84,11 +124,12 @@ export default function KakaoMapLayer({ route = null, region = null, showUser = 
       cancelled = true;
       if (fallbackTimer) clearTimeout(fallbackTimer);
       if (observer) observer.disconnect();
-      if (map && onTilesLoaded) {
+      if (map) {
         try {
-          window.kakao?.maps?.event?.removeListener(map, 'tilesloaded', onTilesLoaded);
+          if (onTilesLoaded) window.kakao?.maps?.event?.removeListener(map, 'tilesloaded', onTilesLoaded);
+          if (onDragStart) window.kakao?.maps?.event?.removeListener(map, 'dragstart', onDragStart);
         } catch {
-          // 이미 정리된 지도는 무시합니다.
+          // ignore
         }
       }
       overlaysRef.current.forEach((overlay) => {
@@ -99,11 +140,30 @@ export default function KakaoMapLayer({ route = null, region = null, showUser = 
         }
       });
       overlaysRef.current = [];
+
+      // 네비 오버레이 정리
+      if (navMarkerRef.current) {
+        try { navMarkerRef.current.setMap(null); } catch {}
+        navMarkerRef.current = null;
+      }
+      if (navTraveledPolylineRef.current) {
+        try { navTraveledPolylineRef.current.setMap(null); } catch {}
+        navTraveledPolylineRef.current = null;
+      }
+      if (navRemainingCasingRef.current) {
+        try { navRemainingCasingRef.current.setMap(null); } catch {}
+        navRemainingCasingRef.current = null;
+      }
+      if (navRemainingPolylineRef.current) {
+        try { navRemainingPolylineRef.current.setMap(null); } catch {}
+        navRemainingPolylineRef.current = null;
+      }
+
       mapRef.current = null;
     };
   }, []);
 
-  // 2) 코스/지역/현재 위치 표시
+  // 2) 코스 기본 정보/식당/경계선 정적 오버레이 표시
   useEffect(() => {
     const map = mapRef.current;
     const kakao = window.kakao;
@@ -129,6 +189,7 @@ export default function KakaoMapLayer({ route = null, region = null, showUser = 
       );
     };
 
+    const isNavigating = Boolean(navUserPos?.isNavigating);
     const routeRegion = REGIONS.find((item) => item.id === route?.regionId) || region || DEFAULT_REGION;
     const geoPath = route?.geoPath?.length
       ? route.geoPath
@@ -137,34 +198,47 @@ export default function KakaoMapLayer({ route = null, region = null, showUser = 
     if (geoPath.length > 1) {
       const path = geoPath.map((point) => new kakao.maps.LatLng(point.lat, point.lng));
 
-      addOverlay(
-        new kakao.maps.Polyline({
-          path,
-          strokeWeight: 10,
-          strokeColor: '#ffffff',
-          strokeOpacity: 0.9,
-          strokeStyle: 'solid',
-          zIndex: 2,
-        }),
-      );
-      addOverlay(
-        new kakao.maps.Polyline({
-          path,
-          strokeWeight: 5,
-          strokeColor: '#4C9BE8',
-          strokeOpacity: 0.95,
-          strokeStyle: 'solid',
-          zIndex: 3,
-        }),
-      );
+      // 🌿 내비게이션 진행 중이 아닐 때만 정적 전체 경로 폴리라인 표출 (네비 중에는 분할 동적 폴리라인이 그림)
+      if (!isNavigating) {
+        addOverlay(
+          new kakao.maps.Polyline({
+            path,
+            strokeWeight: 10,
+            strokeColor: '#ffffff',
+            strokeOpacity: 0.9,
+            strokeStyle: 'solid',
+            zIndex: 2,
+          }),
+        );
+        addOverlay(
+          new kakao.maps.Polyline({
+            path,
+            strokeWeight: 5,
+            strokeColor: '#4C9BE8',
+            strokeOpacity: 0.95,
+            strokeStyle: 'solid',
+            zIndex: 3,
+          }),
+        );
+      }
 
       addDot(path[0], 'kakao-dot--start');
       addDot(path[path.length - 1], 'kakao-dot--end');
 
       if (route?.restaurant && route.restaurant.lat && route.restaurant.lng) {
         const restPos = new kakao.maps.LatLng(route.restaurant.lat, route.restaurant.lng);
-        const gradeColor = route.restaurant.nutritionGrade === 'green' || route.restaurant.grade === 'green' ? '#16a34a' : (route.restaurant.nutritionGrade === 'red' || route.restaurant.grade === 'red' ? '#dc2626' : '#d97706');
-        const gradeDot = route.restaurant.nutritionGrade === 'green' || route.restaurant.grade === 'green' ? '🟢' : (route.restaurant.nutritionGrade === 'red' || route.restaurant.grade === 'red' ? '🔴' : '🟡');
+        const gradeColor =
+          route.restaurant.nutritionGrade === 'green' || route.restaurant.grade === 'green'
+            ? '#16a34a'
+            : route.restaurant.nutritionGrade === 'red' || route.restaurant.grade === 'red'
+              ? '#dc2626'
+              : '#d97706';
+        const gradeDot =
+          route.restaurant.nutritionGrade === 'green' || route.restaurant.grade === 'green'
+            ? '🟢'
+            : route.restaurant.nutritionGrade === 'red' || route.restaurant.grade === 'red'
+              ? '🔴'
+              : '🟡';
         const badgeText = route.restaurant.badgeLabel || '안심식당';
 
         const restOverlay = new kakao.maps.CustomOverlay({
@@ -183,23 +257,26 @@ export default function KakaoMapLayer({ route = null, region = null, showUser = 
         addOverlay(restOverlay);
       }
 
-      const bounds = new kakao.maps.LatLngBounds();
-      path.forEach((point) => bounds.extend(point));
+      // 내비 진행 중이 아닐 때만 전체 경로 맞춤 바운드 조절
+      if (!isNavigating) {
+        const bounds = new kakao.maps.LatLngBounds();
+        path.forEach((point) => bounds.extend(point));
 
-      const clientW = containerRef.current?.clientWidth || 390;
-      const clientH = containerRef.current?.clientHeight || 600;
-      if (clientW > 250 && clientH > 350) {
-        try {
-          map.setBounds(bounds, 50, 30, 160, 30);
-        } catch {
+        const clientW = containerRef.current?.clientWidth || 390;
+        const clientH = containerRef.current?.clientHeight || 600;
+        if (clientW > 250 && clientH > 350) {
+          try {
+            map.setBounds(bounds, 50, 30, 160, 30);
+          } catch {
+            map.setBounds(bounds);
+          }
+        } else {
           map.setBounds(bounds);
         }
-      } else {
-        map.setBounds(bounds);
-      }
 
-      if (map.getLevel() > 6) {
-        map.setLevel(5);
+        if (map.getLevel() > 6) {
+          map.setLevel(5);
+        }
       }
 
       setTimeout(() => {
@@ -210,17 +287,19 @@ export default function KakaoMapLayer({ route = null, region = null, showUser = 
     } else {
       const activeRegion = region || DEFAULT_REGION;
       const boundaryPoints = getRegionGeoPolygon(activeRegion);
-      const center = activeRegion?.center || (boundaryPoints?.length > 0 ? {
-        lat: boundaryPoints.reduce((sum, p) => sum + p.lat, 0) / boundaryPoints.length,
-        lng: boundaryPoints.reduce((sum, p) => sum + p.lng, 0) / boundaryPoints.length,
-      } : DEFAULT_CENTER);
+      const center =
+        activeRegion?.center ||
+        (boundaryPoints?.length > 0
+          ? {
+              lat: boundaryPoints.reduce((sum, p) => sum + p.lat, 0) / boundaryPoints.length,
+              lng: boundaryPoints.reduce((sum, p) => sum + p.lng, 0) / boundaryPoints.length,
+            }
+          : DEFAULT_CENTER);
       const targetLatLng = new kakao.maps.LatLng(center.lat, center.lng);
 
       if (boundaryPoints && boundaryPoints.length > 2) {
         const polygonPath = boundaryPoints.map((p) => new kakao.maps.LatLng(p.lat, p.lng));
 
-        // 고정밀 행정구역 경계선 (네모 박스가 아닌 실측 굴곡 행정동 폴리곤)
-        // 외곽선: 선명한 초록색 (#16a34a, 2.5px), 내부: 부드러운 반투명 초록 채움 (#22c55e, 0.20)
         const regionPolygon = new kakao.maps.Polygon({
           path: polygonPath,
           strokeWeight: 2.5,
@@ -228,12 +307,11 @@ export default function KakaoMapLayer({ route = null, region = null, showUser = 
           strokeOpacity: 0.95,
           strokeStyle: 'solid',
           fillColor: '#22c55e',
-          fillOpacity: 0.20,
+          fillOpacity: 0.2,
           zIndex: 2,
         });
         addOverlay(regionPolygon);
 
-        // 영역 전체가 화면에 완벽하게 들어오도록 자동 줌/바운드 조절
         const bounds = new kakao.maps.LatLngBounds();
         polygonPath.forEach((pt) => bounds.extend(pt));
 
@@ -241,7 +319,6 @@ export default function KakaoMapLayer({ route = null, region = null, showUser = 
         const clientH = containerRef.current?.clientHeight || 600;
         if (clientW > 250 && clientH > 350) {
           try {
-            // 상단 검색바/헤더 및 하단 시트(bottom sheet) 영역을 고려한 넉넉한 여백 배분
             map.setBounds(bounds, 70, 28, 190, 28);
           } catch {
             map.setBounds(bounds);
@@ -250,7 +327,6 @@ export default function KakaoMapLayer({ route = null, region = null, showUser = 
           map.setBounds(bounds);
         }
 
-        // 최적 가시성 줌 레벨 범위 유지 (4~5)
         const currLevel = map.getLevel();
         if (currLevel > 5) {
           map.setLevel(5);
@@ -282,7 +358,6 @@ export default function KakaoMapLayer({ route = null, region = null, showUser = 
         }
       }, 50);
 
-      // 선택된 지역 중심에 직관적이고 세련된 위치 배지 마커 표시
       const regionName = activeRegion?.short || activeRegion?.name || '역곡1동';
       const regionMarker = new kakao.maps.CustomOverlay({
         position: targetLatLng,
@@ -299,7 +374,7 @@ export default function KakaoMapLayer({ route = null, region = null, showUser = 
       addOverlay(regionMarker);
     }
 
-    if (showUser) {
+    if (showUser && !isNavigating) {
       const cached = {
         lat: Number(sessionStorage.getItem('soyo-location-lat')),
         lng: Number(sessionStorage.getItem('soyo-location-lng')),
@@ -323,7 +398,125 @@ export default function KakaoMapLayer({ route = null, region = null, showUser = 
       overlaysRef.current.forEach((overlay) => overlay.setMap(null));
       overlaysRef.current = [];
     };
-  }, [status, route, region, showUser, variant]);
+  }, [status, route, region, showUser, variant, navUserPos?.isNavigating]);
+
+  // 3) 🌿 실시간 보행 내비게이션 동적 렌더링 (위치 마커, 분할 경로선, 카메라 트래킹)
+  useEffect(() => {
+    const map = mapRef.current;
+    const kakao = window.kakao;
+    if (status !== 'ready' || !map || !kakao?.maps) return undefined;
+
+    const isNavigating = Boolean(navUserPos?.isNavigating && navUserPos?.lat && navUserPos?.lng);
+
+    if (!isNavigating) {
+      if (navMarkerRef.current) {
+        navMarkerRef.current.setMap(null);
+        navMarkerRef.current = null;
+      }
+      if (navTraveledPolylineRef.current) {
+        navTraveledPolylineRef.current.setMap(null);
+        navTraveledPolylineRef.current = null;
+      }
+      if (navRemainingCasingRef.current) {
+        navRemainingCasingRef.current.setMap(null);
+        navRemainingCasingRef.current = null;
+      }
+      if (navRemainingPolylineRef.current) {
+        navRemainingPolylineRef.current.setMap(null);
+        navRemainingPolylineRef.current = null;
+      }
+      return undefined;
+    }
+
+    const userLatLng = new kakao.maps.LatLng(navUserPos.lat, navUserPos.lng);
+
+    // 3.1) 실시간 위치 마커 (펄스 링 + 나침반 헤딩 화살표)
+    if (!navMarkerRef.current) {
+      navMarkerRef.current = new kakao.maps.CustomOverlay({
+        position: userLatLng,
+        content: navMarkerContent(navUserPos.heading),
+        xAnchor: 0.5,
+        yAnchor: 0.5,
+        zIndex: 12,
+      });
+      navMarkerRef.current.setMap(map);
+    } else {
+      navMarkerRef.current.setPosition(userLatLng);
+      navMarkerRef.current.setContent(navMarkerContent(navUserPos.heading));
+    }
+
+    // 3.2) 지나온 경로(회색) vs 앞으로 갈 경로(선명한 파란색) 분할 표출
+    const geoPath = route?.geoPath || [];
+    if (geoPath.length > 1) {
+      const splitIdx = Math.max(0, Math.min(geoPath.length - 1, navPathSplitIndex));
+
+      // 지나온 경로: 출발점 ~ splitIdx ~ 현재 사용자 위치
+      const traveledPoints = geoPath
+        .slice(0, splitIdx + 1)
+        .concat([{ lat: navUserPos.lat, lng: navUserPos.lng }])
+        .map((p) => new kakao.maps.LatLng(p.lat, p.lng));
+
+      // 앞으로 남은 경로: 현재 사용자 위치 ~ splitIdx+1 ~ 도착점
+      const remainingPoints = [{ lat: navUserPos.lat, lng: navUserPos.lng }]
+        .concat(geoPath.slice(splitIdx + 1))
+        .map((p) => new kakao.maps.LatLng(p.lat, p.lng));
+
+      // 지나온 경로 (차분한 그레이)
+      if (!navTraveledPolylineRef.current) {
+        navTraveledPolylineRef.current = new kakao.maps.Polyline({
+          map,
+          path: traveledPoints,
+          strokeWeight: 5,
+          strokeColor: '#94a3b8',
+          strokeOpacity: 0.75,
+          strokeStyle: 'solid',
+          zIndex: 2,
+        });
+      } else {
+        navTraveledPolylineRef.current.setPath(traveledPoints);
+      }
+
+      // 앞으로 갈 경로 외곽 흰색 테두리 (가시성 극대화)
+      if (!navRemainingCasingRef.current) {
+        navRemainingCasingRef.current = new kakao.maps.Polyline({
+          map,
+          path: remainingPoints,
+          strokeWeight: 11,
+          strokeColor: '#ffffff',
+          strokeOpacity: 0.95,
+          strokeStyle: 'solid',
+          zIndex: 3,
+        });
+      } else {
+        navRemainingCasingRef.current.setPath(remainingPoints);
+      }
+
+      // 앞으로 갈 경로 (선명한 네비 블루)
+      if (!navRemainingPolylineRef.current) {
+        navRemainingPolylineRef.current = new kakao.maps.Polyline({
+          map,
+          path: remainingPoints,
+          strokeWeight: 6.5,
+          strokeColor: '#2563eb',
+          strokeOpacity: 0.98,
+          strokeStyle: 'solid',
+          zIndex: 4,
+        });
+      } else {
+        navRemainingPolylineRef.current.setPath(remainingPoints);
+      }
+    }
+
+    // 3.3) Follow-Me 카메라 자동 추적
+    if (followUser) {
+      map.panTo(userLatLng);
+      if (map.getLevel() > 3) {
+        map.setLevel(3);
+      }
+    }
+
+    return undefined;
+  }, [status, navUserPos, navPathSplitIndex, followUser, route]);
 
   return (
     <div

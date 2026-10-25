@@ -61,6 +61,10 @@ export default function SoyoMap({
   showUser = false,
   className = '',
   children,
+  navUserPos = null,
+  navPathSplitIndex = 0,
+  followUser = true,
+  onUserDrag = null,
 }) {
   const showRiver = variant === 'search';
   return (
@@ -137,6 +141,10 @@ export default function SoyoMap({
         region={region}
         showUser={showUser}
         variant={variant}
+        navUserPos={navUserPos}
+        navPathSplitIndex={navPathSplitIndex}
+        followUser={followUser}
+        onUserDrag={onUserDrag}
       />
 
       {children}

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import Icon from '../components/Icons';
 import Sheet from '../components/Sheet';
 import SoyoMap from '../components/SoyoMap';
@@ -7,6 +7,14 @@ import { DEFAULT_REGION, REGIONS, WALK_MINUTES, getRoutes } from '../data/routes
 import { fetchRecommendedRoutes } from '../api/routes';
 import { formatClock, formatDistance } from '../utils/format';
 import {
+  getDistanceMeters,
+  getBearing,
+  getCumulativeDistances,
+  snapToPath,
+  buildRouteWaypoints,
+  getNextNavigationGuidance,
+} from '../utils/geo';
+import {
   createPinFolder,
   fetchPinFolders,
   getPinFolders,
@@ -14,6 +22,38 @@ import {
   removeRoutePinEverywhere,
   saveRoutePin,
 } from '../api/pins';
+
+function renderManeuverIcon(maneuver) {
+  switch (maneuver) {
+    case 'turn-left':
+      return (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M19 19V11a4 4 0 0 0-4-4H5" />
+          <polyline points="9 3 5 7 9 11" />
+        </svg>
+      );
+    case 'turn-right':
+      return (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M5 19V11a4 4 0 0 1 4-4h10" />
+          <polyline points="15 3 19 7 15 11" />
+        </svg>
+      );
+    case 'crosswalk':
+      return <span style={{ fontSize: '20px' }}>🚸</span>;
+    case 'restaurant':
+      return <span style={{ fontSize: '20px' }}>🍴</span>;
+    case 'destination':
+      return <span style={{ fontSize: '20px' }}>🏁</span>;
+    default:
+      return (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="19" x2="12" y2="5" />
+          <polyline points="5 12 12 5 19 12" />
+        </svg>
+      );
+  }
+}
 
 export default function WalkFlow({
   isLoggedIn,
@@ -51,6 +91,193 @@ export default function WalkFlow({
   const [folderSelectRoute, setFolderSelectRoute] = useState(null);
   const [showComplete, setShowComplete] = useState(false);
   const [showNutritionDetail, setShowNutritionDetail] = useState(false);
+
+  // ── 🌿 실시간 보행 내비게이션 상태 및 엔진 ─────────────────────────────
+  const [navMode, setNavMode] = useState('gps'); // 'gps' | 'simulation'
+  const [followUser, setFollowUser] = useState(true);
+  const [isVoiceMuted, setIsVoiceMuted] = useState(false);
+  const [navUserPos, setNavUserPos] = useState(null);
+  const [navPathSplitIndex, setNavPathSplitIndex] = useState(0);
+  const [liveMovedKm, setLiveMovedKm] = useState(0);
+  const [liveRemainingMeters, setLiveRemainingMeters] = useState(0);
+  const [liveProgress, setLiveProgress] = useState(0);
+  const [currentGuidance, setCurrentGuidance] = useState(null);
+
+  const lastPosRef = useRef(null);
+  const lastHeadingRef = useRef(0);
+  const lastSpokenIndexRef = useRef(-1);
+  const hasAnnouncedArrivalRef = useRef(false);
+  const cachedDistancesRef = useRef(null);
+  const simIndexRef = useRef(0);
+
+  const turnWaypoints = useMemo(() => {
+    if (!selectedRoute?.geoPath) return [];
+    return buildRouteWaypoints(selectedRoute);
+  }, [selectedRoute]);
+
+  useEffect(() => {
+    if (selectedRoute?.geoPath) {
+      cachedDistancesRef.current = getCumulativeDistances(selectedRoute.geoPath);
+    }
+  }, [selectedRoute]);
+
+  const speakInstruction = useCallback(
+    (text) => {
+      if (isVoiceMuted || typeof window === 'undefined' || !window.speechSynthesis) return;
+      try {
+        window.speechSynthesis.cancel();
+        const clean = text
+          .replace(/GS25/g, '지에스 이십오')
+          .replace(/CU/g, '씨유')
+          .replace(/IBK/g, '기업은행')
+          .replace(/MGC/g, '엠지씨')
+          .replace(/후\s+/g, '한 뒤 ');
+        const utter = new SpeechSynthesisUtterance(clean);
+        utter.lang = 'ko-KR';
+        utter.rate = 1.05;
+        utter.pitch = 1.0;
+        window.speechSynthesis.speak(utter);
+      } catch {
+        // speech synthesis not available or blocked
+      }
+    },
+    [isVoiceMuted]
+  );
+
+  const handlePositionUpdate = useCallback(
+    (pos) => {
+      if (!selectedRoute?.geoPath || selectedRoute.geoPath.length === 0) return;
+
+      const snapResult = snapToPath(pos, selectedRoute.geoPath, cachedDistancesRef.current);
+      const guidance = getNextNavigationGuidance(
+        snapResult.pathDistanceMeters,
+        turnWaypoints,
+        snapResult.totalDistanceMeters
+      );
+
+      setNavUserPos({
+        lat: pos.lat,
+        lng: pos.lng,
+        heading: pos.heading || 0,
+        isNavigating: true,
+      });
+      setNavPathSplitIndex(snapResult.segmentIndex);
+      setLiveMovedKm(snapResult.pathDistanceMeters / 1000);
+      setLiveRemainingMeters(snapResult.remainingMeters);
+      setLiveProgress(snapResult.progress);
+      setCurrentGuidance(guidance);
+
+      // 턴바이턴 음성 안내 (새로운 안내 지점에 진입했을 때 1회 발화)
+      if (guidance.distanceToTurnMeters <= 18 && lastSpokenIndexRef.current !== guidance.waypointIndex) {
+        lastSpokenIndexRef.current = guidance.waypointIndex;
+        speakInstruction(`${guidance.distanceText} ${guidance.instruction}`);
+      }
+
+      // 목적지 부근 도착 감지
+      if (guidance.isArrived && !hasAnnouncedArrivalRef.current) {
+        hasAnnouncedArrivalRef.current = true;
+        speakInstruction('목적지 부근에 도착했습니다. 산책을 완료해보세요!');
+        setShowComplete(true);
+      }
+    },
+    [selectedRoute, turnWaypoints, speakInstruction]
+  );
+
+  // 실시간 GPS 추적 (watchPosition)
+  useEffect(() => {
+    if (step !== 'walking' || isPaused || navMode !== 'gps') return undefined;
+
+    // 초기 위치 설정: 이미 저장된 좌표 또는 코스 첫 점
+    if (!lastPosRef.current && selectedRoute?.geoPath?.[0]) {
+      const initialLat = Number(sessionStorage.getItem('soyo-location-lat')) || selectedRoute.geoPath[0].lat;
+      const initialLng = Number(sessionStorage.getItem('soyo-location-lng')) || selectedRoute.geoPath[0].lng;
+      handlePositionUpdate({ lat: initialLat, lng: initialLng, heading: 0 });
+    }
+
+    if (!navigator.geolocation) return undefined;
+
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng, heading: devHeading, speed, accuracy } = pos.coords;
+        sessionStorage.setItem('soyo-location-lat', String(lat));
+        sessionStorage.setItem('soyo-location-lng', String(lng));
+
+        let heading = devHeading;
+        if (heading == null || Number.isNaN(heading) || heading === 0) {
+          if (lastPosRef.current) {
+            const dist = getDistanceMeters(lastPosRef.current, { lat, lng });
+            if (dist >= 2) {
+              heading = getBearing(lastPosRef.current, { lat, lng });
+              lastHeadingRef.current = heading;
+            } else {
+              heading = lastHeadingRef.current;
+            }
+          } else {
+            heading = 0;
+          }
+        } else {
+          lastHeadingRef.current = heading;
+        }
+        lastPosRef.current = { lat, lng };
+
+        handlePositionUpdate({ lat, lng, heading, speed, accuracy });
+      },
+      (err) => {
+        console.warn('GPS watchPosition warning:', err);
+        if (!lastPosRef.current && selectedRoute?.geoPath?.[0]) {
+          handlePositionUpdate({
+            lat: selectedRoute.geoPath[0].lat,
+            lng: selectedRoute.geoPath[0].lng,
+            heading: 0,
+          });
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 1000,
+      }
+    );
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+    };
+  }, [step, isPaused, navMode, selectedRoute, handlePositionUpdate]);
+
+  // 실내/테스트 환경 지원용 모의 보행 시뮬레이터 (simulation mode)
+  useEffect(() => {
+    if (step !== 'walking' || isPaused || navMode !== 'simulation') return undefined;
+    const geoPath = selectedRoute?.geoPath || [];
+    if (geoPath.length < 2) return undefined;
+
+    const interval = setInterval(() => {
+      simIndexRef.current = simIndexRef.current + 1;
+      if (simIndexRef.current >= geoPath.length) {
+        simIndexRef.current = geoPath.length - 1;
+      }
+
+      const pCurr = geoPath[simIndexRef.current];
+      const pNext = geoPath[Math.min(geoPath.length - 1, simIndexRef.current + 1)];
+      const heading = getBearing(pCurr, pNext);
+
+      lastPosRef.current = pCurr;
+      lastHeadingRef.current = heading;
+
+      handlePositionUpdate({
+        lat: pCurr.lat,
+        lng: pCurr.lng,
+        heading,
+        speed: 1.3,
+        accuracy: 5,
+      });
+
+      if (simIndexRef.current >= geoPath.length - 1) {
+        clearInterval(interval);
+      }
+    }, 1100);
+
+    return () => clearInterval(interval);
+  }, [step, isPaused, navMode, selectedRoute, handlePositionUpdate]);
 
   useEffect(() => {
     onSectionChange?.(step);
@@ -210,10 +437,30 @@ export default function WalkFlow({
   const beginWalk = () => {
     setWalkSeconds(0);
     setIsPaused(false);
+    setFollowUser(true);
+    setLiveMovedKm(0);
+    setLiveProgress(0);
+    lastPosRef.current = null;
+    lastHeadingRef.current = 0;
+    lastSpokenIndexRef.current = -1;
+    hasAnnouncedArrivalRef.current = false;
+    simIndexRef.current = 0;
     setStep('walking');
+
+    if (selectedRoute?.geoPath?.[0]) {
+      const startPt = selectedRoute.geoPath[0];
+      const nextPt = selectedRoute.geoPath[1] || startPt;
+      const initialHeading = getBearing(startPt, nextPt);
+      handlePositionUpdate({
+        lat: startPt.lat,
+        lng: startPt.lng,
+        heading: initialHeading,
+      });
+    }
   };
 
   const finishWalk = () => {
+    const finalDistance = liveMovedKm > 0 ? Number(liveMovedKm.toFixed(2)) : Number(movedKm.toFixed(2));
     try {
       const records = JSON.parse(localStorage.getItem('soyo-walk-records') || '[]');
       records.unshift({
@@ -221,7 +468,7 @@ export default function WalkFlow({
         title: selectedRoute?.title,
         region: region.name,
         durationMinutes: Math.max(1, Math.round(walkSeconds / 60)),
-        distanceKm: Number(movedKm.toFixed(2)),
+        distanceKm: finalDistance,
         completedAt: new Date().toISOString(),
       });
       localStorage.setItem('soyo-walk-records', JSON.stringify(records.slice(0, 30)));
@@ -238,9 +485,9 @@ export default function WalkFlow({
             user_id: currentUserId,
             destination_name: selectedRoute.destPoint?.name || selectedRoute.title,
             walk_duration_minutes: Math.max(1, Math.round(walkSeconds / 60)),
-            walk_distance_km: Number(movedKm.toFixed(2)) || 1.4,
-            perceived_difficulty: '보통'
-          }
+            walk_distance_km: finalDistance || 1.4,
+            perceived_difficulty: '보통',
+          },
         ]).then(() => {});
       } catch {
         // ignore
@@ -250,6 +497,7 @@ export default function WalkFlow({
     setStep('home');
     setSelectedRoute(null);
     setWalkSeconds(0);
+    setNavUserPos(null);
     setToast('오늘의 산책을 마쳤어요');
   };
 
@@ -719,48 +967,148 @@ export default function WalkFlow({
     );
   }
 
-  // ── No.10 산책 진행 ──────────────────────────────────────────
+  // ── No.10 산책 진행 (실시간 내비게이션 모드) ──────────────────────────
+  const displayMovedKm = liveMovedKm > 0 ? liveMovedKm : movedKm;
+  const displayRemainingMeters = liveRemainingMeters > 0 ? liveRemainingMeters : remainingMeters;
+  const displayProgress = Math.min(100, Math.max(liveProgress, progress));
+  const activeGuidance = currentGuidance || {
+    maneuver: 'straight',
+    distanceToTurnMeters: displayRemainingMeters,
+    distanceText: displayRemainingMeters > 0 ? `${displayRemainingMeters}m 앞` : '출발',
+    instruction: nextDirection,
+    subInstruction: selectedRoute?.title || '',
+  };
+
   return (
     <div className="screen screen--map">
-      <SoyoMap route={selectedRoute} className="map-fill" />
+      <SoyoMap
+        route={selectedRoute}
+        className="map-fill"
+        navUserPos={navUserPos}
+        navPathSplitIndex={navPathSplitIndex}
+        followUser={followUser}
+        onUserDrag={() => setFollowUser(false)}
+      />
 
-      <div className="walk-stats">
-        <div className="walk-stat">
-          <span>진행 시간</span>
-          <strong>{formatClock(walkSeconds)}</strong>
+      {/* 🌿 상단 턴바이턴 내비게이션 헤더 카드 */}
+      <div className="nav-turn-card">
+        <div className="nav-turn-top">
+          <div className="nav-turn-main">
+            <div
+              className={`nav-turn-icon-box ${
+                activeGuidance.maneuver === 'destination'
+                  ? 'nav-turn-icon-box--green'
+                  : activeGuidance.maneuver === 'restaurant'
+                    ? 'nav-turn-icon-box--restaurant'
+                    : ''
+              }`}
+            >
+              {renderManeuverIcon(activeGuidance.maneuver)}
+            </div>
+            <div className="nav-turn-text">
+              <div className="nav-turn-dist-row">
+                <span className="nav-turn-dist-big">{activeGuidance.distanceText}</span>
+                <span className="nav-turn-sub">{activeGuidance.subInstruction || selectedRoute?.roadType || ''}</span>
+              </div>
+              <h2 className="nav-turn-title">{activeGuidance.instruction}</h2>
+            </div>
+          </div>
+
+          <div className="nav-top-actions">
+            {/* 음성 안내 (TTS) 토글 */}
+            <button
+              type="button"
+              className={`nav-action-btn ${!isVoiceMuted ? 'is-active' : ''}`}
+              onClick={() => {
+                setIsVoiceMuted((prev) => !prev);
+                setToast(!isVoiceMuted ? '음성 안내를 껐어요 🔇' : '음성 안내를 켰어요 🔊');
+              }}
+              aria-label={isVoiceMuted ? '음성 안내 켜기' : '음성 안내 끄기'}
+              title={isVoiceMuted ? '음성 안내 켜기' : '음성 안내 끄기'}
+            >
+              {isVoiceMuted ? '🔇' : '🔊'}
+            </button>
+
+            {/* 핀 저장 */}
+            <button
+              type="button"
+              className={`nav-action-btn ${pinned ? 'is-active' : ''}`}
+              aria-label={pinned ? '핀 저장 해제' : '현재 경로를 핀에 저장'}
+              onClick={() => togglePin(selectedRoute)}
+            >
+              <Icon name={pinned ? 'bookmark-filled' : 'bookmark'} size={18} />
+            </button>
+          </div>
         </div>
-        <div className="walk-stat walk-stat--right">
-          <span>이동 거리</span>
-          <strong className="accent">{movedKm.toFixed(2)} km</strong>
+
+        {/* 보행 정보 & 모의 주행 모드 전환 바 */}
+        <div className="nav-sim-bar">
+          <span style={{ color: '#cbd5e1', fontWeight: 600 }}>
+            ⏱ {formatClock(walkSeconds)} · 🏃 {displayMovedKm.toFixed(2)}km
+          </span>
+          <button
+            type="button"
+            className={`nav-sim-badge ${navMode === 'gps' ? 'nav-sim-badge--gps' : ''}`}
+            onClick={() => {
+              const nextMode = navMode === 'gps' ? 'simulation' : 'gps';
+              setNavMode(nextMode);
+              setFollowUser(true);
+              setToast(nextMode === 'simulation' ? '🚶 모의 보행을 시작합니다' : '📍 실제 GPS를 추적합니다');
+            }}
+          >
+            {navMode === 'simulation' ? '🚶 모의 보행 중 (탭하여 GPS 전환)' : '📍 실제 GPS 추적 중'}
+          </button>
         </div>
       </div>
 
+      {/* 🌿 지도 우측 하단 플로팅 컨트롤 (내 위치로 Follow-me 버튼) */}
+      <div className="nav-floating-controls">
+        <button
+          type="button"
+          className={`nav-floating-btn ${followUser ? 'is-active' : ''}`}
+          onClick={() => {
+            setFollowUser(true);
+            setToast('내 위치로 지도를 맞춥니다 🎯');
+          }}
+          aria-label="내 위치로 지도 맞춤"
+          title="내 위치로"
+        >
+          🎯
+        </button>
+      </div>
+
+      {/* 🌿 하단 내비게이션 바텀 시트 */}
       <section className="map-sheet walk-sheet">
         <div className="walk-next-row">
           <div>
-            <span className="walk-label">다음 안내</span>
-            <h2>{nextDirection}</h2>
+            <span className="walk-label">남은 거리 및 진행률</span>
+            <h2>
+              {displayRemainingMeters >= 1000
+                ? `${(displayRemainingMeters / 1000).toFixed(1)}km 남음`
+                : `${displayRemainingMeters}m 남음`}
+            </h2>
           </div>
-          <button
-            type="button"
-            className={`bookmark-btn ${pinned ? 'is-on' : ''}`}
-            aria-label={pinned ? '핀 저장 해제' : '현재 경로를 핀에 저장'}
-            aria-pressed={pinned}
-            onClick={() => togglePin(selectedRoute)}
-          >
-            <Icon name={pinned ? 'bookmark-filled' : 'bookmark'} size={21} />
-          </button>
+          <div style={{ textAlign: 'right' }}>
+            <span className="walk-label">소요 시간</span>
+            <strong style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
+              {formatClock(walkSeconds)}
+            </strong>
+          </div>
         </div>
 
-        <p className="walk-remaining">
-          현재 {remainingMeters >= 1000 ? `${(remainingMeters / 1000).toFixed(1)}km` : `${remainingMeters}m`} 남았습니다
-        </p>
-        <div className="progress">
-          <div className="progress-bar" style={{ width: `${progress}%` }} />
+        <div className="progress" style={{ marginTop: '12px' }}>
+          <div className="progress-bar" style={{ width: `${displayProgress}%` }} />
         </div>
         <div className="progress-foot">
-          <span>{progress}% 완료</span>
-          <button type="button" className="text-btn" onClick={() => setIsPaused((paused) => !paused)}>
+          <span>{displayProgress}% 완료 ({displayMovedKm.toFixed(2)}km 걸음)</span>
+          <button
+            type="button"
+            className="text-btn"
+            onClick={() => {
+              setIsPaused((paused) => !paused);
+              setToast(isPaused ? '산책을 재개합니다' : '산책을 잠시 멈췄습니다');
+            }}
+          >
             {isPaused ? '계속 걷기' : '잠시 멈추기'}
           </button>
         </div>
