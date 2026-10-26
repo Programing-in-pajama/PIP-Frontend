@@ -4,8 +4,9 @@ import { supabase } from '../supabaseClient';
 
 const formatCourseTitle = (title, duration) => {
   if (!title) return '';
-  const clean = String(title).replace(/\s*\(\d+분\)/g, '').trim();
-  return duration ? `${clean} (${duration}분)` : clean;
+  const clean = String(title).replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
+  const min = Number(duration);
+  return min && !isNaN(min) ? `${clean} (${min}분)` : clean;
 };
 
 // 🌿 피그마(Figma) 시안 04 ~ 08 기준 역곡/부천 추천 산책 코스 데이터

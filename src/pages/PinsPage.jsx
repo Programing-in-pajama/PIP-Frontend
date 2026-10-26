@@ -27,10 +27,11 @@ const FILTER_OPTIONS = [
   { value: 'without', label: '식당 미포함' },
 ];
 
-const formatPinTitle = (title, durationMin) => {
+export const formatPinTitle = (title, durationMin) => {
   if (!title) return '';
-  const clean = String(title).replace(/\s*\(\d+분\)/g, '').trim();
-  return durationMin ? `${clean} (${durationMin}분)` : clean;
+  const clean = String(title).replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
+  const min = Number(durationMin);
+  return min && !isNaN(min) ? `${clean} (${min}분)` : clean;
 };
 
 export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRoute }) {
@@ -113,7 +114,11 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
     if (sort === 'latest') {
       pins.sort((a, b) => new Date(b.savedAt ?? 0) - new Date(a.savedAt ?? 0));
     } else if (sort === 'duration') {
-      pins.sort((a, b) => (Number(a.durationMin) || 0) - (Number(b.durationMin) || 0));
+      pins.sort((a, b) => {
+        const minA = Number(a.durationMin ?? a.duration_minutes ?? a.duration ?? 0);
+        const minB = Number(b.durationMin ?? b.duration_minutes ?? b.duration ?? 0);
+        return minA - minB;
+      });
     } else if (sort === 'distance') {
       pins.sort((a, b) => {
         const distA = Number(a.distanceKm ?? a.distanceToStartKm ?? 0);
@@ -311,7 +316,8 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
 
   // ── No.21 저장 경로 시작 확인 ───────────────────────────────
   if (view === 'confirm' && confirmPin) {
-    const dist = confirmPin.distanceKm ?? confirmPin.distanceToStartKm ?? 0.8;
+    const dist = Number(confirmPin.distanceKm ?? confirmPin.distanceToStartKm ?? 0.8);
+    const effectiveMin = Number(confirmPin.durationMin ?? confirmPin.duration_minutes ?? confirmPin.duration ?? 25);
     return (
       <div className="screen screen--map">
         <SoyoMap route={confirmPin} className="map-fill" />
@@ -325,9 +331,9 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
           <div className="sheet-grip" />
           <h2>해당 경로를 시작하시겠습니까?</h2>
           <div className="start-summary">
-            <strong>{formatPinTitle(confirmPin.title, confirmPin.durationMin)}</strong>
+            <strong>{formatPinTitle(confirmPin.title, effectiveMin)}</strong>
             <span>
-              약 {confirmPin.durationMin}분 · 거리 {formatDistance(dist)} · {confirmPin.hasRestaurant ? '식당 포함' : '산책만'}
+              약 {effectiveMin}분 · 거리 {formatDistance(dist)} · {confirmPin.hasRestaurant ? '식당 포함' : '산책만'}
             </span>
             {confirmPin.restaurant && (
               <span style={{ color: 'var(--emerald-dark)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -431,7 +437,8 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
           onPointerCancel={handlePointerUp}
         >
           {visiblePins.map((pin) => {
-            const distance = pin.distanceKm ?? pin.distanceToStartKm ?? 0.8;
+            const distance = Number(pin.distanceKm ?? pin.distanceToStartKm ?? 0.8);
+            const effectiveMin = Number(pin.durationMin ?? pin.duration_minutes ?? pin.duration ?? 25);
             const selected = selectedPinId === pin.id;
             const isDragging = dragId === pin.id;
             return (
@@ -452,9 +459,9 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
                   className="pin-card-main"
                   onClick={() => setSelectedPinId(pin.id)}
                 >
-                  <strong>{formatPinTitle(pin.title, pin.durationMin)}</strong>
+                  <strong>{formatPinTitle(pin.title, effectiveMin)}</strong>
                   <span className="pin-meta">
-                    거리 {formatDistance(distance)} · 약 {pin.durationMin}분
+                    거리 {formatDistance(distance)} · 약 {effectiveMin}분
                   </span>
                   <span className="pin-sub">
                     {pin.hasRestaurant ? '식당 포함' : '산책만'} · {pin.roadType?.split(' · ')[0] || '안심 산책길'}
@@ -532,7 +539,7 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
               onClick={(event) => event.stopPropagation()}
             >
               <h2 id="pin-delete-title">저장한 코스를 삭제할까요?</h2>
-              <strong>{formatPinTitle(confirmDeletePin.title, confirmDeletePin.durationMin)}</strong>
+              <strong>{formatPinTitle(confirmDeletePin.title, Number(confirmDeletePin.durationMin ?? confirmDeletePin.duration_minutes ?? confirmDeletePin.duration ?? 25))}</strong>
               <p>삭제한 코스는 폴더에서 사라져요.</p>
               <div className="pin-dialog-actions">
                 <button type="button" className="btn btn-ghost" onClick={() => setConfirmDeletePin(null)}>취소</button>

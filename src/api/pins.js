@@ -51,6 +51,23 @@ function notifyPinsUpdated(detail = {}) {
   }
 }
 
+/** 핀 제목과 소요시간/거리를 100% 동기화하고 정규화합니다. */
+export function normalizePin(pin) {
+  if (!pin) return pin;
+  const rawTitle = String(pin.title || '');
+  const cleanTitle = rawTitle.replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
+  const effectiveMin = Number(pin.durationMin ?? pin.duration_minutes ?? pin.duration ?? 25);
+  const effectiveDistance = Number(pin.distanceKm ?? pin.distanceToStartKm ?? 0.8);
+  const synchronizedTitle = effectiveMin ? `${cleanTitle} (${effectiveMin}분)` : cleanTitle;
+
+  return {
+    ...pin,
+    title: synchronizedTitle,
+    durationMin: effectiveMin,
+    distanceKm: effectiveDistance,
+  };
+}
+
 /** 서버에서 최신 폴더 및 핀 목록을 가져와 로컬 캐시를 갱신합니다. */
 export async function syncPinFoldersFromServer(userId = getCurrentUserId()) {
   if (!userId || userId === 'guest') return getPinFolders(userId);
@@ -60,7 +77,8 @@ export async function syncPinFoldersFromServer(userId = getCurrentUserId()) {
     });
     if (res?.success && Array.isArray(res.folders)) {
       const normalized = res.folders.map((f) => {
-        const list = Array.isArray(f.pins) ? f.pins : (Array.isArray(f.courses) ? f.courses : []);
+        const rawList = Array.isArray(f.pins) ? f.pins : (Array.isArray(f.courses) ? f.courses : []);
+        const list = rawList.map(normalizePin);
         return {
           ...f,
           pins: list,
@@ -99,7 +117,8 @@ export function getPinFolders(userId = getCurrentUserId()) {
 
   // pins 와 courses 배열이 항상 유효하도록 정규화
   const folders = all[userId].folders.map((f) => {
-    const list = Array.isArray(f.pins) ? f.pins : (Array.isArray(f.courses) ? f.courses : []);
+    const rawList = Array.isArray(f.pins) ? f.pins : (Array.isArray(f.courses) ? f.courses : []);
+    const list = rawList.map(normalizePin);
     return {
       ...f,
       pins: list,
@@ -226,11 +245,18 @@ export function saveRoutePin(userId = getCurrentUserId(), route, folderId = 'def
   if (!target) return { saved: false, folders };
 
   const targetPins = Array.isArray(target.pins) ? target.pins : [];
-  const alreadyInTarget = targetPins.some((pin) => pin?.id === route.id || pin?.title === route.title);
+  const normalizedRoute = normalizePin(route);
+  const cleanNewTitle = String(normalizedRoute.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
+
+  const alreadyInTarget = targetPins.some((pin) => {
+    if (pin?.id === normalizedRoute.id) return true;
+    const cleanPinTitle = String(pin?.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
+    return cleanNewTitle && cleanPinTitle === cleanNewTitle;
+  });
   if (alreadyInTarget) return { saved: false, folders };
 
   const newPin = {
-    ...route,
+    ...normalizedRoute,
     savedAt: new Date().toISOString()
   };
 
@@ -247,13 +273,13 @@ export function saveRoutePin(userId = getCurrentUserId(), route, folderId = 'def
   const all = readAll();
   all[userId] = { folders: nextFolders };
   writeAll(all);
-  notifyPinsUpdated({ userId, action: 'savePin', route });
+  notifyPinsUpdated({ userId, action: 'savePin', route: newPin });
 
   // 백엔드 서버 동기화
   if (userId && userId !== 'guest') {
     apiFetch('/api/pins/routes', {
       method: 'POST',
-      body: JSON.stringify({ userId, folderId: target.id, route })
+      body: JSON.stringify({ userId, folderId: target.id, route: newPin })
     }).catch((err) => {
       console.warn('⚠️ [Pins] 서버 핀 저장 대기:', err.message);
     });
@@ -264,11 +290,15 @@ export function saveRoutePin(userId = getCurrentUserId(), route, folderId = 'def
 
 /** 특정 폴더에서 핀 삭제 */
 export function removeRoutePin(userId = getCurrentUserId(), folderId, routeId, title) {
+  const cleanTarget = title ? String(title).replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim() : '';
   const folders = getPinFolders(userId).map((folder) => {
     if (folder.id !== folderId) return folder;
     const filteredPins = (folder.pins || folder.courses || []).filter((pin) => {
       if (routeId && pin.id === routeId) return false;
-      if (title && pin.title === title) return false;
+      if (cleanTarget) {
+        const cleanPin = String(pin.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
+        if (cleanPin === cleanTarget) return false;
+      }
       return true;
     });
     return {
@@ -298,10 +328,14 @@ export function removeRoutePin(userId = getCurrentUserId(), folderId, routeId, t
 
 /** 모든 폴더에서 해당 핀 제거 (북마크 토글 해제 시 사용) */
 export function removeRoutePinEverywhere(userId = getCurrentUserId(), routeId, title) {
+  const cleanTarget = title ? String(title).replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim() : '';
   const folders = getPinFolders(userId).map((folder) => {
     const filteredPins = (folder.pins || folder.courses || []).filter((pin) => {
       if (routeId && pin.id === routeId) return false;
-      if (title && pin.title === title) return false;
+      if (cleanTarget) {
+        const cleanPin = String(pin.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
+        if (cleanPin === cleanTarget) return false;
+      }
       return true;
     });
     return {
@@ -389,8 +423,16 @@ export async function reorderPinCourses(folderId, ids) {
 }
 
 export function isRoutePinned(userId = getCurrentUserId(), routeId, title) {
+  const cleanTarget = title ? String(title).replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim() : '';
   return getPinFolders(userId).some((folder) =>
-    folder.pins.some((pin) => pin.id === routeId || (title && pin.title === title))
+    (folder.pins || []).some((pin) => {
+      if (routeId && pin.id === routeId) return true;
+      if (cleanTarget) {
+        const cleanPin = String(pin.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
+        if (cleanPin === cleanTarget) return true;
+      }
+      return false;
+    })
   );
 }
 

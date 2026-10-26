@@ -78,8 +78,9 @@ function renderManeuverIcon(maneuver) {
 
 export function formatCourseTitle(title, durationMin) {
   if (!title) return '';
-  const clean = String(title).replace(/\s*\(\d+분\)/g, '').trim();
-  return durationMin ? `${clean} (${durationMin}분)` : clean;
+  const clean = String(title).replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
+  const min = Number(durationMin);
+  return min && !isNaN(min) ? `${clean} (${min}분)` : clean;
 }
 
 export default function WalkFlow({
@@ -137,6 +138,7 @@ export default function WalkFlow({
       : DEFAULT_REGION;
     return getRoutes(initialReg, 25, userDiseases);
   });
+  const [routeSort, setRouteSort] = useState('recommend'); // 'recommend' | 'duration' | 'distance'
   const [selectedRoute, setSelectedRoute] = useState(startRoute);
   const [walkSeconds, setWalkSeconds] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -500,6 +502,25 @@ export default function WalkFlow({
       (item) => item.name.includes(keyword) || item.short.includes(keyword),
     );
   }, [regionQuery, detectedRegion]);
+
+  const sortedDisplayRoutes = useMemo(() => {
+    if (!Array.isArray(routes)) return [];
+    const list = [...routes];
+    if (routeSort === 'duration') {
+      list.sort((a, b) => {
+        const minA = Number(a.durationMin ?? a.duration_minutes ?? a.duration ?? 25);
+        const minB = Number(b.durationMin ?? b.duration_minutes ?? b.duration ?? 25);
+        return minA - minB;
+      });
+    } else if (routeSort === 'distance') {
+      list.sort((a, b) => {
+        const distA = Number(a.distanceKm ?? a.distanceToStartKm ?? 0);
+        const distB = Number(b.distanceKm ?? b.distanceToStartKm ?? 0);
+        return distA - distB;
+      });
+    }
+    return list;
+  }, [routes, routeSort]);
 
   const pinned = useMemo(
     () => (selectedRoute ? isRoutePinned(userId, selectedRoute.id, selectedRoute.title) : false),
@@ -937,15 +958,40 @@ export default function WalkFlow({
           </div>
         )}
 
+        <div className="filter-chips" style={{ marginTop: '10px', marginBottom: '8px', gap: '6px' }}>
+          <button
+            type="button"
+            className={`chip ${routeSort === 'recommend' ? 'chip--active' : ''}`}
+            onClick={() => setRouteSort('recommend')}
+          >
+            추천순
+          </button>
+          <button
+            type="button"
+            className={`chip ${routeSort === 'duration' ? 'chip--active' : ''}`}
+            onClick={() => setRouteSort('duration')}
+          >
+            소요시간순
+          </button>
+          <button
+            type="button"
+            className={`chip ${routeSort === 'distance' ? 'chip--active' : ''}`}
+            onClick={() => setRouteSort('distance')}
+          >
+            거리순
+          </button>
+        </div>
+
         <div className="course-list">
-          {routes.map((route) => {
+          {sortedDisplayRoutes.map((route) => {
             const saved = isRoutePinned(userId, route.id, route.title);
+            const effectiveMin = Number(route.durationMin ?? route.duration_minutes ?? route.duration ?? 25);
             return (
               <article key={route.id} className="course-card">
                 <button type="button" className="course-card-main" onClick={() => openRoute(route)}>
-                  <strong>{formatCourseTitle(route.title, route.durationMin)}</strong>
+                  <strong>{formatCourseTitle(route.title, effectiveMin)}</strong>
                   <span className="course-meta">
-                    약 {route.durationMin}분 · {formatDistance(route.distanceKm)} ·{' '}
+                    약 {effectiveMin}분 · {formatDistance(route.distanceKm)} ·{' '}
                     {route.hasRestaurant ? '식당 포함' : '산책만'}
                   </span>
                   {route.restaurant && (
@@ -1019,11 +1065,18 @@ export default function WalkFlow({
         </div>
 
         <section className="map-sheet route-sheet">
-          <h2>{formatCourseTitle(selectedRoute.title, selectedRoute.durationMin)}</h2>
-          <p className="route-meta">
-            약 {selectedRoute.durationMin}분 · {formatDistance(selectedRoute.distanceKm)} ·{' '}
-            {selectedRoute.hasRestaurant ? '식당 포함' : '산책만'}
-          </p>
+          {(() => {
+            const detailMin = Number(selectedRoute.durationMin ?? selectedRoute.duration_minutes ?? selectedRoute.duration ?? 25);
+            return (
+              <>
+                <h2>{formatCourseTitle(selectedRoute.title, detailMin)}</h2>
+                <p className="route-meta">
+                  약 {detailMin}분 · {formatDistance(selectedRoute.distanceKm)} ·{' '}
+                  {selectedRoute.hasRestaurant ? '식당 포함' : '산책만'}
+                </p>
+              </>
+            );
+          })()}
           <div className="waypoint-box">
             <span>주요 경유지</span>
             <strong>{selectedRoute.waypoints}</strong>
@@ -1174,12 +1227,13 @@ export default function WalkFlow({
   }
 
   // ── No.10 산책 진행 (실시간 내비게이션 모드) ──────────────────────────
+  const walkDurationMin = Number(selectedRoute?.durationMin ?? selectedRoute?.duration_minutes ?? selectedRoute?.duration ?? 25);
   const activeGuidance = currentGuidance || {
     maneuver: 'straight',
     distanceToTurnMeters: displayRemainingMeters,
     distanceText: displayRemainingMeters > 0 ? `${displayRemainingMeters}m 앞` : '출발',
     instruction: nextDirection,
-    subInstruction: formatCourseTitle(selectedRoute?.title, selectedRoute?.durationMin),
+    subInstruction: formatCourseTitle(selectedRoute?.title, walkDurationMin),
   };
 
   return (
@@ -1216,7 +1270,7 @@ export default function WalkFlow({
                 )}
               </div>
               <h2 className="nav-turn-title">
-                {activeGuidance.instruction || formatCourseTitle(selectedRoute?.title, selectedRoute?.durationMin)}
+                {activeGuidance.instruction || formatCourseTitle(selectedRoute?.title, walkDurationMin)}
               </h2>
             </div>
           </div>
@@ -1252,7 +1306,7 @@ export default function WalkFlow({
         <div className="nav-sim-bar">
           <span className="nav-course-badge">
             <Icon name="pin" size={13} />
-            <span>{formatCourseTitle(selectedRoute?.title, selectedRoute?.durationMin)}</span>
+            <span>{formatCourseTitle(selectedRoute?.title, walkDurationMin)}</span>
           </span>
           <button
             type="button"
@@ -1355,7 +1409,7 @@ export default function WalkFlow({
               <strong>{displayMovedKm.toFixed(2)} km</strong>
             </div>
           </div>
-          <p className="complete-note">{formatCourseTitle(selectedRoute?.title, selectedRoute?.durationMin)}</p>
+          <p className="complete-note">{formatCourseTitle(selectedRoute?.title, walkDurationMin)}</p>
         </Sheet>
       )}
 
@@ -1579,7 +1633,7 @@ const FolderSelectSheet = React.memo(function FolderSelectSheet({
   return (
     <Sheet
       title="어느 폴더에 저장할까요?"
-      subtitle={route ? `선택 코스: ${formatCourseTitle(route.title, route.durationMin)}` : '저장할 폴더를 선택하세요'}
+      subtitle={route ? `선택 코스: ${formatCourseTitle(route.title, Number(route.durationMin ?? route.duration_minutes ?? route.duration ?? 25))}` : '저장할 폴더를 선택하세요'}
       onClose={onClose}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '55vh', overflowY: 'auto' }}>

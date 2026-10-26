@@ -1,6 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { MOCK_ROUTES } from '../data/mockRoutes';
 
+const formatCourseTitle = (title, duration) => {
+  if (!title) return '';
+  const clean = String(title).replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
+  const min = Number(duration);
+  return min && !isNaN(min) ? `${clean} (${min}분)` : clean;
+};
+
 export default function HomePage({ onSelectRoute, isLoggedIn = false, onGoToLogin }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMinutes, setSelectedMinutes] = useState('all'); // 'all' | '10' | '25' | '60'
@@ -210,7 +217,7 @@ export default function HomePage({ onSelectRoute, isLoggedIn = false, onGoToLogi
 
                 {/* 코스 제목 */}
                 <h4 style={{ margin: '0 0 6px 0', fontSize: '15px', fontWeight: 'bold', color: '#0f172a' }}>
-                  {route.title}
+                  {formatCourseTitle(route.title, route.durationMin)}
                 </h4>
 
                 <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#64748b', lineHeight: 1.4 }}>
