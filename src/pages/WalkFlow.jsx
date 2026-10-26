@@ -1187,7 +1187,8 @@ export default function WalkFlow({
                           </div>
                           {food.guideAdvice && (
                             <div className={`food-guide-advice food-guide-advice--${food.grade || 'green'}`}>
-                              💡 {food.guideAdvice}
+                              <span className="food-guide-icon" aria-hidden="true">💡</span>
+                              <span className="food-guide-text">{food.guideAdvice}</span>
                             </div>
                           )}
                         </div>

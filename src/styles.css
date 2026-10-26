@@ -1428,14 +1428,30 @@ input[type="checkbox"].soyo-check:checked::before {
 }
 
 .food-guide-advice {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
   margin-top: 6px;
   font-size: 11px;
   font-weight: 600;
   color: #059669;
-  line-height: 1.4;
+  line-height: 1.45;
   background: #f0fdf4;
-  padding: 5px 9px;
+  padding: 6px 9px;
   border-radius: 6px;
+  white-space: pre-line;
+  word-break: keep-all;
+}
+
+.food-guide-icon {
+  flex-shrink: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.food-guide-text {
+  flex: 1;
+  min-width: 0;
 }
 
 .food-guide-advice--yellow {
