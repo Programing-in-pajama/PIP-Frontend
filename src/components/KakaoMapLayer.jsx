@@ -374,9 +374,9 @@ export default function KakaoMapLayer({
       const regionMarker = new kakao.maps.CustomOverlay({
         position: effectiveTargetLatLng,
         content: `
-          <div style="background: rgba(17, 24, 39, 0.92); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); color: #ffffff; font-size: 11.5px; font-weight: 700; padding: 5px 13px; border-radius: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.22); border: 1.5px solid #22c55e; display: flex; align-items: center; gap: 6px; white-space: nowrap; transform: translateY(-8px); pointer-events: none;">
-            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e; box-shadow: 0 0 6px #22c55e;"></span>
-            <span class="soyo-region-label">🌿 ${initialRegionName} · 산책 권역</span>
+          <div style="background: linear-gradient(135deg, #2f9a72 0%, #42b388 100%); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); color: #ffffff; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 22px; box-shadow: 0 6px 18px rgba(47, 154, 114, 0.32); border: 1.5px solid rgba(255, 255, 255, 0.5); display: flex; align-items: center; gap: 6px; white-space: nowrap; transform: translateY(-8px); pointer-events: none;">
+            <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#ffffff; box-shadow: 0 0 6px rgba(255, 255, 255, 0.9);"></span>
+            <span class="soyo-region-label" style="letter-spacing: -0.2px;">🌿 ${initialRegionName} · 산책 권역</span>
           </div>
         `,
         xAnchor: 0.5,
@@ -393,9 +393,9 @@ export default function KakaoMapLayer({
             sessionStorage.setItem('soyo-current-address', res.fullName);
             if (regionMarker) {
               regionMarker.setContent(`
-                <div style="background: rgba(17, 24, 39, 0.92); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); color: #ffffff; font-size: 11.5px; font-weight: 700; padding: 5px 13px; border-radius: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.22); border: 1.5px solid #22c55e; display: flex; align-items: center; gap: 6px; white-space: nowrap; transform: translateY(-8px); pointer-events: none;">
-                  <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e; box-shadow: 0 0 6px #22c55e;"></span>
-                  <span class="soyo-region-label">🌿 ${res.dong} · 산책 권역</span>
+                <div style="background: linear-gradient(135deg, #2f9a72 0%, #42b388 100%); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); color: #ffffff; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 22px; box-shadow: 0 6px 18px rgba(47, 154, 114, 0.32); border: 1.5px solid rgba(255, 255, 255, 0.5); display: flex; align-items: center; gap: 6px; white-space: nowrap; transform: translateY(-8px); pointer-events: none;">
+                  <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#ffffff; box-shadow: 0 0 6px rgba(255, 255, 255, 0.9);"></span>
+                  <span class="soyo-region-label" style="letter-spacing: -0.2px;">🌿 ${res.dong} · 산책 권역</span>
                 </div>
               `);
             }

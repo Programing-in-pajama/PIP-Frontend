@@ -182,21 +182,20 @@ function App() {
           ...profile,
           email: profile.email || email,
         });
-        mockUpdateProfile(profile);
       }
     }).catch((err) => {
       console.warn('⚠️ [로그인] 프로필 동기화 대기:', err?.message);
     });
   }, [resolveProfile]);
 
-  // 네이버 로그인 콜백 처리
+  // 네이버 로그인 콜백 처리 (네이버 소셜 로그인 시에만 실행되도록 상태값 엄격 검증)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     const state = params.get('state');
     const naverSavedState = sessionStorage.getItem('naver_oauth_state');
     if (!code || !state) return;
-    if (naverSavedState && naverSavedState !== state) return;
+    if (!naverSavedState || naverSavedState !== state) return;
     sessionStorage.removeItem('naver_oauth_state');
     window.history.replaceState({}, '', window.location.pathname);
     naverAuthCallback(code, state)
@@ -215,9 +214,11 @@ function App() {
       });
   }, [finishLogin]);
 
-  // Supabase Auth 세션 감지 및 소셜 로그인 연동
+  // Supabase Auth 세션 감지 및 소셜 로그인 연동 (카카오, 구글)
   useEffect(() => {
     if (!supabase) return;
+
+    let sessionProcessed = false;
 
     const handleSupabaseSession = async (sessionUser, event) => {
       if (!sessionUser) return;
@@ -232,12 +233,52 @@ function App() {
       localStorage.setItem('soyo-current-user-id', userId);
       if (email) localStorage.setItem('soyo-current-email', email);
 
-      // AWS RDS에서 사용자 기존 프로필 조회
+      // 소셜 로그인 완료 후 URL 주소창의 code 파라미터 깔끔하게 정리
+      if (typeof window !== 'undefined' && (window.location.search.includes('code=') || window.location.hash.includes('access_token='))) {
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+
+      // 1) 로컬 캐시 확인: 이미 이 기기에서 건강정보 등록을 마친 사용자인 경우 0ms 즉각 메인 진입
+      let cached = null;
+      try {
+        const raw = localStorage.getItem('soyo-user-profile');
+        if (raw) cached = JSON.parse(raw);
+      } catch {}
+
+      const hasLocalHealthInfo = cached && (cached.userId === userId || cached.email === email) && (
+        (Array.isArray(cached.diseaseIds) && cached.diseaseIds.length > 0) ||
+        (Array.isArray(cached.chronicConditions) && cached.chronicConditions.length > 0) ||
+        (Array.isArray(cached.allergies) && cached.allergies.length > 0) ||
+        (Array.isArray(cached.medications) && cached.medications.length > 0) ||
+        (cached.birthDate && !String(cached.birthDate).startsWith('1970-01-01'))
+      );
+
+      if (hasLocalHealthInfo) {
+        console.log('⚡ [소셜 로그인] 로컬 프로필 즉시 복원 -> 0ms 메인 화면 진입');
+        setIsLoggedIn(true);
+        setAuthNotice('');
+        setWalkStart(null);
+        setWalkKey((key) => key + 1);
+        setNavVisible(true);
+        setScreen('main');
+
+        // 백그라운드에서 최신 RDS 정보 비동기 동기화 (화면 차단 없음)
+        getUserProfile(userId, email).then((res) => {
+          if (res?.success && res.profile) {
+            storeProfile(profileFromServer({ ...res.profile, userId: res.profile.userId || userId }));
+          }
+        }).catch(() => {});
+        return;
+      }
+
+      // 2) 신규 기기/브라우저 접속 시: 2.5초 안전 타임아웃 가드를 두고 AWS RDS에서 프로필 조회
       let isNewUser = false;
       let existingProfile = null;
       try {
         console.log('🚀 [AWS RDS 백엔드] 소셜 사용자 프로필 조회:', userId, email);
-        const res = await getUserProfile(userId, email);
+        const timeoutGuard = new Promise((resolve) => setTimeout(() => resolve({ timeout: true }), 2500));
+        const res = await Promise.race([getUserProfile(userId, email), timeoutGuard]);
+
         if (res?.success && res.profile) {
           const p = res.profile;
           const bDate = p.birthDate ? String(p.birthDate).split('T')[0] : '';
@@ -246,12 +287,14 @@ function App() {
           const hasAllergies = Array.isArray(p.allergies) && p.allergies.length > 0;
           const hasMedications = (Array.isArray(p.medications) && p.medications.length > 0) || (Array.isArray(p.medicationNames) && p.medicationNames.length > 0);
 
-          // DB에 자동 생성된 기본 더미값(1970-01-01, 건강정보 없음)만 있는 경우 최초 가입자로 판정
           if (!p.age && !hasCustomBirth && !hasDiseases && !hasAllergies && !hasMedications) {
             isNewUser = true;
           } else {
             existingProfile = profileFromServer({ ...res.profile, userId: res.profile.userId || userId });
           }
+        } else if (res?.timeout) {
+          console.warn('⏱️ [소셜 로그인] 서버 응답 지연 가드: 즉시 메인 진입 후 백그라운드 동기화');
+          isNewUser = false;
         } else {
           isNewUser = true;
         }
@@ -279,7 +322,6 @@ function App() {
             ...existingProfile,
             email: existingProfile.email || email,
           });
-          await mockUpdateProfile(existingProfile);
         }
         setIsLoggedIn(true);
         setAuthNotice('');
@@ -290,10 +332,22 @@ function App() {
       }
     };
 
+    // 마운트 즉시 현재 세션 확인 (소셜 로그인 리디렉트 직후 URL 해시/코드 즉시 감지)
+    supabase.auth.getSession().then(({ data: { session: initSession }, error }) => {
+      if (error) {
+        console.warn('⚠️ [Supabase getSession]:', error);
+      }
+      if (initSession?.user && !sessionProcessed) {
+        sessionProcessed = true;
+        setSession(initSession);
+        handleSupabaseSession(initSession.user, 'INITIAL_GET_SESSION');
+      }
+    });
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
       console.log('🔔 [Supabase Auth 상태 변경 알림]:', event, newSession?.user?.email);
       setSession(newSession);
-      if (newSession?.user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+      if (newSession?.user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED')) {
         handleSupabaseSession(newSession.user, event);
       }
     });
