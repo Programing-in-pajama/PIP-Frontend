@@ -152,23 +152,20 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
     const targetId = activeFolder.id;
     const targetName = activeFolder.name;
 
-    // 1. React 상태 즉시 제거 (새로고침 없이 즉각 사라짐 보장)
-    setFolders((prev) => prev.filter((f) => f.id !== targetId && f.name !== targetName));
+    // 1. 모달 닫기 & 목록 화면 복귀를 즉각 실행 (무한 로딩 및 모달 깜빡임 원천 차단)
     setConfirmDeleteFolder(false);
+    setView('list');
     setFolderId(null);
-    isPoppingHistoryRef.current = true;
+    setFolders((prev) => prev.filter((f) => f.id !== targetId && f.name !== targetName));
     if (window.history.state?.pinView) {
       window.history.replaceState({ pinView: null }, '');
     }
-    setView('list');
     setToast(`‘${targetName}’ 폴더를 삭제했어요`);
 
-    // 2. 로컬 스토리지 및 서버 동기화 완료
-    try {
-      await deletePinFolder(userId, targetId);
-    } catch (err) {
-      console.warn('⚠️ [Pins] 폴더 삭제 오류:', err.message);
-    }
+    // 2. 백그라운드에서 로컬스토리지 및 서버 동기화 완료
+    deletePinFolder(userId, targetId).catch((err) => {
+      console.warn('⚠️ [Pins] 폴더 삭제 동기화 대기:', err.message);
+    });
   };
 
   // 마우스 드래그 앤 드롭
@@ -376,8 +373,19 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
             </div>
             <img src="/pic/SOYO.png" alt="SOYO" className="head-logo" />
           </header>
-          <div className="pin-list" style={{ padding: '32px', textAlign: 'center', color: 'var(--muted)' }}>
-            잠시만 기다려 주세요...
+          <div className="pin-list" style={{ padding: '32px', textAlign: 'center', color: 'var(--muted)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+            <p>코스를 불러오는 중입니다. 잠시만 기다려 주세요...</p>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{ padding: '6px 14px', fontSize: '13px' }}
+              onClick={() => {
+                setView('list');
+                setFolderId(null);
+              }}
+            >
+              목록으로 돌아가기
+            </button>
           </div>
         </div>
       );
@@ -395,14 +403,19 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
               <p>저장한 코스 {folderPins.length}개</p>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+            <img src="/pic/SOYO.png" alt="SOYO" className="head-logo" style={{ margin: 0 }} />
             {/* 기본 '내 핀' 폴더는 핀 저장 기본 위치라 삭제 버튼을 숨김 */}
             {activeFolder.id !== DEFAULT_FOLDER_ID && activeFolder.name !== '내 핀' && activeFolder.sortOrder !== 0 && (
-              <button type="button" className="danger-link folder-delete" onClick={() => setConfirmDeleteFolder(true)}>
+              <button
+                type="button"
+                className="danger-link folder-delete"
+                style={{ marginTop: 0 }}
+                onClick={() => setConfirmDeleteFolder(true)}
+              >
                 폴더 삭제
               </button>
             )}
-            <img src="/pic/SOYO.png" alt="SOYO" className="head-logo" />
           </div>
         </header>
 
@@ -562,7 +575,7 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
               onClick={(event) => event.stopPropagation()}
             >
               <h2 id="folder-delete-title">폴더를 삭제할까요?</h2>
-              <strong>{activeFolder.name}</strong>
+              <strong>{activeFolder?.name || ''}</strong>
               <p>
                 {folderPins.length > 0
                   ? `폴더 안의 저장 코스 ${folderPins.length}개도 함께 삭제돼요.`
