@@ -185,6 +185,7 @@ export default function WalkFlow({
   const cachedDistancesRef = useRef(null);
   const simIndexRef = useRef(0);
   const sessionStartSnapDistanceRef = useRef(null);
+  const lastAppliedDongRef = useRef('');
 
   const turnWaypoints = useMemo(() => {
     if (!selectedRoute?.geoPath) return [];
@@ -470,6 +471,8 @@ export default function WalkFlow({
     const cachedLng = Number(sessionStorage.getItem('soyo-location-lng'));
 
     const applyDong = (dong, fullName, lat, lng) => {
+      if (!dong || lastAppliedDongRef.current === dong) return;
+      lastAppliedDongRef.current = dong;
       sessionStorage.setItem('soyo-current-dong', dong);
       sessionStorage.setItem('soyo-current-address', fullName);
       const userReg = buildUserRegion(dong, fullName, lat, lng);
@@ -526,7 +529,15 @@ export default function WalkFlow({
         sessionStorage.setItem('soyo-location-lat', String(lat));
         sessionStorage.setItem('soyo-location-lng', String(lng));
         sessionStorage.removeItem('soyo-location-is-fallback');
-        setUserGps({ lat, lng });
+
+        // 🌿 3m 미만의 미세 GPS 오차 떨림은 무시하여 불필요한 전체 리렌더링 차단
+        setUserGps((prev) => {
+          if (prev) {
+            const dist = getDistanceMeters(prev, { lat, lng });
+            if (dist < 3) return prev;
+          }
+          return { lat, lng };
+        });
       },
       (err) => {
         console.warn('Continuous GPS watch warning:', err);

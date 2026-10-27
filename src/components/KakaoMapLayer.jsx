@@ -317,7 +317,22 @@ export default function KakaoMapLayer({
           : DEFAULT_CENTER);
       const targetLatLng = new kakao.maps.LatLng(center.lat, center.lng);
 
-      if (boundaryPoints && boundaryPoints.length > 2) {
+      const cachedLat = Number(sessionStorage.getItem('soyo-location-lat'));
+      const cachedLng = Number(sessionStorage.getItem('soyo-location-lng'));
+      const isFallback = sessionStorage.getItem('soyo-location-is-fallback') === 'true';
+      const cachedDong = sessionStorage.getItem('soyo-current-dong');
+      const activeLat = userPos?.lat || (!isFallback && cachedLat ? cachedLat : null);
+      const activeLng = userPos?.lng || (!isFallback && cachedLng ? cachedLng : null);
+      const hasRealUserPos = Boolean(showUser && activeLat && activeLng);
+
+      const effectiveTargetLatLng = hasRealUserPos
+        ? new kakao.maps.LatLng(activeLat, activeLng)
+        : targetLatLng;
+
+      if (hasRealUserPos) {
+        map.setCenter(effectiveTargetLatLng);
+        map.setLevel(4);
+      } else if (boundaryPoints && boundaryPoints.length > 2) {
         const polygonPath = boundaryPoints.map((p) => new kakao.maps.LatLng(p.lat, p.lng));
 
         const regionPolygon = new kakao.maps.Polygon({
@@ -358,36 +373,9 @@ export default function KakaoMapLayer({
         map.setLevel(4);
       }
 
-      const cachedLat = Number(sessionStorage.getItem('soyo-location-lat'));
-      const cachedLng = Number(sessionStorage.getItem('soyo-location-lng'));
-      const isFallback = sessionStorage.getItem('soyo-location-is-fallback') === 'true';
-      const cachedDong = sessionStorage.getItem('soyo-current-dong');
-      const activeLat = userPos?.lat || (!isFallback && cachedLat ? cachedLat : null);
-      const activeLng = userPos?.lng || (!isFallback && cachedLng ? cachedLng : null);
-      const hasRealUserPos = Boolean(showUser && activeLat && activeLng);
-
-      const effectiveTargetLatLng = hasRealUserPos
-        ? new kakao.maps.LatLng(activeLat, activeLng)
-        : targetLatLng;
-
       setTimeout(() => {
         if (mapRef.current) {
           mapRef.current.relayout();
-          if (boundaryPoints && boundaryPoints.length > 2 && !hasRealUserPos) {
-            const bounds = new kakao.maps.LatLngBounds();
-            boundaryPoints.forEach((p) => bounds.extend(new kakao.maps.LatLng(p.lat, p.lng)));
-            try {
-              mapRef.current.setBounds(bounds, 70, 28, 190, 28);
-            } catch {
-              mapRef.current.setBounds(bounds);
-            }
-            const lvl = mapRef.current.getLevel();
-            if (lvl > 5) mapRef.current.setLevel(5);
-            else if (lvl < 3) mapRef.current.setLevel(4);
-          } else {
-            mapRef.current.setCenter(effectiveTargetLatLng);
-            mapRef.current.setLevel(4);
-          }
         }
       }, 50);
 
@@ -405,31 +393,13 @@ export default function KakaoMapLayer({
         zIndex: 7,
       });
       addOverlay(regionMarker);
-
-      // 실제 GPS 위치가 있고 아직 동을 조회하지 못한 경우 카카오 지오코더로 즉시 조회 후 배너 갱신
-      if (hasRealUserPos && !cachedDong && activeLat && activeLng) {
-        reverseGeocodeCoords(activeLat, activeLng).then((res) => {
-          if (res?.dong) {
-            sessionStorage.setItem('soyo-current-dong', res.dong);
-            sessionStorage.setItem('soyo-current-address', res.fullName);
-            if (regionMarker) {
-              regionMarker.setContent(`
-                <div style="background: linear-gradient(135deg, #2f9a72 0%, #42b388 100%); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); color: #ffffff; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 22px; box-shadow: 0 6px 18px rgba(47, 154, 114, 0.32); border: 1.5px solid rgba(255, 255, 255, 0.5); display: flex; align-items: center; gap: 6px; white-space: nowrap; transform: translateY(-8px); pointer-events: none;">
-                  <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#ffffff; box-shadow: 0 0 6px rgba(255, 255, 255, 0.9);"></span>
-                  <span class="soyo-region-label" style="letter-spacing: -0.2px;">🌿 ${res.dong} · 산책 권역</span>
-                </div>
-              `);
-            }
-          }
-        });
-      }
     }
 
     return () => {
       overlaysRef.current.forEach((overlay) => overlay.setMap(null));
       overlaysRef.current = [];
     };
-  }, [status, route, region, showUser, variant, navUserPos?.isNavigating, userPos]);
+  }, [status, route?.id, region?.id, region?.name, showUser, variant, navUserPos?.isNavigating]);
 
   // 🌿 2.1) 홈/비내비게이션 모드에서 실시간 내 위치 펄스 마커 동적 렌더링
   useEffect(() => {
@@ -474,9 +444,9 @@ export default function KakaoMapLayer({
       }
     }
     return undefined;
-  }, [status, showUser, navUserPos?.isNavigating, userPos]);
+  }, [status, showUser, navUserPos?.isNavigating, userPos?.lat, userPos?.lng]);
 
-  // 🌿 2.2) 내 위치 버튼 클릭 또는 recenterKey 변화 시 현재 위치로 부드럽게 중심 이동
+  // 🌿 2.2) 내 위치 버튼 클릭 또는 recenterKey 변화 시 현재 위치로 부드럽게 이동
   useEffect(() => {
     const map = mapRef.current;
     const kakao = window.kakao;
@@ -492,11 +462,8 @@ export default function KakaoMapLayer({
     if (activeLat && activeLng && Number.isFinite(activeLat) && Number.isFinite(activeLng)) {
       const target = new kakao.maps.LatLng(activeLat, activeLng);
       map.panTo(target);
-      if (map.getLevel() > 4) {
-        map.setLevel(4);
-      }
     }
-  }, [recenterKey, status, userPos]);
+  }, [recenterKey, status]);
 
   // 3) 🌿 실시간 보행 내비게이션 동적 렌더링 (위치 마커, 분할 경로선, 카메라 트래킹)
   useEffect(() => {
