@@ -9,6 +9,7 @@ import PinsPage from './pages/PinsPage';
 import MyPageFlow from './pages/mypage/MyPageFlow';
 import { getUserProfile, naverAuthCallback, saveUserProfile } from './api/auth';
 import { updateProfile, clearProfileCache } from './api/user';
+import { syncPinFoldersFromServer } from './api/pins';
 import { supabase } from './supabaseClient';
 
 function readStoredLogin() {
@@ -186,6 +187,11 @@ function App() {
     }).catch((err) => {
       console.warn('⚠️ [로그인] 프로필 동기화 대기:', err?.message);
     });
+
+    // 핀 및 폴더 데이터 백그라운드 실시간 서버 동기화
+    if (id && id !== 'guest') {
+      syncPinFoldersFromServer(id).catch(() => {});
+    }
   }, [resolveProfile]);
 
   // 네이버 로그인 콜백 처리 (네이버 소셜 로그인 시에만 실행되도록 상태값 엄격 검증)
@@ -232,6 +238,7 @@ function App() {
 
       localStorage.setItem('soyo-current-user-id', userId);
       if (email) localStorage.setItem('soyo-current-email', email);
+      syncPinFoldersFromServer(userId).catch(() => {});
 
       // 소셜 로그인 완료 후 URL 주소창의 code 파라미터 깔끔하게 정리
       if (typeof window !== 'undefined' && (window.location.search.includes('code=') || window.location.hash.includes('access_token='))) {

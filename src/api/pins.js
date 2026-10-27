@@ -2,6 +2,8 @@
 import { apiFetch } from './client';
 
 const STORAGE_KEY = 'soyo-pin-folders-v1';
+const lastSyncTimeMap = new Map();
+const SYNC_THROTTLE_MS = 10000;
 
 function getCurrentUserId() {
   return localStorage.getItem('soyo-current-user-id') || 'guest';
@@ -127,6 +129,32 @@ export async function syncPinFoldersFromServer(userId = getCurrentUserId()) {
           });
         });
 
+        // 🌿 서버에 아직 업로드되지 않은 로컬 미동기 핀들을 백엔드 DB로 자동 푸시 (노트북 ↔ 모바일 간 핀 일치 보장)
+        if (unsyncedLocalPins.length > 0 && userId && userId !== 'guest') {
+          unsyncedLocalPins.forEach((unsyncedPin) => {
+            if (unsyncedPin.serverPinId) return;
+            apiFetch('/api/pins/routes', {
+              method: 'POST',
+              body: JSON.stringify({ userId, folderId: sf.id, route: unsyncedPin })
+            }).then((uploadRes) => {
+              if (uploadRes?.pin?.id) {
+                unsyncedPin.serverPinId = uploadRes.pin.id;
+                const curAll = readAll();
+                if (curAll[userId]?.folders) {
+                  curAll[userId].folders.forEach((f) => {
+                    (f.pins || []).forEach((p) => {
+                      if (p.id === unsyncedPin.id) p.serverPinId = uploadRes.pin.id;
+                    });
+                  });
+                  writeAll(curAll);
+                }
+              }
+            }).catch((err) => {
+              console.warn('⚠️ [Pins] 미반영 핀 자동 동기화 대기:', err.message);
+            });
+          });
+        }
+
         const combinedPins = [...unsyncedLocalPins, ...serverPins];
         return {
           ...sf,
@@ -135,11 +163,17 @@ export async function syncPinFoldersFromServer(userId = getCurrentUserId()) {
         };
       });
 
-      // 로컬에만 존재하는 커스텀 폴더 보존
+      // 로컬에만 존재하는 커스텀 폴더 보존 및 백엔드 자동 업로드
       localFolders.forEach((lf) => {
         const exists = mergedFolders.some((mf) => mf.id === lf.id || mf.name === lf.name);
         if (!exists) {
           mergedFolders.push(lf);
+          if (userId && userId !== 'guest' && lf.id !== 'default' && lf.name !== '내 핀') {
+            apiFetch('/api/pins/folders', {
+              method: 'POST',
+              body: JSON.stringify({ userId, id: lf.id, name: lf.name })
+            }).catch(() => {});
+          }
         }
       });
 
@@ -183,9 +217,10 @@ export function getPinFolders(userId = getCurrentUserId()) {
     };
   });
 
-  // 로그인 상태인 경우 백그라운드에서 서버 동기화 시도
-  if (userId && userId !== 'guest' && !all[userId]._syncScheduled) {
-    all[userId]._syncScheduled = true;
+  // 로그인 상태인 경우 백그라운드에서 최신 서버 동기화 시도 (10초 스로틀)
+  const lastSync = lastSyncTimeMap.get(userId) || 0;
+  if (userId && userId !== 'guest' && Date.now() - lastSync > SYNC_THROTTLE_MS) {
+    lastSyncTimeMap.set(userId, Date.now());
     syncPinFoldersFromServer(userId).catch(() => {});
   }
 
