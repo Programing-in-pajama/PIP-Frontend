@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Icon from '../components/Icons';
 import SoyoMap from '../components/SoyoMap';
-import { REGIONS } from '../data/routes';
+import { REGIONS, restoreRouteMeta } from '../data/routes';
 import { formatDistance } from '../utils/format';
 import {
   createPinFolder,
@@ -50,6 +50,29 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
   const [folderName, setFolderName] = useState('');
   const [folderError, setFolderError] = useState('');
   const cardRefs = useRef(new Map());
+
+  const [userGps, setUserGps] = useState(() => {
+    const isFallback = sessionStorage.getItem('soyo-location-is-fallback') === 'true';
+    const cachedLat = Number(sessionStorage.getItem('soyo-location-lat'));
+    const cachedLng = Number(sessionStorage.getItem('soyo-location-lng'));
+    if (!isFallback && cachedLat && cachedLng) {
+      return { lat: cachedLat, lng: cachedLng };
+    }
+    return null;
+  });
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return undefined;
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        setUserGps({ lat, lng });
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
 
   const reloadFolders = useCallback(() => {
     if (!isLoggedIn) {
@@ -155,17 +178,17 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
     setFolderId(folder.id);
     setSort('latest');
     setFilter('all');
+    setSelectedPinId(null);
+    setPreviewPin(null);
     setConfirmDeleteFolder(false);
     setConfirmDeletePin(null);
-    const pins = folder.pins || folder.courses || [];
-    if (pins.length > 0) {
-      setSelectedPinId(pins[0].id);
-      setPreviewPin(pins[0]);
-    } else {
-      setSelectedPinId(null);
-      setPreviewPin(null);
-    }
     setView('folder');
+  };
+
+  const handleSelectPin = (pin) => {
+    const hydrated = restoreRouteMeta(pin);
+    setSelectedPinId(pin.id);
+    setPreviewPin(hydrated);
   };
 
   const deletePin = (pin) => {
@@ -173,16 +196,8 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
     const next = removeRoutePin(userId, activeFolder.id, pin.id, pin.title);
     setFolders(next);
     if (selectedPinId === pin.id) {
-      const remaining = (activeFolder.pins || activeFolder.courses || []).filter(
-        (p) => p.id !== pin.id && p.title !== pin.title
-      );
-      if (remaining.length > 0) {
-        setSelectedPinId(remaining[0].id);
-        setPreviewPin(remaining[0]);
-      } else {
-        setSelectedPinId(null);
-        setPreviewPin(null);
-      }
+      setSelectedPinId(null);
+      setPreviewPin(null);
     }
     setToast('핀을 삭제했어요');
   };
@@ -403,8 +418,8 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
     if (!activeFolder) {
       return (
         <div className="screen screen--map">
-          <SoyoMap className="map-fill" />
-          <section className="map-sheet pin-sheet pin-sheet--folder">
+          <SoyoMap showUser userPos={userGps} className="map-fill" />
+          <section className="map-sheet pin-sheet pin-sheet--folder pin-sheet--empty">
             <div className="sheet-grip" />
             <div className="pin-folder-header">
               <button
@@ -425,7 +440,7 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
                 <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '2px 0 0' }}>코스를 불러오는 중...</p>
               </div>
             </div>
-            <div className="empty-box" style={{ padding: '32px 16px', textAlign: 'center' }}>
+            <div className="pin-empty-state">
               <p>코스를 불러오는 중입니다. 잠시만 기다려 주세요...</p>
               <button
                 type="button"
@@ -448,9 +463,9 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
 
     return (
       <div className="screen screen--map">
-        <SoyoMap route={previewPin} className="map-fill" />
+        <SoyoMap route={previewPin} showUser userPos={userGps} className="map-fill" />
 
-        <section className="map-sheet pin-sheet pin-sheet--folder">
+        <section className={`map-sheet pin-sheet pin-sheet--folder ${visiblePins.length === 0 ? 'pin-sheet--empty' : ''}`}>
           <div className="sheet-grip" />
 
           {/* 시트 헤더 */}
@@ -475,9 +490,13 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
                 </h1>
                 <p style={{ fontSize: '11.5px', color: 'var(--muted)', margin: '1px 0 0' }}>
                   저장 코스 {folderPins.length}개
-                  {previewPin && (
+                  {previewPin ? (
                     <span style={{ color: 'var(--emerald-dark, #065f46)', marginLeft: '6px', fontWeight: 600 }}>
-                      · 지도 미리보기 중
+                      · 지도에 산책로 미리보기 중
+                    </span>
+                  ) : (
+                    <span style={{ color: 'var(--muted)', marginLeft: '6px' }}>
+                      · 코스를 누르면 산책로가 미리보기됩니다
                     </span>
                   )}
                 </p>
@@ -555,35 +574,16 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
                   onDragStart={() => setDragId(pin.id)}
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={() => handleDrop(pin)}
-                  onClick={() => {
-                    setSelectedPinId(pin.id);
-                    setPreviewPin(pin);
-                  }}
+                  onClick={() => handleSelectPin(pin)}
                   style={{ cursor: 'pointer' }}
                 >
                   <div className="pin-card-main">
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-                      <strong style={{ fontSize: '14.5px', color: isSelected ? 'var(--emerald-dark, #065f46)' : 'var(--ink)' }}>
-                        {formatPinTitle(pin.title, effectiveMin)}
-                      </strong>
-                      {isSelected && (
-                        <span
-                          style={{
-                            fontSize: '10px',
-                            fontWeight: 700,
-                            color: '#059669',
-                            background: '#ecfdf5',
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          미리보기 중
-                        </span>
-                      )}
+                    <div className="pin-card-title-row">
+                      <strong>{formatPinTitle(pin.title, effectiveMin)}</strong>
+                      {isSelected && <span className="pin-preview-badge">미리보기 중</span>}
                     </div>
 
-                    <span className="pin-meta" style={{ fontSize: '12px' }}>
+                    <span className="pin-meta">
                       약 {effectiveMin}분 · 거리 {formatDistance(distance)} · {pin.hasRestaurant ? '식당 포함' : '산책만'}
                     </span>
 
@@ -621,43 +621,44 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
                     )}
                   </div>
 
-                  {sort === 'custom' && (
+                  <div className="pin-card-side">
+                    {sort === 'custom' && (
+                      <button
+                        type="button"
+                        className="drag-handle"
+                        aria-label={`${pin.title} 순서 변경`}
+                        style={{ background: 'none', border: 0, padding: 0 }}
+                        onPointerDown={(event) => handlePointerDown(event, pin.id)}
+                      >
+                        <Icon name="bars" size={18} />
+                      </button>
+                    )}
+
                     <button
                       type="button"
-                      className="drag-handle"
-                      aria-label={`${pin.title} 순서 변경`}
-                      style={{ background: 'none', border: 0, padding: 0 }}
-                      onPointerDown={(event) => handlePointerDown(event, pin.id)}
+                      className="pin-delete-btn"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setConfirmDeletePin(pin);
+                      }}
+                      aria-label="핀 삭제"
+                      title="핀 삭제"
                     >
-                      <Icon name="bars" size={18} />
+                      삭제
                     </button>
-                  )}
-
-                  <button
-                    type="button"
-                    className="danger-link"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setConfirmDeletePin(pin);
-                    }}
-                    aria-label="핀 삭제"
-                    title="핀 삭제"
-                  >
-                    삭제
-                  </button>
+                  </div>
                 </article>
               );
             })}
 
             {visiblePins.length === 0 && (
-              <div className="empty-box" style={{ padding: '24px 16px', textAlign: 'center' }}>
-                <span className="empty-icon">
-                  <Icon name="pin" size={24} />
-                </span>
-                <strong style={{ display: 'block', margin: '8px 0 4px', fontSize: '14px' }}>저장된 코스가 없어요</strong>
-                <p style={{ margin: 0, fontSize: '12px', color: 'var(--muted)' }}>
-                  마음에 드는 경로의 북마크 아이콘을 눌러
-                  <br />이 폴더에 저장해 보세요.
+              <div className="pin-empty-state">
+                <div className="pin-empty-icon-wrap">
+                  <Icon name="bookmark" size={26} />
+                </div>
+                <strong className="pin-empty-title">저장된 코스가 없어요</strong>
+                <p className="pin-empty-desc">
+                  마음에 드는 산책로의 북마크 아이콘을 눌러<br />이 폴더에 저장해 보세요.
                 </p>
               </div>
             )}
@@ -673,7 +674,7 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
                 onClick={() => {
                   const targetPin = visiblePins.find((item) => item.id === selectedPinId) || previewPin;
                   if (!targetPin) return;
-                  setConfirmPin(targetPin);
+                  setConfirmPin(restoreRouteMeta(targetPin));
                   setView('confirm');
                 }}
                 style={{ width: '100%', height: '46px', fontSize: '15px', fontWeight: 700 }}
@@ -758,7 +759,7 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
   // ── No.19 핀 폴더 목록 ──────────────────────────────────────
   return (
     <div className="screen screen--map">
-      <SoyoMap className="map-fill map-fill--faded" />
+      <SoyoMap showUser userPos={userGps} className="map-fill" />
       <section className="map-sheet pin-sheet">
         <div className="sheet-grip" />
         <h1 className="pin-title">내 핀</h1>

@@ -464,3 +464,103 @@ export function getRoutes(region = DEFAULT_REGION, minutes = 25, userDiseases = 
 
   return sortedList;
 }
+
+/**
+ * 저장된 코스 객체에서 실제 WGS84 GPS 좌표 경로(geoPath)를 100% 안전하게 복원/추출합니다.
+ * - geoPath 가 이미 온전한 경우 즉시 반환
+ * - path 필드가 {lat, lng} 또는 [lng, lat] 배열인 경우 자동 변환
+ * - geoPath 가 유실되었거나 DB에서 누락된 경우 코스 제목으로 원본 고정밀 OSRM 보행 도로망을 1:1 매칭하여 복원
+ */
+export function resolveCoursePath(route, region = DEFAULT_REGION) {
+  if (!route) return [];
+
+  // 1. 이미 유효한 geoPath 가 존재하는 경우
+  if (Array.isArray(route.geoPath) && route.geoPath.length > 1) {
+    const first = route.geoPath[0];
+    if (first && typeof first.lat === 'number' && !isNaN(first.lat)) {
+      return route.geoPath;
+    }
+  }
+
+  // 2. path 필드가 존재하는 경우 (WGS84 객체 또는 [x,y] 좌표)
+  if (Array.isArray(route.path) && route.path.length > 1) {
+    const first = route.path[0];
+    if (first && typeof first.lat === 'number' && !isNaN(first.lat)) {
+      return route.path;
+    }
+    if (Array.isArray(first) && first.length === 2) {
+      // [lng, lat] GeoJSON 형식
+      if (first[0] > 100 && first[1] > 30) {
+        return route.path.map(([lng, lat]) => ({ lat, lng }));
+      }
+      // [lat, lng] 형식
+      if (first[0] > 30 && first[1] > 100) {
+        return route.path.map(([lat, lng]) => ({ lat, lng }));
+      }
+      // 일러스트 좌표 [x, y]
+      return route.path.map((pt) => normalizedToLatLng(region, pt));
+    }
+  }
+
+  // 3. 제목 기반 원본 코스 도로망 매칭 복원 (역곡 10분, 25분, 60분 전 코스 탐색)
+  const cleanTitle = String(route.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
+  if (cleanTitle) {
+    const allCourses = [
+      ...getRoutes(DEFAULT_REGION, 25, [], true),
+      ...getRoutes(DEFAULT_REGION, 25, [], false),
+      ...getRoutes(DEFAULT_REGION, 10, [], true),
+      ...getRoutes(DEFAULT_REGION, 10, [], false),
+      ...getRoutes(DEFAULT_REGION, 60, [], true),
+      ...getRoutes(DEFAULT_REGION, 60, [], false),
+    ];
+
+    const match = allCourses.find((c) => {
+      const candTitle = String(c.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
+      return candTitle === cleanTitle || candTitle.includes(cleanTitle) || cleanTitle.includes(candTitle);
+    });
+
+    if (match && Array.isArray(match.geoPath) && match.geoPath.length > 1) {
+      return match.geoPath;
+    }
+  }
+
+  return [];
+}
+
+/**
+ * 핀 또는 저장된 코스의 메타데이터(geoPath, restaurant, roadType 등)를 복원합니다.
+ */
+export function restoreRouteMeta(route, region = DEFAULT_REGION) {
+  if (!route) return route;
+  const geoPath = resolveCoursePath(route, region);
+  const cleanTitle = String(route.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
+
+  let restaurant = route.restaurant;
+  let roadType = route.roadType;
+  let features = route.features;
+
+  if (cleanTitle) {
+    const allCourses = [
+      ...getRoutes(DEFAULT_REGION, 25, [], true),
+      ...getRoutes(DEFAULT_REGION, 10, [], true),
+      ...getRoutes(DEFAULT_REGION, 60, [], true),
+    ];
+    const match = allCourses.find((c) => {
+      const candTitle = String(c.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
+      return candTitle === cleanTitle || candTitle.includes(cleanTitle) || cleanTitle.includes(candTitle);
+    });
+    if (match) {
+      if (!restaurant && match.restaurant) restaurant = match.restaurant;
+      if (!roadType && match.roadType) roadType = match.roadType;
+      if (!features && match.features) features = match.features;
+    }
+  }
+
+  return {
+    ...route,
+    geoPath,
+    restaurant,
+    roadType: roadType || (route.hasRestaurant ? '안심식당 연계 산책로' : '평탄한 보행로'),
+    features: features || [],
+  };
+}

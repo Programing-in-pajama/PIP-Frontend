@@ -5,6 +5,7 @@ import {
   REGIONS,
   normalizedToLatLng,
   getRegionGeoPolygon,
+  resolveCoursePath,
 } from '../data/routes';
 import { getDistanceMeters, smoothAndDensifyPath } from '../utils/geo';
 
@@ -210,9 +211,7 @@ export default function KakaoMapLayer({
 
     const isNavigating = Boolean(navUserPos?.isNavigating);
     const routeRegion = REGIONS.find((item) => item.id === route?.regionId) || region || DEFAULT_REGION;
-    const rawGeoPath = route?.geoPath?.length
-      ? route.geoPath
-      : (route?.path || []).map((point) => normalizedToLatLng(routeRegion, point));
+    const rawGeoPath = resolveCoursePath(route, routeRegion);
     const geoPath = smoothAndDensifyPath(rawGeoPath);
 
     if (geoPath.length > 1) {
