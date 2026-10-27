@@ -3,7 +3,7 @@ import Icon from '../components/Icons';
 import Sheet from '../components/Sheet';
 import SoyoMap from '../components/SoyoMap';
 import { supabase } from '../supabaseClient';
-import { DEFAULT_REGION, REGIONS, WALK_MINUTES, getRoutes } from '../data/routes';
+import { DEFAULT_REGION, REGIONS, WALK_MINUTES, getRoutes, isSupportedRegion } from '../data/routes';
 import { fetchRecommendedRoutes } from '../api/routes';
 import { formatClock, formatDistance } from '../utils/format';
 import {
@@ -124,7 +124,10 @@ export default function WalkFlow({
     const cachedLat = Number(sessionStorage.getItem('soyo-location-lat'));
     const cachedLng = Number(sessionStorage.getItem('soyo-location-lng'));
     if (!isFallback && cachedDong && cachedLat && cachedLng) {
-      return buildUserRegion(cachedDong, cachedAddr, cachedLat, cachedLng);
+      const userReg = buildUserRegion(cachedDong, cachedAddr, cachedLat, cachedLng);
+      if (isSupportedRegion(userReg)) {
+        return userReg;
+      }
     }
     return DEFAULT_REGION;
   });
@@ -151,7 +154,8 @@ export default function WalkFlow({
     const initialReg = (!isFallback && cachedDong && cachedLat && cachedLng)
       ? buildUserRegion(cachedDong, cachedAddr, cachedLat, cachedLng)
       : DEFAULT_REGION;
-    return getRoutes(initialReg, 25, userDiseases);
+    const finalReg = isSupportedRegion(initialReg) ? initialReg : DEFAULT_REGION;
+    return getRoutes(finalReg, 25, userDiseases);
   });
   const [routeSort, setRouteSort] = useState('recommend'); // 'recommend' | 'duration' | 'distance'
   const [selectedRoute, setSelectedRoute] = useState(startRoute);
@@ -477,18 +481,20 @@ export default function WalkFlow({
       sessionStorage.setItem('soyo-current-address', fullName);
       const userReg = buildUserRegion(dong, fullName, lat, lng);
       setDetectedRegion(userReg);
-      setRegion((prev) => {
-        if (!prev || prev.id === DEFAULT_REGION.id || prev.id === 'my-location') {
-          return userReg;
-        }
-        return prev;
-      });
-      setRoutes((prevRoutes) => {
-        if (!prevRoutes || prevRoutes.length === 0 || prevRoutes[0]?.regionId === DEFAULT_REGION.id) {
-          return getRoutes(userReg, minutes, userDiseases, includeRestaurant);
-        }
-        return prevRoutes;
-      });
+      if (isSupportedRegion(userReg)) {
+        setRegion((prev) => {
+          if (!prev || prev.id === DEFAULT_REGION.id || prev.id === 'my-location') {
+            return userReg;
+          }
+          return prev;
+        });
+        setRoutes((prevRoutes) => {
+          if (!prevRoutes || prevRoutes.length === 0 || prevRoutes[0]?.regionId === DEFAULT_REGION.id) {
+            return getRoutes(userReg, minutes, userDiseases, includeRestaurant);
+          }
+          return prevRoutes;
+        });
+      }
     };
 
     if (!isFallback && cachedLat && cachedLng) {
@@ -632,12 +638,21 @@ export default function WalkFlow({
   }, [selectedRoute, displayProgress]);
 
   const startRegion = (nextRegion) => {
+    if (!isSupportedRegion(nextRegion)) {
+      setToast('지원하는 지역이 아닙니다');
+      return;
+    }
     setRegion(nextRegion);
     setRegionQuery('');
     setStep('setup');
   };
 
   const searchRoutes = async () => {
+    if (!isSupportedRegion(region)) {
+      setToast('지원하는 지역이 아닙니다');
+      setStep('region');
+      return;
+    }
     // 1) 0ms 즉각 렌더링 (로컬 고정밀 실측 도로망)
     const localList = getRoutes(region, minutes, userDiseases, includeRestaurant);
     setRoutes(localList);
@@ -810,7 +825,11 @@ export default function WalkFlow({
           onClick={() => {
             setHomeRecenterKey((k) => k + 1);
             if (detectedRegion) {
-              setRegion(detectedRegion);
+              if (isSupportedRegion(detectedRegion)) {
+                setRegion(detectedRegion);
+              } else {
+                setToast('지원하는 지역이 아닙니다');
+              }
             }
           }}
         >
@@ -861,6 +880,8 @@ export default function WalkFlow({
 
   // ── No.5 지역 검색 (Figma: 1 / 3 산책할 지역을 선택하세요) ───
   if (step === 'region') {
+    const isCurrentSupported = isSupportedRegion(region);
+
     return (
       <div className="screen screen--map">
         <SoyoMap variant="search" region={region} className="map-fill" />
@@ -879,7 +900,25 @@ export default function WalkFlow({
             <img src="/pic/SOYO.png" alt="SOYO" className="head-logo" />
           </header>
 
-          <div className="search-bar search-bar--input">
+          <form
+            className="search-bar search-bar--input"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const q = regionQuery.trim();
+              if (!q) return;
+              if (!isSupportedRegion(q)) {
+                setToast('지원하는 지역이 아닙니다');
+                return;
+              }
+              const match = filteredRegions.find((item) => isSupportedRegion(item));
+              if (match) {
+                setRegion(match);
+                setRegionQuery('');
+              } else {
+                setToast('지원하는 지역이 아닙니다');
+              }
+            }}
+          >
             <input
               value={regionQuery}
               onChange={(event) => setRegionQuery(event.target.value)}
@@ -897,25 +936,73 @@ export default function WalkFlow({
                 <Icon name="close" size={16} />
               </button>
             )}
-            <span className="search-icon"><Icon name="search" size={20} /></span>
-          </div>
+            <button
+              type="submit"
+              className="search-icon"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+              aria-label="검색"
+            >
+              <Icon name="search" size={20} />
+            </button>
+          </form>
 
           {regionQuery && filteredRegions.length > 0 && (
             <div className="region-dropdown">
-              {filteredRegions.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className="region-dropdown-item"
-                  onClick={() => {
-                    setRegion(item);
-                    setRegionQuery('');
-                  }}
-                >
-                  <strong>{item.name}</strong>
-                  <small>{formatDistance(item.distanceKm)}</small>
-                </button>
-              ))}
+              {filteredRegions.map((item) => {
+                const isSupported = isSupportedRegion(item);
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="region-dropdown-item"
+                    onClick={() => {
+                      setRegion(item);
+                      setRegionQuery('');
+                      if (!isSupported) {
+                        setToast('지원하는 지역이 아닙니다');
+                      }
+                    }}
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
+                      <strong style={{ color: isSupported ? 'var(--ink)' : '#6b7280' }}>{item.name}</strong>
+                      <small style={{ color: isSupported ? 'var(--muted)' : '#dc2626' }}>
+                        {isSupported ? formatDistance(item.distanceKm) : '지원하는 지역이 아닙니다'}
+                      </small>
+                    </div>
+                    {isSupported ? (
+                      <span style={{ fontSize: '11px', color: '#059669', background: '#ecfdf5', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                        지원
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '11px', color: '#dc2626', background: '#fee2e2', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                        미지원
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {regionQuery.trim() && filteredRegions.length === 0 && (
+            <div className="region-dropdown">
+              <button
+                type="button"
+                className="region-dropdown-item"
+                onClick={() => {
+                  setToast('지원하는 지역이 아닙니다');
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
+                  <strong style={{ color: '#4b5563' }}>{regionQuery.trim()}</strong>
+                  <small style={{ color: '#dc2626', fontSize: '11px', marginTop: '2px' }}>
+                    지원하는 지역이 아닙니다 (부천 역곡만 지원)
+                  </small>
+                </div>
+                <span style={{ fontSize: '11px', color: '#dc2626', background: '#fee2e2', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                  미지원
+                </span>
+              </button>
             </div>
           )}
         </div>
@@ -923,22 +1010,57 @@ export default function WalkFlow({
         <section className="map-sheet region-card-sheet" aria-label="선택된 지역 정보">
           <div className="sheet-grip" />
           <div className="region-card-info">
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-              <strong style={{ fontSize: '20px', fontWeight: 800, color: 'var(--ink)' }}>{region.short || region.name}</strong>
-              <span style={{ fontSize: '13px', color: 'var(--muted)' }}>{region.name} 주변</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', minWidth: 0 }}>
+                <strong style={{ fontSize: '20px', fontWeight: 800, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {region.short || region.name}
+                </strong>
+                <span style={{ fontSize: '13px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>{region.name} 주변</span>
+              </div>
+              {isCurrentSupported ? (
+                <span style={{ fontSize: '11px', color: '#059669', background: '#ecfdf5', padding: '3px 8px', borderRadius: '6px', fontWeight: 600, flexShrink: 0 }}>
+                  서비스 지원
+                </span>
+              ) : (
+                <span style={{ fontSize: '11px', color: '#dc2626', background: '#fee2e2', padding: '3px 8px', borderRadius: '6px', fontWeight: 600, flexShrink: 0 }}>
+                  지원 예정
+                </span>
+              )}
             </div>
-            <p style={{ fontSize: '12px', color: 'var(--muted-2)', marginTop: '4px' }}>
-              지도에서 산책할 지역을 선택해 주세요.
-            </p>
+            {isCurrentSupported ? (
+              <p style={{ fontSize: '12px', color: 'var(--muted-2)', marginTop: '4px' }}>
+                지도에서 산책할 지역을 선택해 주세요.
+              </p>
+            ) : (
+              <p style={{ fontSize: '12px', color: '#dc2626', marginTop: '6px', fontWeight: 500 }}>
+                현재 소요(SOYO)는 부천 역곡 지역만 지원하고 있습니다.
+              </p>
+            )}
           </div>
 
           <button
             type="button"
             className="btn btn-primary"
-            onClick={() => setStep('setup')}
-            style={{ width: '100%', marginTop: '16px' }}
+            onClick={() => {
+              if (!isCurrentSupported) {
+                setToast('지원하는 지역이 아닙니다');
+                return;
+              }
+              setStep('setup');
+            }}
+            style={{
+              width: '100%',
+              marginTop: '16px',
+              ...(!isCurrentSupported
+                ? {
+                    background: '#9ca3af',
+                    borderColor: '#9ca3af',
+                    boxShadow: 'none',
+                  }
+                : {}),
+            }}
           >
-            이 지역 선택
+            {isCurrentSupported ? '이 지역 선택' : '지원하는 지역이 아닙니다'}
           </button>
         </section>
         {toast && <div className="toast">{toast}</div>}

@@ -79,6 +79,22 @@ export const REGIONS = [
 export const DEFAULT_REGION = REGIONS[0];
 export const WALK_MINUTES = [10, 25, 60];
 
+/**
+ * 서비스 지원 지역 판별 (현재 부천 역곡 지역만 지원)
+ * @param {object|string} region
+ * @returns {boolean}
+ */
+export function isSupportedRegion(region) {
+  if (!region) return false;
+  if (typeof region === 'string') {
+    return region.includes('역곡');
+  }
+  const id = String(region.id || '');
+  const name = String(region.name || '');
+  const short = String(region.short || '');
+  return id.includes('yeokgok') || name.includes('역곡') || short.includes('역곡');
+}
+
 const DEFAULT_CENTER = DEFAULT_REGION.center;
 
 /**
