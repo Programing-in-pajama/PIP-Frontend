@@ -108,9 +108,28 @@ export function latLngToNormalized(region, { lat, lng }, scale = 0.00003) {
  * - 통계청 SGIS 및 국토교통부 실측 행정동 경계 100% 매핑
  * - 과거 4점짜리 직사각형 가짜 경계를 완전히 대체하여 실제 행정동 경계 그대로 표출
  */
+export function createWalkingPrecinctPolygon(center, radiusMeters = 540) {
+  if (!center || typeof center.lat !== 'number' || typeof center.lng !== 'number') {
+    return getRegionBoundary('yeokgok1');
+  }
+  const points = [];
+  const count = 16;
+  const mPerLat = 110900;
+  const mPerLng = 111320 * Math.cos((center.lat * Math.PI) / 180);
+  for (let i = 0; i < count; i += 1) {
+    const angle = (i * 2 * Math.PI) / count;
+    const wobble = 0.94 + 0.08 * Math.sin(angle * 3) + 0.04 * Math.cos(angle * 2);
+    const r = radiusMeters * wobble;
+    const lat = center.lat + (r * Math.sin(angle)) / mPerLat;
+    const lng = center.lng + (r * Math.cos(angle)) / mPerLng;
+    points.push({ lat, lng });
+  }
+  return points;
+}
+
 export function getRegionGeoPolygon(region) {
   if (!region) return getRegionBoundary('yeokgok1');
-  if (region.id) {
+  if (region.id && region.id !== 'my-location') {
     const boundary = getRegionBoundary(region.id);
     if (boundary && boundary.length > 0) return boundary;
   }
@@ -121,8 +140,15 @@ export function getRegionGeoPolygon(region) {
   if (name.includes('상동') || name.includes('sangdong')) return getRegionBoundary('sangdong');
   if (name.includes('중동') || name.includes('jungdong')) return getRegionBoundary('jungdong');
   if (name.includes('송내') || name.includes('songnae')) return getRegionBoundary('songnae');
+
+  // 사용자의 현재 위치이거나 임의 좌표일 경우 해당 중심점 기반 실시간 산책 권역 폴리곤 동적 생성
+  if (region.center && typeof region.center.lat === 'number' && typeof region.center.lng === 'number') {
+    return createWalkingPrecinctPolygon(region.center);
+  }
+
   return getRegionBoundary('yeokgok1');
 }
+
 
 /**
  * 실시간 고정밀 맞춤형 산책 코스 생성기

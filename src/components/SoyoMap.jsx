@@ -61,6 +61,8 @@ export default function SoyoMap({
   showUser = false,
   className = '',
   children,
+  userPos = null,
+  recenterKey = 0,
   navUserPos = null,
   navPathSplitIndex = 0,
   followUser = true,
@@ -141,6 +143,8 @@ export default function SoyoMap({
         region={region}
         showUser={showUser}
         variant={variant}
+        userPos={userPos}
+        recenterKey={recenterKey}
         navUserPos={navUserPos}
         navPathSplitIndex={navPathSplitIndex}
         followUser={followUser}

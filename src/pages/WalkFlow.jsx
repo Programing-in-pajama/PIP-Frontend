@@ -13,6 +13,7 @@ import {
   snapToPath,
   buildRouteWaypoints,
   getNextNavigationGuidance,
+  realignLoopRoute,
 } from '../utils/geo';
 import {
   createPinFolder,
@@ -105,22 +106,35 @@ export default function WalkFlow({
   }, [userProfile]);
 
   const [step, setStep] = useState(startRoute ? 'walking' : 'home');
+  const [userGps, setUserGps] = useState(() => {
+    const isFallback = sessionStorage.getItem('soyo-location-is-fallback') === 'true';
+    const cachedLat = Number(sessionStorage.getItem('soyo-location-lat'));
+    const cachedLng = Number(sessionStorage.getItem('soyo-location-lng'));
+    if (!isFallback && cachedLat && cachedLng) {
+      return { lat: cachedLat, lng: cachedLng };
+    }
+    return null;
+  });
+  const [homeRecenterKey, setHomeRecenterKey] = useState(0);
+
   const [region, setRegion] = useState(() => {
+    const isFallback = sessionStorage.getItem('soyo-location-is-fallback') === 'true';
     const cachedDong = sessionStorage.getItem('soyo-current-dong');
     const cachedAddr = sessionStorage.getItem('soyo-current-address');
     const cachedLat = Number(sessionStorage.getItem('soyo-location-lat'));
     const cachedLng = Number(sessionStorage.getItem('soyo-location-lng'));
-    if (cachedDong && cachedLat && cachedLng) {
+    if (!isFallback && cachedDong && cachedLat && cachedLng) {
       return buildUserRegion(cachedDong, cachedAddr, cachedLat, cachedLng);
     }
     return DEFAULT_REGION;
   });
   const [detectedRegion, setDetectedRegion] = useState(() => {
+    const isFallback = sessionStorage.getItem('soyo-location-is-fallback') === 'true';
     const cachedDong = sessionStorage.getItem('soyo-current-dong');
     const cachedAddr = sessionStorage.getItem('soyo-current-address');
     const cachedLat = Number(sessionStorage.getItem('soyo-location-lat'));
     const cachedLng = Number(sessionStorage.getItem('soyo-location-lng'));
-    if (cachedDong && cachedLat && cachedLng) {
+    if (!isFallback && cachedDong && cachedLat && cachedLng) {
       return buildUserRegion(cachedDong, cachedAddr, cachedLat, cachedLng);
     }
     return null;
@@ -129,11 +143,12 @@ export default function WalkFlow({
   const [minutes, setMinutes] = useState(25);
   const [includeRestaurant, setIncludeRestaurant] = useState(true);
   const [routes, setRoutes] = useState(() => {
+    const isFallback = sessionStorage.getItem('soyo-location-is-fallback') === 'true';
     const cachedDong = sessionStorage.getItem('soyo-current-dong');
     const cachedAddr = sessionStorage.getItem('soyo-current-address');
     const cachedLat = Number(sessionStorage.getItem('soyo-location-lat'));
     const cachedLng = Number(sessionStorage.getItem('soyo-location-lng'));
-    const initialReg = (cachedDong && cachedLat && cachedLng)
+    const initialReg = (!isFallback && cachedDong && cachedLat && cachedLng)
       ? buildUserRegion(cachedDong, cachedAddr, cachedLat, cachedLng)
       : DEFAULT_REGION;
     return getRoutes(initialReg, 25, userDiseases);
@@ -169,6 +184,7 @@ export default function WalkFlow({
   const hasAnnouncedArrivalRef = useRef(false);
   const cachedDistancesRef = useRef(null);
   const simIndexRef = useRef(0);
+  const sessionStartSnapDistanceRef = useRef(null);
 
   const turnWaypoints = useMemo(() => {
     if (!selectedRoute?.geoPath) return [];
@@ -248,7 +264,16 @@ export default function WalkFlow({
         isNavigating: true,
         isOffRoute: false,
       });
-      setNavPathSplitIndex(snapResult.segmentIndex);
+
+      if (!snapResult.isOffRoute) {
+        if (sessionStartSnapDistanceRef.current === null) {
+          sessionStartSnapDistanceRef.current = snapResult.pathDistanceMeters;
+        }
+      }
+
+      // 🌿 시작 직후 물리적 보행(4m 이상) 전에는 지나온 경로(회색)를 0으로 고정하여 코스 전체를 파란색으로 표출
+      const isJustStarted = totalGpsDistanceRef.current < 4 && !pos.isSimulated;
+      setNavPathSplitIndex(isJustStarted ? 0 : snapResult.segmentIndex);
       setLiveMovedKm(snapResult.pathDistanceMeters / 1000);
       setLiveRemainingMeters(snapResult.remainingMeters);
       setLiveProgress(snapResult.progress);
@@ -436,8 +461,11 @@ export default function WalkFlow({
     }
   }, [folderSelectRoute]);
 
-  // 🌿 실제 사용자 GPS 좌표 기반 거주지/현재 위치 '동' 역지오코딩 동기화
+  // 🌿 실제 사용자 GPS 실시간 위치 감시 및 거주지/현재 위치 '동' 역지오코딩 동기화
   useEffect(() => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return undefined;
+
+    const isFallback = sessionStorage.getItem('soyo-location-is-fallback') === 'true';
     const cachedLat = Number(sessionStorage.getItem('soyo-location-lat'));
     const cachedLng = Number(sessionStorage.getItem('soyo-location-lng'));
 
@@ -460,29 +488,56 @@ export default function WalkFlow({
       });
     };
 
-    if (cachedLat && cachedLng) {
+    if (!isFallback && cachedLat && cachedLng) {
+      setUserGps({ lat: cachedLat, lng: cachedLng });
       reverseGeocodeCoords(cachedLat, cachedLng).then((res) => {
         if (res?.dong) {
           applyDong(res.dong, res.fullName, cachedLat, cachedLng);
         }
       });
-    } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const { latitude, longitude } = pos.coords;
-          sessionStorage.setItem('soyo-location-lat', String(latitude));
-          sessionStorage.setItem('soyo-location-lng', String(longitude));
-          reverseGeocodeCoords(latitude, longitude).then((res) => {
-            if (res?.dong) {
-              applyDong(res.dong, res.fullName, latitude, longitude);
-            }
-          });
-        },
-        () => {},
-        { enableHighAccuracy: false, timeout: 3500, maximumAge: 60000 }
-      );
     }
-  }, []);
+
+    // 1) 즉시 초기 고정밀 위치 요청
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        sessionStorage.setItem('soyo-location-lat', String(lat));
+        sessionStorage.setItem('soyo-location-lng', String(lng));
+        sessionStorage.removeItem('soyo-location-is-fallback');
+        setUserGps({ lat, lng });
+
+        reverseGeocodeCoords(lat, lng).then((res) => {
+          if (res?.dong) {
+            applyDong(res.dong, res.fullName, lat, lng);
+          }
+        });
+      },
+      (err) => {
+        console.warn('Initial GPS get warning:', err);
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
+    );
+
+    // 2) 지속적 실시간 백그라운드 GPS 추적 (홈/전체 화면 공통 실시간 위치 갱신)
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+        if (accuracy != null && accuracy > 120) return; // 오차 범위 큰 기지국 신호 필터링
+        sessionStorage.setItem('soyo-location-lat', String(lat));
+        sessionStorage.setItem('soyo-location-lng', String(lng));
+        sessionStorage.removeItem('soyo-location-is-fallback');
+        setUserGps({ lat, lng });
+      },
+      (err) => {
+        console.warn('Continuous GPS watch warning:', err);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 3000 }
+    );
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+    };
+  }, [minutes, userDiseases, includeRestaurant]);
 
   const filteredRegions = useMemo(() => {
     const list = detectedRegion
@@ -538,22 +593,21 @@ export default function WalkFlow({
       return Number(liveMovedKm.toFixed(2));
     }
     const realGpsKm = gpsDistanceMeters / 1000;
-    if (navUserPos?.isOffRoute) {
-      return Number(realGpsKm.toFixed(2));
-    }
-    return Number(Math.max(realGpsKm, liveMovedKm).toFixed(2));
-  }, [navMode, liveMovedKm, gpsDistanceMeters, navUserPos?.isOffRoute]);
+    return Number(realGpsKm.toFixed(2));
+  }, [navMode, liveMovedKm, gpsDistanceMeters]);
 
   const displayProgress = useMemo(() => {
     if (navUserPos?.isOffRoute) return 0;
-    return Math.min(100, Math.max(0, liveProgress));
-  }, [navUserPos?.isOffRoute, liveProgress]);
+    if (navMode === 'simulation') return Math.min(100, Math.max(0, liveProgress));
+    if (!totalCourseMeters) return 0;
+    return Math.min(100, Math.max(0, Math.round((gpsDistanceMeters / totalCourseMeters) * 100)));
+  }, [navUserPos?.isOffRoute, navMode, liveProgress, gpsDistanceMeters, totalCourseMeters]);
 
   const displayRemainingMeters = useMemo(() => {
     if (navUserPos?.isOffRoute) return totalCourseMeters;
-    if (liveRemainingMeters > 0) return liveRemainingMeters;
+    if (navMode === 'simulation' && liveRemainingMeters > 0) return liveRemainingMeters;
     return Math.max(0, totalCourseMeters - Math.round(displayMovedKm * 1000));
-  }, [navUserPos?.isOffRoute, totalCourseMeters, liveRemainingMeters, displayMovedKm]);
+  }, [navUserPos?.isOffRoute, navMode, liveRemainingMeters, totalCourseMeters, displayMovedKm]);
 
   const nextDirection = useMemo(() => {
     if (Array.isArray(selectedRoute?.turnByTurn) && selectedRoute.turnByTurn.length > 0) {
@@ -632,6 +686,18 @@ export default function WalkFlow({
   };
 
   const beginWalk = () => {
+    // 1) 둘레길/순환 루프 코스인 경우, 사용자의 현재 위치를 출발점이자 도착점으로 코스를 자연스럽게 회전 재정렬
+    const cachedLat = Number(sessionStorage.getItem('soyo-location-lat'));
+    const cachedLng = Number(sessionStorage.getItem('soyo-location-lng'));
+    const isFallback = sessionStorage.getItem('soyo-location-is-fallback') === 'true';
+    const userPos = userGps || (!isFallback && cachedLat && cachedLng ? { lat: cachedLat, lng: cachedLng } : null);
+
+    let activeRoute = selectedRoute;
+    if (selectedRoute && userPos) {
+      activeRoute = realignLoopRoute(selectedRoute, userPos);
+      setSelectedRoute(activeRoute);
+    }
+
     setWalkSeconds(0);
     setIsPaused(false);
     setFollowUser(true);
@@ -639,6 +705,7 @@ export default function WalkFlow({
     setLiveProgress(0);
     setGpsDistanceMeters(0);
     totalGpsDistanceRef.current = 0;
+    sessionStartSnapDistanceRef.current = null;
     lastGpsPointRef.current = null;
     lastPosRef.current = null;
     lastHeadingRef.current = 0;
@@ -647,17 +714,15 @@ export default function WalkFlow({
     simIndexRef.current = 0;
     setStep('walking');
 
-    const cachedLat = Number(sessionStorage.getItem('soyo-location-lat'));
-    const cachedLng = Number(sessionStorage.getItem('soyo-location-lng'));
-    if (cachedLat && cachedLng) {
+    if (userPos) {
       handlePositionUpdate({
-        lat: cachedLat,
-        lng: cachedLng,
+        lat: userPos.lat,
+        lng: userPos.lng,
         heading: 0,
       });
-    } else if (selectedRoute?.geoPath?.[0]) {
-      const startPt = selectedRoute.geoPath[0];
-      const nextPt = selectedRoute.geoPath[1] || startPt;
+    } else if (activeRoute?.geoPath?.[0]) {
+      const startPt = activeRoute.geoPath[0];
+      const nextPt = activeRoute.geoPath[1] || startPt;
       const initialHeading = getBearing(startPt, nextPt);
       handlePositionUpdate({
         lat: startPt.lat,
@@ -713,13 +778,33 @@ export default function WalkFlow({
   if (step === 'home') {
     return (
       <div className="screen screen--map">
-        <SoyoMap showUser region={region} className="map-fill" />
+        <SoyoMap
+          showUser
+          region={region}
+          userPos={userGps}
+          recenterKey={homeRecenterKey}
+          className="map-fill"
+        />
         <div className="map-top">
           <button type="button" className="search-bar search-bar--full" onClick={() => setStep('region')}>
             <span>어디서 산책할까요?</span>
             <Icon name="search" size={20} />
           </button>
         </div>
+        <button
+          type="button"
+          className="home-recenter-btn"
+          aria-label="내 위치로 이동"
+          title="내 위치로 이동"
+          onClick={() => {
+            setHomeRecenterKey((k) => k + 1);
+            if (detectedRegion) {
+              setRegion(detectedRegion);
+            }
+          }}
+        >
+          <Icon name="crosshair" size={22} />
+        </button>
         {isLoggedIn ? (
           <div className="map-hint">
             <span className="map-hint-dot" />

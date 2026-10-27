@@ -17,8 +17,7 @@ export default function LocationGate({ onAllowed }) {
       resolved = true;
       localStorage.setItem('soyo-location-allowed', 'true');
       sessionStorage.setItem('soyo-location-allowed', 'true');
-      sessionStorage.setItem('soyo-location-lat', '37.4851');
-      sessionStorage.setItem('soyo-location-lng', '126.8117');
+      sessionStorage.setItem('soyo-location-is-fallback', 'true');
       onAllowed();
     };
 
@@ -33,7 +32,7 @@ export default function LocationGate({ onAllowed }) {
     // 2.5초 이상 지연(데스크톱 브라우저 GPS 부재 등) 시 무한 로딩 방지 안전 타이머
     const fallbackTimer = setTimeout(() => {
       if (!resolved) {
-        console.log('⏱️ [위치 확인 타임아웃 가드] 기본 지역(역곡/서울)으로 안전하게 진입합니다.');
+        console.log('⏱️ [위치 확인 타임아웃 가드] 기본 지역으로 안전하게 진입합니다.');
         proceedWithFallback();
       }
     }, 2800);
@@ -45,6 +44,7 @@ export default function LocationGate({ onAllowed }) {
         resolved = true;
         localStorage.setItem('soyo-location-allowed', 'true');
         sessionStorage.setItem('soyo-location-allowed', 'true');
+        sessionStorage.removeItem('soyo-location-is-fallback');
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
         sessionStorage.setItem('soyo-location-lat', String(lat));

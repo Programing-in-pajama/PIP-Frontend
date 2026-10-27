@@ -459,3 +459,84 @@ export function smoothAndDensifyPath(geoPath, options = {}) {
 
   return densePath;
 }
+
+/**
+ * 🌿 순환 코스(둘레길/루프) 재정렬 함수:
+ * 사용자가 코스 중간(예: 가톨릭대학교 성심교정 등)에서 산책을 시작할 때,
+ * 코스의 가장 가까운 지점을 새로운 출발점으로 재배열하여
+ * 진행률 0%, 걸은 거리 0.00km에서 산책 전체 코스를 온전히 돌 수 있도록 보정합니다.
+ */
+export function realignLoopRoute(route, userPos) {
+  if (!route || !Array.isArray(route.geoPath) || route.geoPath.length < 3 || !userPos) {
+    return route;
+  }
+  const geoPath = route.geoPath;
+  const startPt = geoPath[0];
+  const endPt = geoPath[geoPath.length - 1];
+  const loopDist = getDistanceMeters(startPt, endPt);
+
+  // 시점과 종점 거리가 350m 이내이면 순환 코스(둘레길/루프)로 판정
+  const isLoop = loopDist <= 350;
+  if (!isLoop) return route;
+
+  // 사용자 위치에서 코스 상 가장 가까운 지점 탐색
+  let minDistance = Infinity;
+  let nearestIdx = 0;
+  for (let i = 0; i < geoPath.length - 1; i += 1) {
+    const d = getDistanceMeters(userPos, geoPath[i]);
+    if (d < minDistance) {
+      minDistance = d;
+      nearestIdx = i;
+    }
+  }
+
+  // 사용자가 코스로부터 500m 이내에 있고, 첫 지점이 아닐 때 출발점 재정렬
+  if (minDistance <= 500 && nearestIdx > 0 && nearestIdx < geoPath.length - 1) {
+    const basePoints = geoPath.slice(0, -1);
+    const reorderedPath = [
+      ...basePoints.slice(nearestIdx),
+      ...basePoints.slice(0, nearestIdx),
+      basePoints[nearestIdx], // 순환 코스 닫기
+    ];
+
+    let reorderedTurnByTurn = route.turnByTurn;
+    if (Array.isArray(route.turnByTurn) && route.turnByTurn.length > 1) {
+      const stepIdx = Math.min(
+        route.turnByTurn.length - 1,
+        Math.floor((nearestIdx / geoPath.length) * route.turnByTurn.length)
+      );
+      if (stepIdx > 0) {
+        const steps = route.turnByTurn.filter((s) => s !== '도착');
+        reorderedTurnByTurn = [
+          ...steps.slice(stepIdx),
+          ...steps.slice(0, stepIdx),
+          '도착',
+        ];
+      }
+    }
+
+    let reorderedNormalizedPath = route.path;
+    if (Array.isArray(route.path) && route.path.length > 2) {
+      const baseNorm = route.path.slice(0, -1);
+      const normStep = Math.min(baseNorm.length - 1, Math.floor((nearestIdx / geoPath.length) * baseNorm.length));
+      if (normStep > 0) {
+        reorderedNormalizedPath = [
+          ...baseNorm.slice(normStep),
+          ...baseNorm.slice(0, normStep),
+          baseNorm[normStep],
+        ];
+      }
+    }
+
+    return {
+      ...route,
+      path: reorderedNormalizedPath,
+      geoPath: reorderedPath,
+      turnByTurn: reorderedTurnByTurn,
+      realignedFromIdx: nearestIdx,
+    };
+  }
+
+  return route;
+}
+
