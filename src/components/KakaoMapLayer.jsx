@@ -6,6 +6,7 @@ import {
   normalizedToLatLng,
   getRegionGeoPolygon,
   resolveCoursePath,
+  isSupportedRegion,
 } from '../data/routes';
 import { getDistanceMeters, smoothAndDensifyPath } from '../utils/geo';
 
@@ -332,17 +333,20 @@ export default function KakaoMapLayer({
         ? new kakao.maps.LatLng(activeLat, activeLng)
         : targetLatLng;
 
+      const initialRegionName = (hasRealUserPos && cachedDong) ? cachedDong : (activeRegion?.short || activeRegion?.name || '역곡1동');
+      const isSupported = hasRealUserPos ? isSupportedRegion(cachedDong) : isSupportedRegion(activeRegion);
+
       if (boundaryPoints && boundaryPoints.length > 2) {
         const polygonPath = boundaryPoints.map((p) => new kakao.maps.LatLng(p.lat, p.lng));
 
         const regionPolygon = new kakao.maps.Polygon({
           path: polygonPath,
-          strokeWeight: 2.5,
-          strokeColor: '#16a34a',
-          strokeOpacity: 0.95,
-          strokeStyle: 'solid',
-          fillColor: '#22c55e',
-          fillOpacity: 0.2,
+          strokeWeight: isSupported ? 2.5 : 1.5,
+          strokeColor: isSupported ? '#16a34a' : '#94a3b8',
+          strokeOpacity: isSupported ? 0.95 : 0.5,
+          strokeStyle: isSupported ? 'solid' : 'dashed',
+          fillColor: isSupported ? '#22c55e' : '#cbd5e1',
+          fillOpacity: isSupported ? 0.2 : 0.08,
           zIndex: 2,
         });
         addOverlay(regionPolygon);
@@ -400,13 +404,24 @@ export default function KakaoMapLayer({
         }, 50);
       }
 
-      const initialRegionName = (hasRealUserPos && cachedDong) ? cachedDong : (activeRegion?.short || activeRegion?.name || '역곡1동');
+      const badgeLabel = isSupported
+        ? `서비스 지역 · ${initialRegionName}`
+        : `서비스 준비 중 · ${initialRegionName}`;
+
+      const badgeBg = isSupported
+        ? 'linear-gradient(135deg, #2f9a72 0%, #42b388 100%)'
+        : 'linear-gradient(135deg, #64748b 0%, #475569 100%)';
+
+      const badgeShadow = isSupported
+        ? 'rgba(47, 154, 114, 0.32)'
+        : 'rgba(100, 116, 139, 0.28)';
+
       const regionMarker = new kakao.maps.CustomOverlay({
         position: effectiveTargetLatLng,
         content: `
-          <div style="background: linear-gradient(135deg, #2f9a72 0%, #42b388 100%); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); color: #ffffff; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 22px; box-shadow: 0 6px 18px rgba(47, 154, 114, 0.32); border: 1.5px solid rgba(255, 255, 255, 0.5); display: flex; align-items: center; gap: 6px; white-space: nowrap; transform: translateY(-8px); pointer-events: none;">
+          <div style="background: ${badgeBg}; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); color: #ffffff; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 22px; box-shadow: 0 6px 18px ${badgeShadow}; border: 1.5px solid rgba(255, 255, 255, 0.5); display: flex; align-items: center; gap: 6px; white-space: nowrap; transform: translateY(-8px); pointer-events: none;">
             <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#ffffff; box-shadow: 0 0 6px rgba(255, 255, 255, 0.9);"></span>
-            <span class="soyo-region-label" style="letter-spacing: -0.2px;">서비스 지역 · ${initialRegionName}</span>
+            <span class="soyo-region-label" style="letter-spacing: -0.2px;">${badgeLabel}</span>
           </div>
         `,
         xAnchor: 0.5,
