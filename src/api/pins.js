@@ -41,6 +41,12 @@ const createId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(3
 
 export const PIN_UPDATE_EVENT = 'soyo-pins-updated';
 
+export function subscribePinsUpdated(callback) {
+  if (typeof window === 'undefined') return () => {};
+  window.addEventListener(PIN_UPDATE_EVENT, callback);
+  return () => window.removeEventListener(PIN_UPDATE_EVENT, callback);
+}
+
 function notifyPinsUpdated(detail = {}) {
   if (typeof window !== 'undefined') {
     try {
@@ -100,12 +106,20 @@ export async function syncPinFoldersFromServer(userId = getCurrentUserId()) {
 
         if (!lf) return sf;
 
-        const serverPins = sf.pins || [];
+        const tombstones = Array.isArray(all[userId]?._tombstones) ? all[userId]._tombstones : [];
+        const serverPins = (sf.pins || []).filter((sp) => {
+          const cSp = String(sp?.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
+          return !tombstones.some((t) => t && (t === sp.id || t === sp.serverPinId || t === cSp || cSp.includes(t) || t.includes(cSp)));
+        });
+
         const localPins = Array.isArray(lf.pins) ? lf.pins : (Array.isArray(lf.courses) ? lf.courses : []);
 
         // 로컬에는 있으나 서버에 아직 반영되지 않은 최신 핀 보존
         const unsyncedLocalPins = localPins.filter((lp) => {
           const cleanLocalTitle = String(lp?.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
+          const isDeleted = tombstones.some((t) => t && (t === lp.id || t === lp.serverPinId || t === cleanLocalTitle || cleanLocalTitle.includes(t) || t.includes(cleanLocalTitle)));
+          if (isDeleted) return false;
+
           return !serverPins.some((sp) => {
             if (sp.id === lp.id || (lp.serverPinId && sp.id === lp.serverPinId)) return true;
             const cleanServerTitle = String(sp?.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
@@ -129,7 +143,7 @@ export async function syncPinFoldersFromServer(userId = getCurrentUserId()) {
         }
       });
 
-      all[userId] = { folders: mergedFolders };
+      all[userId] = { ...all[userId], folders: mergedFolders };
       writeAll(all);
       notifyPinsUpdated({ userId, folders: mergedFolders });
       return mergedFolders;
@@ -319,7 +333,9 @@ export function saveRoutePin(userId = getCurrentUserId(), route, folderId = 'def
   );
 
   const all = readAll();
-  all[userId] = { folders: nextFolders };
+  const tombstones = Array.isArray(all[userId]?._tombstones) ? all[userId]._tombstones : [];
+  const nextTombstones = tombstones.filter((t) => t && t !== cleanNewTitle && t !== normalizedRoute.id);
+  all[userId] = { folders: nextFolders, _tombstones: nextTombstones };
   writeAll(all);
   notifyPinsUpdated({ userId, action: 'savePin', route: newPin });
 
@@ -360,12 +376,14 @@ export function saveRoutePin(userId = getCurrentUserId(), route, folderId = 'def
 export function removeRoutePin(userId = getCurrentUserId(), folderId, routeId, title) {
   const cleanTarget = title ? String(title).replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim() : '';
   const folders = getPinFolders(userId).map((folder) => {
-    if (folder.id !== folderId) return folder;
+    if (folder.id !== folderId && folderId !== 'default') return folder;
     const filteredPins = (folder.pins || folder.courses || []).filter((pin) => {
-      if (routeId && pin.id === routeId) return false;
+      if (routeId && (pin.id === routeId || pin.serverPinId === routeId)) return false;
       if (cleanTarget) {
         const cleanPin = String(pin.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
-        if (cleanPin === cleanTarget) return false;
+        if (cleanPin === cleanTarget || (cleanTarget && cleanPin && (cleanPin.includes(cleanTarget) || cleanTarget.includes(cleanPin)))) {
+          return false;
+        }
       }
       return true;
     });
@@ -377,13 +395,17 @@ export function removeRoutePin(userId = getCurrentUserId(), folderId, routeId, t
   });
 
   const all = readAll();
-  all[userId] = { folders };
+  const tombstones = Array.isArray(all[userId]?._tombstones) ? all[userId]._tombstones : [];
+  if (cleanTarget && !tombstones.includes(cleanTarget)) tombstones.push(cleanTarget);
+  if (routeId && !tombstones.includes(routeId)) tombstones.push(routeId);
+
+  all[userId] = { ...all[userId], folders, _tombstones: tombstones };
   writeAll(all);
   notifyPinsUpdated({ userId, action: 'removePin', routeId, title });
 
   // 백엔드 서버 동기화
   if (userId && userId !== 'guest') {
-    const query = title ? `?userId=${encodeURIComponent(userId)}&title=${encodeURIComponent(title)}` : `?userId=${encodeURIComponent(userId)}`;
+    const query = cleanTarget ? `?userId=${encodeURIComponent(userId)}&title=${encodeURIComponent(cleanTarget)}` : `?userId=${encodeURIComponent(userId)}`;
     apiFetch(`/api/pins/folders/${encodeURIComponent(folderId)}/routes/${encodeURIComponent(routeId || 'by-title')}${query}`, {
       method: 'DELETE'
     }).catch((err) => {
@@ -399,10 +421,12 @@ export function removeRoutePinEverywhere(userId = getCurrentUserId(), routeId, t
   const cleanTarget = title ? String(title).replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim() : '';
   const folders = getPinFolders(userId).map((folder) => {
     const filteredPins = (folder.pins || folder.courses || []).filter((pin) => {
-      if (routeId && pin.id === routeId) return false;
+      if (routeId && (pin.id === routeId || pin.serverPinId === routeId)) return false;
       if (cleanTarget) {
         const cleanPin = String(pin.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
-        if (cleanPin === cleanTarget) return false;
+        if (cleanPin === cleanTarget || (cleanTarget && cleanPin && (cleanPin.includes(cleanTarget) || cleanTarget.includes(cleanPin)))) {
+          return false;
+        }
       }
       return true;
     });
@@ -414,13 +438,17 @@ export function removeRoutePinEverywhere(userId = getCurrentUserId(), routeId, t
   });
 
   const all = readAll();
-  all[userId] = { folders };
+  const tombstones = Array.isArray(all[userId]?._tombstones) ? all[userId]._tombstones : [];
+  if (cleanTarget && !tombstones.includes(cleanTarget)) tombstones.push(cleanTarget);
+  if (routeId && !tombstones.includes(routeId)) tombstones.push(routeId);
+
+  all[userId] = { ...all[userId], folders, _tombstones: tombstones };
   writeAll(all);
   notifyPinsUpdated({ userId, action: 'removePinEverywhere', routeId, title });
 
   // 백엔드 서버 동기화
   if (userId && userId !== 'guest') {
-    const query = title ? `?userId=${encodeURIComponent(userId)}&title=${encodeURIComponent(title)}` : `?userId=${encodeURIComponent(userId)}`;
+    const query = cleanTarget ? `?userId=${encodeURIComponent(userId)}&title=${encodeURIComponent(cleanTarget)}` : `?userId=${encodeURIComponent(userId)}`;
     apiFetch(`/api/pins/folders/default/routes/${encodeURIComponent(routeId || 'by-title')}${query}`, {
       method: 'DELETE'
     }).catch(() => {});
@@ -492,6 +520,13 @@ export async function reorderPinCourses(folderId, ids) {
 
 export function isRoutePinned(userId = getCurrentUserId(), routeId, title) {
   const cleanTarget = title ? String(title).replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim() : '';
+  const all = readAll();
+  const tombstones = Array.isArray(all[userId]?._tombstones) ? all[userId]._tombstones : [];
+  if (routeId && tombstones.includes(routeId)) return false;
+  if (cleanTarget && tombstones.some((t) => t && (t === cleanTarget || cleanTarget.includes(t) || t.includes(cleanTarget)))) {
+    return false;
+  }
+
   const folders = getPinFolders(userId);
   return folders.some((folder) => {
     const list = Array.isArray(folder.pins) ? folder.pins : (Array.isArray(folder.courses) ? folder.courses : []);

@@ -22,6 +22,7 @@ import {
   isRoutePinned,
   removeRoutePinEverywhere,
   saveRoutePin,
+  subscribePinsUpdated,
 } from '../api/pins';
 import { reverseGeocodeCoords } from '../lib/kakao';
 
@@ -167,6 +168,13 @@ export default function WalkFlow({
   const [folderSelectRoute, setFolderSelectRoute] = useState(null);
   const [showComplete, setShowComplete] = useState(false);
   const [showNutritionDetail, setShowNutritionDetail] = useState(false);
+
+  // 🌿 핀 변경 이벤트 구독 (다른 화면 또는 백그라운드 동기화 시 핀 상태 즉시 최신화)
+  useEffect(() => {
+    return subscribePinsUpdated(() => {
+      setPinVersion((v) => v + 1);
+    });
+  }, []);
 
   // ── 🌿 실시간 보행 내비게이션 상태 및 엔진 ─────────────────────────────
   const [navMode, setNavMode] = useState('gps'); // 'gps' | 'simulation'

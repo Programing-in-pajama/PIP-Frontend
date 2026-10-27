@@ -374,7 +374,7 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
     const effectiveMin = Number(confirmPin.durationMin ?? confirmPin.duration_minutes ?? confirmPin.duration ?? 25);
     return (
       <div className="screen screen--map">
-        <SoyoMap route={confirmPin} className="map-fill" />
+        <SoyoMap variant="pins" route={confirmPin} className="map-fill" />
         <div className="map-top map-top--compact" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px' }}>
           <button type="button" className="map-round" onClick={() => setView('folder')} aria-label="뒤로">
             <Icon name="chevron-left" size={21} />
@@ -418,7 +418,7 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
     if (!activeFolder) {
       return (
         <div className="screen screen--map">
-          <SoyoMap showUser userPos={userGps} className="map-fill" />
+          <SoyoMap variant="pins" showUser userPos={userGps} className="map-fill" />
           <section className="map-sheet pin-sheet pin-sheet--folder pin-sheet--empty">
             <div className="sheet-grip" />
             <div className="pin-folder-header">
@@ -463,7 +463,7 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
 
     return (
       <div className="screen screen--map">
-        <SoyoMap route={previewPin} showUser userPos={userGps} className="map-fill" />
+        <SoyoMap variant="pins" route={previewPin} showUser userPos={userGps} className="map-fill" />
 
         <section className={`map-sheet pin-sheet pin-sheet--folder ${visiblePins.length === 0 ? 'pin-sheet--empty' : ''}`}>
           <div className="sheet-grip" />
@@ -759,7 +759,7 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
   // ── No.19 핀 폴더 목록 ──────────────────────────────────────
   return (
     <div className="screen screen--map">
-      <SoyoMap showUser userPos={userGps} className="map-fill" />
+      <SoyoMap variant="pins" showUser userPos={userGps} className="map-fill" />
       <section className="map-sheet pin-sheet">
         <div className="sheet-grip" />
         <h1 className="pin-title">내 핀</h1>

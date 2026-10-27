@@ -283,10 +283,13 @@ export default function KakaoMapLayer({
 
         const clientW = containerRef.current?.clientWidth || 390;
         const clientH = containerRef.current?.clientHeight || 600;
-        const padBottom = Math.max(160, Math.round(clientH * 0.48));
+        const padBottom = variant === 'pins'
+          ? Math.max(260, Math.round(clientH * 0.54))
+          : Math.max(160, Math.round(clientH * 0.48));
+        const padTop = variant === 'pins' ? 30 : 50;
         if (clientW > 250 && clientH > 350) {
           try {
-            map.setBounds(bounds, 50, 30, padBottom, 30);
+            map.setBounds(bounds, padTop, 30, padBottom, 30);
           } catch {
             map.setBounds(bounds);
           }
@@ -371,17 +374,31 @@ export default function KakaoMapLayer({
 
       if (hasRealUserPos) {
         map.setCenter(effectiveTargetLatLng);
-        map.setLevel(4);
+        map.setLevel(variant === 'pins' ? 4 : 4);
       } else if (!boundaryPoints || boundaryPoints.length <= 2) {
         map.setCenter(targetLatLng);
-        map.setLevel(4);
+        map.setLevel(variant === 'pins' ? 4 : 4);
       }
 
-      setTimeout(() => {
-        if (mapRef.current) {
-          mapRef.current.relayout();
-        }
-      }, 50);
+      // 🌿 핀 화면 전용 뷰포트 비율 최적화:
+      // 하단에 핀 바텀 시트가 올라와 지도의 가시 높이가 상단 45~50%로 줄어들므로,
+      // 지도의 중심점을 아래로 평행이동하여 내 위치 및 거점 마커가 상단 가시 영역 중앙에 보기 좋게 안착하도록 조정
+      if (variant === 'pins') {
+        setTimeout(() => {
+          if (mapRef.current) {
+            mapRef.current.relayout();
+            const clientH = containerRef.current?.clientHeight || 600;
+            const shiftY = Math.round(clientH * 0.22);
+            mapRef.current.panBy(0, shiftY);
+          }
+        }, 120);
+      } else {
+        setTimeout(() => {
+          if (mapRef.current) {
+            mapRef.current.relayout();
+          }
+        }, 50);
+      }
 
       const initialRegionName = (hasRealUserPos && cachedDong) ? cachedDong : (activeRegion?.short || activeRegion?.name || '역곡1동');
       const regionMarker = new kakao.maps.CustomOverlay({
@@ -466,8 +483,12 @@ export default function KakaoMapLayer({
     if (activeLat && activeLng && Number.isFinite(activeLat) && Number.isFinite(activeLng)) {
       const target = new kakao.maps.LatLng(activeLat, activeLng);
       map.panTo(target);
+      if (variant === 'pins') {
+        const clientH = containerRef.current?.clientHeight || 600;
+        map.panBy(0, Math.round(clientH * 0.22));
+      }
     }
-  }, [recenterKey, status]);
+  }, [recenterKey, status, variant]);
 
   // 3) 🌿 실시간 보행 내비게이션 동적 렌더링 (위치 마커, 분할 경로선, 카메라 트래킹)
   useEffect(() => {
