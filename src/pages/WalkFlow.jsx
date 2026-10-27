@@ -1891,7 +1891,7 @@ const FolderSelectSheet = React.memo(function FolderSelectSheet({
               </span>
               <span className="folder-text">
                 <strong>{folder.name}</strong>
-                <small>저장 코스 {folder.pins?.length || 0}개</small>
+                <small>저장 코스 {(folder.pins || folder.courses || []).length}개</small>
               </span>
               <Icon name="chevron-right" size={18} />
             </button>

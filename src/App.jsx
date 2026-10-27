@@ -133,6 +133,12 @@ function App() {
 
   const userId = localStorage.getItem('soyo-current-user-id') || 'guest';
 
+  useEffect(() => {
+    if (isLoggedIn && userId && userId !== 'guest') {
+      syncPinFoldersFromServer(userId).catch(() => {});
+    }
+  }, [isLoggedIn, userId]);
+
   const storeProfile = (profile) => {
     if (!profile) return;
     try {
@@ -336,6 +342,9 @@ function App() {
         setWalkKey((key) => key + 1);
         setNavVisible(true);
         setScreen('main');
+        if (userId && userId !== 'guest') {
+          syncPinFoldersFromServer(userId).catch(() => {});
+        }
       }
     };
 

@@ -94,23 +94,10 @@ export async function syncPinFoldersFromServer(userId = getCurrentUserId()) {
         };
       });
 
-      // 1) 툼스톤(삭제 완료 목록) 필터링 적용
       const all = readAll();
-      const tombstones = Array.isArray(all[userId]?._tombstones) ? all[userId]._tombstones : [];
+      delete all[userId]?._tombstones; // 구버전 잔여 툼스톤 완전 삭제
 
-      const authoritativeFolders = serverFolders.map((sf) => {
-        const validPins = (sf.pins || []).filter((sp) => {
-          const cSp = String(sp?.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
-          return !tombstones.some((t) => t && (t === sp.id || t === sp.serverPinId || t === cSp || cSp.includes(t) || t.includes(cSp)));
-        });
-        return {
-          ...sf,
-          pins: validPins,
-          courses: validPins,
-        };
-      });
-
-      // 2) 최근 15초 이내에 오프라인 상태에서 막 저장되어 서버에 아직 도달하지 않은 신규 인플라이트(in-flight) 핀만 보존
+      // 최근 15초 이내에 오프라인/인플라이트 상태에서 막 저장되어 서버에 아직 도달하지 않은 신규 핀만 안전하게 보존
       const now = Date.now();
       const localFolders = Array.isArray(all[userId]?.folders) ? all[userId].folders : [];
 
@@ -119,13 +106,11 @@ export async function syncPinFoldersFromServer(userId = getCurrentUserId()) {
         pins.forEach((lp) => {
           if (lp.serverPinId) return;
           const savedTime = lp.savedAt ? new Date(lp.savedAt).getTime() : 0;
-          if (now - savedTime > 15000) return; // 15초가 지난 구버전 로컬 잔여물('default' 폴더 잔여 핀 등)은 영구 정리
+          if (now - savedTime > 15000) return; // 15초가 지난 구버전 로컬 잔여물은 영구 정리
 
           const cleanLpTitle = String(lp.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
-          const isDeleted = tombstones.some((t) => t && (t === lp.id || t === cleanLpTitle || cleanLpTitle.includes(t) || t.includes(cleanLpTitle)));
-          if (isDeleted) return;
 
-          const alreadyOnServer = authoritativeFolders.some((sf) =>
+          const alreadyOnServer = serverFolders.some((sf) =>
             (sf.pins || []).some((sp) => {
               const cleanSpTitle = String(sp.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
               return sp.id === lp.id || (cleanLpTitle && cleanSpTitle === cleanLpTitle);
@@ -133,7 +118,7 @@ export async function syncPinFoldersFromServer(userId = getCurrentUserId()) {
           );
 
           if (!alreadyOnServer) {
-            const targetFolder = authoritativeFolders.find((sf) => sf.id === lf.id || sf.name === lf.name) || authoritativeFolders[0];
+            const targetFolder = serverFolders.find((sf) => sf.id === lf.id || sf.name === lf.name) || serverFolders[0];
             if (targetFolder) {
               targetFolder.pins.unshift(lp);
               targetFolder.courses = targetFolder.pins;
@@ -146,14 +131,15 @@ export async function syncPinFoldersFromServer(userId = getCurrentUserId()) {
         });
       });
 
-      // 3) 로컬스토리지의 구버전 잔여 캐시(default 등)를 서버의 실제 데이터로 100% 동기화 및 덮어쓰기
+      // 로컬스토리지의 구버전 잔여 캐시를 서버의 실제 데이터로 100% 동기화 및 덮어쓰기
       all[userId] = {
         ...all[userId],
-        folders: authoritativeFolders
+        folders: serverFolders
       };
+      delete all[userId]._tombstones;
       writeAll(all);
-      notifyPinsUpdated({ userId, folders: authoritativeFolders });
-      return authoritativeFolders;
+      notifyPinsUpdated({ userId, folders: serverFolders });
+      return serverFolders;
     }
   } catch (err) {
     console.warn('⚠️ [Pins] 서버 핀 동기화 대기 (로컬 캐시 사용):', err.message);
@@ -164,6 +150,10 @@ export async function syncPinFoldersFromServer(userId = getCurrentUserId()) {
 /** 사용자의 폴더 목록을 돌려주고, 없으면 기본 '내 핀' 폴더를 만듭니다. (동기 즉각 반환) */
 export function getPinFolders(userId = getCurrentUserId()) {
   const all = readAll();
+  if (all[userId]?._tombstones) {
+    delete all[userId]._tombstones;
+    writeAll(all);
+  }
   if (!all[userId] || !Array.isArray(all[userId].folders) || all[userId].folders.length === 0) {
     all[userId] = {
       folders: [
@@ -278,10 +268,12 @@ export async function deletePinFolder(userId = getCurrentUserId(), folderId) {
   const all = readAll();
   const currentFolders = Array.isArray(all[userId]?.folders) ? all[userId].folders : getPinFolders(userId);
   const folders = currentFolders.filter((folder) => folder.id !== folderId && folder.name !== folderId);
+  delete all[userId]?._tombstones;
   all[userId] = {
     ...all[userId],
     folders
   };
+  delete all[userId]._tombstones;
   writeAll(all);
   notifyPinsUpdated({ userId, action: 'deleteFolder', folderId });
 
@@ -291,6 +283,7 @@ export async function deletePinFolder(userId = getCurrentUserId(), folderId) {
       await apiFetch(`/api/pins/folders/${encodeURIComponent(folderId)}?userId=${encodeURIComponent(userId)}`, {
         method: 'DELETE'
       });
+      await syncPinFoldersFromServer(userId);
     } catch (err) {
       console.warn('⚠️ [Pins] 서버 폴더 삭제 대기:', err.message);
     }
@@ -341,9 +334,9 @@ export function saveRoutePin(userId = getCurrentUserId(), route, folderId = 'def
   );
 
   const all = readAll();
-  const tombstones = Array.isArray(all[userId]?._tombstones) ? all[userId]._tombstones : [];
-  const nextTombstones = tombstones.filter((t) => t && t !== cleanNewTitle && t !== normalizedRoute.id);
-  all[userId] = { folders: nextFolders, _tombstones: nextTombstones };
+  delete all[userId]?._tombstones;
+  all[userId] = { ...all[userId], folders: nextFolders };
+  delete all[userId]._tombstones;
   writeAll(all);
   notifyPinsUpdated({ userId, action: 'savePin', route: newPin });
 
@@ -372,6 +365,7 @@ export function saveRoutePin(userId = getCurrentUserId(), route, folderId = 'def
           writeAll(latestAll);
         }
       }
+      syncPinFoldersFromServer(userId).catch(() => {});
     }).catch((err) => {
       console.warn('⚠️ [Pins] 서버 핀 저장 대기:', err.message);
     });
@@ -403,11 +397,9 @@ export function removeRoutePin(userId = getCurrentUserId(), folderId, routeId, t
   });
 
   const all = readAll();
-  const tombstones = Array.isArray(all[userId]?._tombstones) ? all[userId]._tombstones : [];
-  if (cleanTarget && !tombstones.includes(cleanTarget)) tombstones.push(cleanTarget);
-  if (routeId && !tombstones.includes(routeId)) tombstones.push(routeId);
-
-  all[userId] = { ...all[userId], folders, _tombstones: tombstones };
+  delete all[userId]?._tombstones;
+  all[userId] = { ...all[userId], folders };
+  delete all[userId]._tombstones;
   writeAll(all);
   notifyPinsUpdated({ userId, action: 'removePin', routeId, title });
 
@@ -416,6 +408,8 @@ export function removeRoutePin(userId = getCurrentUserId(), folderId, routeId, t
     const query = cleanTarget ? `?userId=${encodeURIComponent(userId)}&title=${encodeURIComponent(cleanTarget)}` : `?userId=${encodeURIComponent(userId)}`;
     apiFetch(`/api/pins/folders/${encodeURIComponent(folderId)}/routes/${encodeURIComponent(routeId || 'by-title')}${query}`, {
       method: 'DELETE'
+    }).then(() => {
+      syncPinFoldersFromServer(userId).catch(() => {});
     }).catch((err) => {
       console.warn('⚠️ [Pins] 서버 핀 삭제 대기:', err.message);
     });
@@ -446,11 +440,9 @@ export function removeRoutePinEverywhere(userId = getCurrentUserId(), routeId, t
   });
 
   const all = readAll();
-  const tombstones = Array.isArray(all[userId]?._tombstones) ? all[userId]._tombstones : [];
-  if (cleanTarget && !tombstones.includes(cleanTarget)) tombstones.push(cleanTarget);
-  if (routeId && !tombstones.includes(routeId)) tombstones.push(routeId);
-
-  all[userId] = { ...all[userId], folders, _tombstones: tombstones };
+  delete all[userId]?._tombstones;
+  all[userId] = { ...all[userId], folders };
+  delete all[userId]._tombstones;
   writeAll(all);
   notifyPinsUpdated({ userId, action: 'removePinEverywhere', routeId, title });
 
@@ -459,6 +451,8 @@ export function removeRoutePinEverywhere(userId = getCurrentUserId(), routeId, t
     const query = cleanTarget ? `?userId=${encodeURIComponent(userId)}&title=${encodeURIComponent(cleanTarget)}` : `?userId=${encodeURIComponent(userId)}`;
     apiFetch(`/api/pins/folders/default/routes/${encodeURIComponent(routeId || 'by-title')}${query}`, {
       method: 'DELETE'
+    }).then(() => {
+      syncPinFoldersFromServer(userId).catch(() => {});
     }).catch(() => {});
   }
 
@@ -528,13 +522,6 @@ export async function reorderPinCourses(folderId, ids) {
 
 export function isRoutePinned(userId = getCurrentUserId(), routeId, title) {
   const cleanTarget = title ? String(title).replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim() : '';
-  const all = readAll();
-  const tombstones = Array.isArray(all[userId]?._tombstones) ? all[userId]._tombstones : [];
-  if (routeId && tombstones.includes(routeId)) return false;
-  if (cleanTarget && tombstones.some((t) => t && (t === cleanTarget || cleanTarget.includes(t) || t.includes(cleanTarget)))) {
-    return false;
-  }
-
   const folders = getPinFolders(userId);
   return folders.some((folder) => {
     const list = Array.isArray(folder.pins) ? folder.pins : (Array.isArray(folder.courses) ? folder.courses : []);
@@ -552,5 +539,5 @@ export function isRoutePinned(userId = getCurrentUserId(), routeId, title) {
 }
 
 export function countPins(folders = []) {
-  return folders.reduce((total, folder) => total + (folder.pins?.length || 0), 0);
+  return folders.reduce((total, folder) => total + ((folder.pins || folder.courses || []).length), 0);
 }
