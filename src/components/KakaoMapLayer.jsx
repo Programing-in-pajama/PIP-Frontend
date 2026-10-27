@@ -406,7 +406,7 @@ export default function KakaoMapLayer({
         content: `
           <div style="background: linear-gradient(135deg, #2f9a72 0%, #42b388 100%); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); color: #ffffff; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 22px; box-shadow: 0 6px 18px rgba(47, 154, 114, 0.32); border: 1.5px solid rgba(255, 255, 255, 0.5); display: flex; align-items: center; gap: 6px; white-space: nowrap; transform: translateY(-8px); pointer-events: none;">
             <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#ffffff; box-shadow: 0 0 6px rgba(255, 255, 255, 0.9);"></span>
-            <span class="soyo-region-label" style="letter-spacing: -0.2px;">🌿 ${initialRegionName} · 산책 권역</span>
+            <span class="soyo-region-label" style="letter-spacing: -0.2px;">${initialRegionName} · 산책 권역</span>
           </div>
         `,
         xAnchor: 0.5,

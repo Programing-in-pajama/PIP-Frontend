@@ -94,93 +94,66 @@ export async function syncPinFoldersFromServer(userId = getCurrentUserId()) {
         };
       });
 
-      // 🌿 로컬 저장소와 스마트 병합 (서버 응답 지연으로 갓 저장된 핀이 증발하는 현상 원천 차단)
+      // 1) 툼스톤(삭제 완료 목록) 필터링 적용
       const all = readAll();
-      const localFolders = Array.isArray(all[userId]?.folders) ? all[userId].folders : [];
+      const tombstones = Array.isArray(all[userId]?._tombstones) ? all[userId]._tombstones : [];
 
-      const mergedFolders = serverFolders.map((sf) => {
-        // 같은 ID이거나 이름이 같거나, 기본 폴더에 매핑되는 로컬 폴더 탐색
-        const lf = localFolders.find((item) =>
-          item.id === sf.id ||
-          item.name === sf.name ||
-          ((item.id === 'default' || item.sortOrder === 0) && (sf.id === 'default' || sf.sortOrder === 0 || sf.name === '내 핀'))
-        );
-
-        if (!lf) return sf;
-
-        const tombstones = Array.isArray(all[userId]?._tombstones) ? all[userId]._tombstones : [];
-        const serverPins = (sf.pins || []).filter((sp) => {
+      const authoritativeFolders = serverFolders.map((sf) => {
+        const validPins = (sf.pins || []).filter((sp) => {
           const cSp = String(sp?.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
           return !tombstones.some((t) => t && (t === sp.id || t === sp.serverPinId || t === cSp || cSp.includes(t) || t.includes(cSp)));
         });
-
-        const localPins = Array.isArray(lf.pins) ? lf.pins : (Array.isArray(lf.courses) ? lf.courses : []);
-
-        // 로컬에는 있으나 서버에 아직 반영되지 않은 최신 핀 보존
-        const unsyncedLocalPins = localPins.filter((lp) => {
-          const cleanLocalTitle = String(lp?.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
-          const isDeleted = tombstones.some((t) => t && (t === lp.id || t === lp.serverPinId || t === cleanLocalTitle || cleanLocalTitle.includes(t) || t.includes(cleanLocalTitle)));
-          if (isDeleted) return false;
-
-          return !serverPins.some((sp) => {
-            if (sp.id === lp.id || (lp.serverPinId && sp.id === lp.serverPinId)) return true;
-            const cleanServerTitle = String(sp?.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
-            return cleanLocalTitle && cleanServerTitle === cleanLocalTitle;
-          });
-        });
-
-        // 🌿 서버에 아직 업로드되지 않은 로컬 미동기 핀들을 백엔드 DB로 자동 푸시 (노트북 ↔ 모바일 간 핀 일치 보장)
-        if (unsyncedLocalPins.length > 0 && userId && userId !== 'guest') {
-          unsyncedLocalPins.forEach((unsyncedPin) => {
-            if (unsyncedPin.serverPinId) return;
-            apiFetch('/api/pins/routes', {
-              method: 'POST',
-              body: JSON.stringify({ userId, folderId: sf.id, route: unsyncedPin })
-            }).then((uploadRes) => {
-              if (uploadRes?.pin?.id) {
-                unsyncedPin.serverPinId = uploadRes.pin.id;
-                const curAll = readAll();
-                if (curAll[userId]?.folders) {
-                  curAll[userId].folders.forEach((f) => {
-                    (f.pins || []).forEach((p) => {
-                      if (p.id === unsyncedPin.id) p.serverPinId = uploadRes.pin.id;
-                    });
-                  });
-                  writeAll(curAll);
-                }
-              }
-            }).catch((err) => {
-              console.warn('⚠️ [Pins] 미반영 핀 자동 동기화 대기:', err.message);
-            });
-          });
-        }
-
-        const combinedPins = [...unsyncedLocalPins, ...serverPins];
         return {
           ...sf,
-          pins: combinedPins,
-          courses: combinedPins
+          pins: validPins,
+          courses: validPins,
         };
       });
 
-      // 로컬에만 존재하는 커스텀 폴더 보존 및 백엔드 자동 업로드
+      // 2) 최근 15초 이내에 오프라인 상태에서 막 저장되어 서버에 아직 도달하지 않은 신규 인플라이트(in-flight) 핀만 보존
+      const now = Date.now();
+      const localFolders = Array.isArray(all[userId]?.folders) ? all[userId].folders : [];
+
       localFolders.forEach((lf) => {
-        const exists = mergedFolders.some((mf) => mf.id === lf.id || mf.name === lf.name);
-        if (!exists) {
-          mergedFolders.push(lf);
-          if (userId && userId !== 'guest' && lf.id !== 'default' && lf.name !== '내 핀') {
-            apiFetch('/api/pins/folders', {
-              method: 'POST',
-              body: JSON.stringify({ userId, id: lf.id, name: lf.name })
-            }).catch(() => {});
+        const pins = lf.pins || lf.courses || [];
+        pins.forEach((lp) => {
+          if (lp.serverPinId) return;
+          const savedTime = lp.savedAt ? new Date(lp.savedAt).getTime() : 0;
+          if (now - savedTime > 15000) return; // 15초가 지난 구버전 로컬 잔여물('default' 폴더 잔여 핀 등)은 영구 정리
+
+          const cleanLpTitle = String(lp.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
+          const isDeleted = tombstones.some((t) => t && (t === lp.id || t === cleanLpTitle || cleanLpTitle.includes(t) || t.includes(cleanLpTitle)));
+          if (isDeleted) return;
+
+          const alreadyOnServer = authoritativeFolders.some((sf) =>
+            (sf.pins || []).some((sp) => {
+              const cleanSpTitle = String(sp.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
+              return sp.id === lp.id || (cleanLpTitle && cleanSpTitle === cleanLpTitle);
+            })
+          );
+
+          if (!alreadyOnServer) {
+            const targetFolder = authoritativeFolders.find((sf) => sf.id === lf.id || sf.name === lf.name) || authoritativeFolders[0];
+            if (targetFolder) {
+              targetFolder.pins.unshift(lp);
+              targetFolder.courses = targetFolder.pins;
+              apiFetch('/api/pins/routes', {
+                method: 'POST',
+                body: JSON.stringify({ userId, folderId: targetFolder.id, route: lp })
+              }).catch(() => {});
+            }
           }
-        }
+        });
       });
 
-      all[userId] = { ...all[userId], folders: mergedFolders };
+      // 3) 로컬스토리지의 구버전 잔여 캐시(default 등)를 서버의 실제 데이터로 100% 동기화 및 덮어쓰기
+      all[userId] = {
+        ...all[userId],
+        folders: authoritativeFolders
+      };
       writeAll(all);
-      notifyPinsUpdated({ userId, folders: mergedFolders });
-      return mergedFolders;
+      notifyPinsUpdated({ userId, folders: authoritativeFolders });
+      return authoritativeFolders;
     }
   } catch (err) {
     console.warn('⚠️ [Pins] 서버 핀 동기화 대기 (로컬 캐시 사용):', err.message);
