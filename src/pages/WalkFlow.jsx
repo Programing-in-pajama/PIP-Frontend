@@ -685,13 +685,24 @@ export default function WalkFlow({
       setLoginPrompt(true);
       return;
     }
+    if (!route) return;
     const isPinned = isRoutePinned(userId, route?.id, route?.title);
     if (isPinned) {
       removeRoutePinEverywhere(userId, route?.id, route?.title);
       setToast('핀 저장을 해제했어요');
       setPinVersion((version) => version + 1);
     } else {
-      setFolderSelectRoute(route);
+      const currentFolders = getPinFolders(userId);
+      // 폴더가 기본 '내 핀' 1개뿐인 경우 번거로운 팝업 없이 1-클릭 즉시 저장
+      if (!currentFolders || currentFolders.length <= 1) {
+        const defaultFolder = currentFolders?.[0] || { id: 'default', name: '내 핀' };
+        saveRoutePin(userId, route, defaultFolder.id);
+        setToast(`‘${defaultFolder.name}’에 저장했어요`);
+        setPinVersion((v) => v + 1);
+      } else {
+        // 커스텀 폴더가 2개 이상 있는 경우에만 선택 시트 노출
+        setFolderSelectRoute(route);
+      }
     }
   };
 
@@ -1230,7 +1241,10 @@ export default function WalkFlow({
                   className={`bookmark-btn ${saved ? 'is-on' : ''}`}
                   aria-label={saved ? '핀 저장 해제' : '핀에 저장'}
                   aria-pressed={saved}
-                  onClick={() => togglePin(route)}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    togglePin(route);
+                  }}
                 >
                   <Icon name={saved ? 'bookmark-filled' : 'bookmark'} size={20} />
                 </button>

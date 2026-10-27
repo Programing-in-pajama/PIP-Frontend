@@ -68,7 +68,7 @@ export function normalizePin(pin) {
   };
 }
 
-/** 서버에서 최신 폴더 및 핀 목록을 가져와 로컬 캐시를 갱신합니다. */
+/** 서버에서 최신 폴더 및 핀 목록을 가져와 로컬 캐시와 안전하게 병합합니다. */
 export async function syncPinFoldersFromServer(userId = getCurrentUserId()) {
   if (!userId || userId === 'guest') return getPinFolders(userId);
   try {
@@ -76,7 +76,7 @@ export async function syncPinFoldersFromServer(userId = getCurrentUserId()) {
       method: 'GET'
     });
     if (res?.success && Array.isArray(res.folders)) {
-      const normalized = res.folders.map((f) => {
+      const serverFolders = res.folders.map((f) => {
         const rawList = Array.isArray(f.pins) ? f.pins : (Array.isArray(f.courses) ? f.courses : []);
         const list = rawList.map(normalizePin);
         return {
@@ -85,11 +85,54 @@ export async function syncPinFoldersFromServer(userId = getCurrentUserId()) {
           courses: list,
         };
       });
+
+      // 🌿 로컬 저장소와 스마트 병합 (서버 응답 지연으로 갓 저장된 핀이 증발하는 현상 원천 차단)
       const all = readAll();
-      all[userId] = { folders: normalized };
+      const localFolders = Array.isArray(all[userId]?.folders) ? all[userId].folders : [];
+
+      const mergedFolders = serverFolders.map((sf) => {
+        // 같은 ID이거나 이름이 같거나, 기본 폴더에 매핑되는 로컬 폴더 탐색
+        const lf = localFolders.find((item) =>
+          item.id === sf.id ||
+          item.name === sf.name ||
+          ((item.id === 'default' || item.sortOrder === 0) && (sf.id === 'default' || sf.sortOrder === 0 || sf.name === '내 핀'))
+        );
+
+        if (!lf) return sf;
+
+        const serverPins = sf.pins || [];
+        const localPins = Array.isArray(lf.pins) ? lf.pins : (Array.isArray(lf.courses) ? lf.courses : []);
+
+        // 로컬에는 있으나 서버에 아직 반영되지 않은 최신 핀 보존
+        const unsyncedLocalPins = localPins.filter((lp) => {
+          const cleanLocalTitle = String(lp?.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
+          return !serverPins.some((sp) => {
+            if (sp.id === lp.id || (lp.serverPinId && sp.id === lp.serverPinId)) return true;
+            const cleanServerTitle = String(sp?.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
+            return cleanLocalTitle && cleanServerTitle === cleanLocalTitle;
+          });
+        });
+
+        const combinedPins = [...unsyncedLocalPins, ...serverPins];
+        return {
+          ...sf,
+          pins: combinedPins,
+          courses: combinedPins
+        };
+      });
+
+      // 로컬에만 존재하는 커스텀 폴더 보존
+      localFolders.forEach((lf) => {
+        const exists = mergedFolders.some((mf) => mf.id === lf.id || mf.name === lf.name);
+        if (!exists) {
+          mergedFolders.push(lf);
+        }
+      });
+
+      all[userId] = { folders: mergedFolders };
       writeAll(all);
-      notifyPinsUpdated({ userId, folders: normalized });
-      return normalized;
+      notifyPinsUpdated({ userId, folders: mergedFolders });
+      return mergedFolders;
     }
   } catch (err) {
     console.warn('⚠️ [Pins] 서버 핀 동기화 대기 (로컬 캐시 사용):', err.message);
@@ -241,11 +284,16 @@ export function saveRoutePin(userId = getCurrentUserId(), route, folderId = 'def
   const folders = getPinFolders(userId);
   if (!folders || folders.length === 0) return { saved: false, folders: [] };
 
-  const target = folders.find((folder) => folder.id === folderId) || folders[0];
+  const target = folders.find((folder) => folder.id === folderId) ||
+                 folders.find((folder) => folder.id === 'default' || folder.sortOrder === 0 || folder.name === '내 핀') ||
+                 folders[0];
   if (!target) return { saved: false, folders };
 
-  const targetPins = Array.isArray(target.pins) ? target.pins : [];
+  const targetPins = Array.isArray(target.pins) ? target.pins : (Array.isArray(target.courses) ? target.courses : []);
   const normalizedRoute = normalizePin(route);
+  if (!normalizedRoute.geoPath && route.geoPath) {
+    normalizedRoute.geoPath = route.geoPath;
+  }
   const cleanNewTitle = String(normalizedRoute.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
 
   const alreadyInTarget = targetPins.some((pin) => {
@@ -253,7 +301,7 @@ export function saveRoutePin(userId = getCurrentUserId(), route, folderId = 'def
     const cleanPinTitle = String(pin?.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
     return cleanNewTitle && cleanPinTitle === cleanNewTitle;
   });
-  if (alreadyInTarget) return { saved: false, folders };
+  if (alreadyInTarget) return { saved: true, alreadySaved: true, folders };
 
   const newPin = {
     ...normalizedRoute,
@@ -280,6 +328,26 @@ export function saveRoutePin(userId = getCurrentUserId(), route, folderId = 'def
     apiFetch('/api/pins/routes', {
       method: 'POST',
       body: JSON.stringify({ userId, folderId: target.id, route: newPin })
+    }).then((res) => {
+      if (res?.pin?.id) {
+        const latestAll = readAll();
+        if (latestAll[userId]?.folders) {
+          latestAll[userId].folders = latestAll[userId].folders.map((f) => {
+            if (f.id === target.id) {
+              const updatedPins = (f.pins || []).map((p) => {
+                const cP = String(p.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
+                if (p.id === newPin.id || (cleanNewTitle && cP === cleanNewTitle)) {
+                  return { ...p, serverPinId: res.pin.id };
+                }
+                return p;
+              });
+              return { ...f, pins: updatedPins, courses: updatedPins };
+            }
+            return f;
+          });
+          writeAll(latestAll);
+        }
+      }
     }).catch((err) => {
       console.warn('⚠️ [Pins] 서버 핀 저장 대기:', err.message);
     });
@@ -424,16 +492,20 @@ export async function reorderPinCourses(folderId, ids) {
 
 export function isRoutePinned(userId = getCurrentUserId(), routeId, title) {
   const cleanTarget = title ? String(title).replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim() : '';
-  return getPinFolders(userId).some((folder) =>
-    (folder.pins || []).some((pin) => {
-      if (routeId && pin.id === routeId) return true;
+  const folders = getPinFolders(userId);
+  return folders.some((folder) => {
+    const list = Array.isArray(folder.pins) ? folder.pins : (Array.isArray(folder.courses) ? folder.courses : []);
+    return list.some((pin) => {
+      if (routeId && (pin.id === routeId || pin.serverPinId === routeId)) return true;
       if (cleanTarget) {
         const cleanPin = String(pin.title || '').replace(/\s*[\(\（]\s*\d+\s*분\s*[\)\）]/g, '').trim();
-        if (cleanPin === cleanTarget) return true;
+        if (cleanPin === cleanTarget || (cleanTarget && cleanPin && (cleanPin.includes(cleanTarget) || cleanTarget.includes(cleanPin)))) {
+          return true;
+        }
       }
       return false;
-    })
-  );
+    });
+  });
 }
 
 export function countPins(folders = []) {
