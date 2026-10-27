@@ -329,10 +329,7 @@ export default function KakaoMapLayer({
         ? new kakao.maps.LatLng(activeLat, activeLng)
         : targetLatLng;
 
-      if (hasRealUserPos) {
-        map.setCenter(effectiveTargetLatLng);
-        map.setLevel(4);
-      } else if (boundaryPoints && boundaryPoints.length > 2) {
+      if (boundaryPoints && boundaryPoints.length > 2) {
         const polygonPath = boundaryPoints.map((p) => new kakao.maps.LatLng(p.lat, p.lng));
 
         const regionPolygon = new kakao.maps.Polygon({
@@ -347,28 +344,35 @@ export default function KakaoMapLayer({
         });
         addOverlay(regionPolygon);
 
-        const bounds = new kakao.maps.LatLngBounds();
-        polygonPath.forEach((pt) => bounds.extend(pt));
+        if (!hasRealUserPos) {
+          const bounds = new kakao.maps.LatLngBounds();
+          polygonPath.forEach((pt) => bounds.extend(pt));
 
-        const clientW = containerRef.current?.clientWidth || 390;
-        const clientH = containerRef.current?.clientHeight || 600;
-        if (clientW > 250 && clientH > 350) {
-          try {
-            map.setBounds(bounds, 70, 28, 190, 28);
-          } catch {
+          const clientW = containerRef.current?.clientWidth || 390;
+          const clientH = containerRef.current?.clientHeight || 600;
+          if (clientW > 250 && clientH > 350) {
+            try {
+              map.setBounds(bounds, 70, 28, 190, 28);
+            } catch {
+              map.setBounds(bounds);
+            }
+          } else {
             map.setBounds(bounds);
           }
-        } else {
-          map.setBounds(bounds);
-        }
 
-        const currLevel = map.getLevel();
-        if (currLevel > 5) {
-          map.setLevel(5);
-        } else if (currLevel < 3) {
-          map.setLevel(4);
+          const currLevel = map.getLevel();
+          if (currLevel > 5) {
+            map.setLevel(5);
+          } else if (currLevel < 3) {
+            map.setLevel(4);
+          }
         }
-      } else {
+      }
+
+      if (hasRealUserPos) {
+        map.setCenter(effectiveTargetLatLng);
+        map.setLevel(4);
+      } else if (!boundaryPoints || boundaryPoints.length <= 2) {
         map.setCenter(targetLatLng);
         map.setLevel(4);
       }
