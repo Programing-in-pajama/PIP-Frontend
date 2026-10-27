@@ -284,9 +284,10 @@ export default function KakaoMapLayer({
 
         const clientW = containerRef.current?.clientWidth || 390;
         const clientH = containerRef.current?.clientHeight || 600;
+        const padBottom = Math.max(160, Math.round(clientH * 0.48));
         if (clientW > 250 && clientH > 350) {
           try {
-            map.setBounds(bounds, 50, 30, 160, 30);
+            map.setBounds(bounds, 50, 30, padBottom, 30);
           } catch {
             map.setBounds(bounds);
           }

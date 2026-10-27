@@ -41,6 +41,7 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
   const [sort, setSort] = useState('latest');
   const [filter, setFilter] = useState('all');
   const [selectedPinId, setSelectedPinId] = useState(null);
+  const [previewPin, setPreviewPin] = useState(null);
   const [confirmPin, setConfirmPin] = useState(null);
   const [confirmDeleteFolder, setConfirmDeleteFolder] = useState(false);
   const [confirmDeletePin, setConfirmDeletePin] = useState(null);
@@ -86,6 +87,27 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
     const timer = setTimeout(() => setToast(''), 2200);
     return () => clearTimeout(timer);
   }, [toast]);
+
+  // 브라우저 뒤로가기 시 앱이 종료되거나 튕기지 않고 폴더 목록으로 부드럽게 복귀
+  useEffect(() => {
+    if (view !== 'list') {
+      window.history.pushState({ pinView: view }, '');
+      const handlePop = () => {
+        if (view === 'confirm') {
+          setView('folder');
+        } else {
+          setView('list');
+          setFolderId(null);
+          setSelectedPinId(null);
+          setPreviewPin(null);
+        }
+      };
+      window.addEventListener('popstate', handlePop, { once: true });
+      return () => {
+        window.removeEventListener('popstate', handlePop);
+      };
+    }
+  }, [view]);
 
 
 
@@ -133,9 +155,16 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
     setFolderId(folder.id);
     setSort('latest');
     setFilter('all');
-    setSelectedPinId(null);
     setConfirmDeleteFolder(false);
     setConfirmDeletePin(null);
+    const pins = folder.pins || folder.courses || [];
+    if (pins.length > 0) {
+      setSelectedPinId(pins[0].id);
+      setPreviewPin(pins[0]);
+    } else {
+      setSelectedPinId(null);
+      setPreviewPin(null);
+    }
     setView('folder');
   };
 
@@ -143,7 +172,18 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
     if (!activeFolder) return;
     const next = removeRoutePin(userId, activeFolder.id, pin.id, pin.title);
     setFolders(next);
-    setSelectedPinId(null);
+    if (selectedPinId === pin.id) {
+      const remaining = (activeFolder.pins || activeFolder.courses || []).filter(
+        (p) => p.id !== pin.id && p.title !== pin.title
+      );
+      if (remaining.length > 0) {
+        setSelectedPinId(remaining[0].id);
+        setPreviewPin(remaining[0]);
+      } else {
+        setSelectedPinId(null);
+        setPreviewPin(null);
+      }
+    }
     setToast('핀을 삭제했어요');
   };
 
@@ -156,6 +196,8 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
     setConfirmDeleteFolder(false);
     setView('list');
     setFolderId(null);
+    setSelectedPinId(null);
+    setPreviewPin(null);
     setFolders((prev) => prev.filter((f) => f.id !== targetId && f.name !== targetName));
     if (window.history.state?.pinView) {
       window.history.replaceState({ pinView: null }, '');
@@ -356,192 +398,293 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
     );
   }
 
-  // ── No.20 폴더 상세 ─────────────────────────────────────────
+  // ── No.20 폴더 상세 (지도 오버레이 바텀시트 & 산책로 미리보기) ───
   if (view === 'folder') {
     if (!activeFolder) {
       return (
-        <div className="screen page">
-          <header className="page-head page-head--back">
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1, minWidth: 0 }}>
-              <button type="button" className="back-btn" onClick={() => setView('list')} aria-label="뒤로">
+        <div className="screen screen--map">
+          <SoyoMap className="map-fill" />
+          <section className="map-sheet pin-sheet pin-sheet--folder">
+            <div className="sheet-grip" />
+            <div className="pin-folder-header">
+              <button
+                type="button"
+                className="back-btn"
+                onClick={() => {
+                  setView('list');
+                  setFolderId(null);
+                  setSelectedPinId(null);
+                  setPreviewPin(null);
+                }}
+                aria-label="뒤로"
+              >
                 <Icon name="chevron-left" size={22} />
               </button>
               <div className="page-head-text">
-                <h1>저장 코스</h1>
-                <p>코스를 불러오는 중...</p>
+                <h1 style={{ fontSize: '18px', fontWeight: 800, margin: 0 }}>저장 코스</h1>
+                <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '2px 0 0' }}>코스를 불러오는 중...</p>
               </div>
             </div>
-            <img src="/pic/SOYO.png" alt="SOYO" className="head-logo" />
-          </header>
-          <div className="pin-list" style={{ padding: '32px', textAlign: 'center', color: 'var(--muted)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-            <p>코스를 불러오는 중입니다. 잠시만 기다려 주세요...</p>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              style={{ padding: '6px 14px', fontSize: '13px' }}
-              onClick={() => {
-                setView('list');
-                setFolderId(null);
-              }}
-            >
-              목록으로 돌아가기
-            </button>
-          </div>
+            <div className="empty-box" style={{ padding: '32px 16px', textAlign: 'center' }}>
+              <p>코스를 불러오는 중입니다. 잠시만 기다려 주세요...</p>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ padding: '6px 14px', fontSize: '13px', marginTop: '10px' }}
+                onClick={() => {
+                  setView('list');
+                  setFolderId(null);
+                  setSelectedPinId(null);
+                  setPreviewPin(null);
+                }}
+              >
+                목록으로 돌아가기
+              </button>
+            </div>
+          </section>
         </div>
       );
     }
 
     return (
-      <div className="screen page">
-        <header className="page-head page-head--back">
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1, minWidth: 0 }}>
-            <button type="button" className="back-btn" onClick={() => setView('list')} aria-label="뒤로">
-              <Icon name="chevron-left" size={22} />
-            </button>
-            <div className="page-head-text">
-              <h1>{activeFolder.name}</h1>
-              <p>저장한 코스 {folderPins.length}개</p>
-            </div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-            <img src="/pic/SOYO.png" alt="SOYO" className="head-logo" style={{ margin: 0 }} />
-            {/* 기본 '내 핀' 폴더는 핀 저장 기본 위치라 삭제 버튼을 숨김 */}
-            {activeFolder.id !== DEFAULT_FOLDER_ID && activeFolder.name !== '내 핀' && activeFolder.sortOrder !== 0 && (
+      <div className="screen screen--map">
+        <SoyoMap route={previewPin} className="map-fill" />
+
+        <section className="map-sheet pin-sheet pin-sheet--folder">
+          <div className="sheet-grip" />
+
+          {/* 시트 헤더 */}
+          <div className="pin-folder-header">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
               <button
                 type="button"
-                className="danger-link folder-delete"
-                style={{ marginTop: 0 }}
-                onClick={() => setConfirmDeleteFolder(true)}
-              >
-                폴더 삭제
-              </button>
-            )}
-          </div>
-        </header>
-
-        <div className="control-row">
-          <label className="select-pill">
-            <select value={sort} onChange={(event) => setSort(event.target.value)} aria-label="정렬 기준">
-              {SORT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-            <Icon name="chevron-down" size={15} />
-          </label>
-
-          <label className={`select-pill ${filter !== 'all' ? 'is-active' : ''}`}>
-            <select value={filter} onChange={(event) => setFilter(event.target.value)} aria-label="필터 기준">
-              {FILTER_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-            <Icon name="chevron-down" size={15} />
-          </label>
-        </div>
-
-        {sort === 'custom' && (
-          <p className="helper custom-hint">직접 정렬에서는 카드를 위아래로 끌어 순서를 바꿀 수 있어요.</p>
-        )}
-
-        <div
-          className="pin-list"
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-        >
-          {visiblePins.map((pin) => {
-            const distance = Number(pin.distanceKm ?? pin.distanceToStartKm ?? 0.8);
-            const effectiveMin = Number(pin.durationMin ?? pin.duration_minutes ?? pin.duration ?? 25);
-            const selected = selectedPinId === pin.id;
-            const isDragging = dragId === pin.id;
-            return (
-              <article
-                key={pin.id}
-                ref={(node) => {
-                  if (node) cardRefs.current.set(pin.id, node);
-                  else cardRefs.current.delete(pin.id);
+                className="back-btn"
+                onClick={() => {
+                  setView('list');
+                  setFolderId(null);
+                  setSelectedPinId(null);
+                  setPreviewPin(null);
                 }}
-                className={`pin-card ${selected ? 'is-selected' : ''} ${isDragging ? 'is-dragging' : ''}`}
-                draggable={sort === 'custom'}
-                onDragStart={() => setDragId(pin.id)}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={() => handleDrop(pin)}
+                aria-label="뒤로"
               >
+                <Icon name="chevron-left" size={22} />
+              </button>
+              <div className="page-head-text" style={{ minWidth: 0 }}>
+                <h1 style={{ fontSize: '18px', fontWeight: 800, margin: 0, letterSpacing: '-0.3px' }}>
+                  {activeFolder.name}
+                </h1>
+                <p style={{ fontSize: '11.5px', color: 'var(--muted)', margin: '1px 0 0' }}>
+                  저장 코스 {folderPins.length}개
+                  {previewPin && (
+                    <span style={{ color: 'var(--emerald-dark, #065f46)', marginLeft: '6px', fontWeight: 600 }}>
+                      · 지도 미리보기 중
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* 기본 '내 핀' 폴더가 아닌 경우 폴더 삭제 허용 */}
+            {activeFolder.id !== DEFAULT_FOLDER_ID &&
+              activeFolder.name !== '내 핀' &&
+              activeFolder.sortOrder !== 0 && (
                 <button
                   type="button"
-                  className="pin-card-main"
-                  onClick={() => setSelectedPinId(pin.id)}
+                  className="danger-link folder-delete"
+                  style={{ fontSize: '12px', padding: '4px 6px' }}
+                  onClick={() => setConfirmDeleteFolder(true)}
                 >
-                  <strong>{formatPinTitle(pin.title, effectiveMin)}</strong>
-                  <span className="pin-meta">
-                    거리 {formatDistance(distance)} · 약 {effectiveMin}분
-                  </span>
-                  <span className="pin-sub">
-                    {pin.hasRestaurant ? '식당 포함' : '산책만'} · {pin.roadType?.split(' · ')[0] || '안심 산책길'}
-                  </span>
-                  {pin.hasRestaurant && pin.restaurant && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#16a34a', fontWeight: 600, marginTop: '2px' }}>
-                      <Icon name="utensils" size={13} />
-                      <span>{pin.restaurant.name}</span>
-                      <span style={{ fontSize: '10px', background: 'rgba(22,163,74,0.1)', padding: '1px 5px', borderRadius: '4px' }}>
-                        {pin.restaurant.dot || '🟢'} {pin.restaurant.badgeLabel || '안심식당'}
-                      </span>
-                    </div>
-                  )}
+                  폴더 삭제
                 </button>
+              )}
+          </div>
 
-                {sort === 'custom' && (
+          {/* 정렬 및 필터 컨트롤 바 */}
+          <div className="control-row" style={{ marginTop: '8px', marginBottom: '8px' }}>
+            <label className="select-pill">
+              <select value={sort} onChange={(event) => setSort(event.target.value)} aria-label="정렬 기준">
+                {SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <Icon name="chevron-down" size={15} />
+            </label>
+
+            <label className={`select-pill ${filter !== 'all' ? 'is-active' : ''}`}>
+              <select value={filter} onChange={(event) => setFilter(event.target.value)} aria-label="필터 기준">
+                {FILTER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <Icon name="chevron-down" size={15} />
+            </label>
+          </div>
+
+          {sort === 'custom' && (
+            <p className="helper custom-hint" style={{ fontSize: '11px', margin: '-2px 0 8px' }}>
+              직접 정렬에서는 카드를 위아래로 끌어 순서를 바꿀 수 있어요.
+            </p>
+          )}
+
+          {/* 저장 코스 목록 (스크롤 가능) */}
+          <div
+            className="pin-list pin-list--scrollable"
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+          >
+            {visiblePins.map((pin) => {
+              const distance = Number(pin.distanceKm ?? pin.distanceToStartKm ?? 0.8);
+              const effectiveMin = Number(pin.durationMin ?? pin.duration_minutes ?? pin.duration ?? 25);
+              const isSelected = selectedPinId === pin.id;
+              const isDragging = dragId === pin.id;
+
+              return (
+                <article
+                  key={pin.id}
+                  ref={(node) => {
+                    if (node) cardRefs.current.set(pin.id, node);
+                    else cardRefs.current.delete(pin.id);
+                  }}
+                  className={`pin-card ${isSelected ? 'is-selected' : ''} ${isDragging ? 'is-dragging' : ''}`}
+                  draggable={sort === 'custom'}
+                  onDragStart={() => setDragId(pin.id)}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={() => handleDrop(pin)}
+                  onClick={() => {
+                    setSelectedPinId(pin.id);
+                    setPreviewPin(pin);
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div className="pin-card-main">
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                      <strong style={{ fontSize: '14.5px', color: isSelected ? 'var(--emerald-dark, #065f46)' : 'var(--ink)' }}>
+                        {formatPinTitle(pin.title, effectiveMin)}
+                      </strong>
+                      {isSelected && (
+                        <span
+                          style={{
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            color: '#059669',
+                            background: '#ecfdf5',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          미리보기 중
+                        </span>
+                      )}
+                    </div>
+
+                    <span className="pin-meta" style={{ fontSize: '12px' }}>
+                      약 {effectiveMin}분 · 거리 {formatDistance(distance)} · {pin.hasRestaurant ? '식당 포함' : '산책만'}
+                    </span>
+
+                    {pin.restaurant && (
+                      <span
+                        className="pin-sub"
+                        style={{
+                          color: 'var(--emerald-dark)',
+                          fontWeight: 600,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontSize: '11.5px',
+                        }}
+                      >
+                        <Icon name="utensils" size={12} />
+                        <span>{pin.restaurant.name}</span>
+                        <span
+                          style={{
+                            fontSize: '10px',
+                            background: 'var(--emerald-soft)',
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                          }}
+                        >
+                          {pin.restaurant.dot || '🟢'} {pin.restaurant.badgeLabel || '안심식당'}
+                        </span>
+                      </span>
+                    )}
+
+                    {pin.roadType && (
+                      <span className="pin-sub" style={{ fontSize: '11px', color: 'var(--muted-2)' }}>
+                        {pin.roadType}
+                      </span>
+                    )}
+                  </div>
+
+                  {sort === 'custom' && (
+                    <button
+                      type="button"
+                      className="drag-handle"
+                      aria-label={`${pin.title} 순서 변경`}
+                      style={{ background: 'none', border: 0, padding: 0 }}
+                      onPointerDown={(event) => handlePointerDown(event, pin.id)}
+                    >
+                      <Icon name="bars" size={18} />
+                    </button>
+                  )}
+
                   <button
                     type="button"
-                    className="drag-handle"
-                    aria-label={`${pin.title} 순서 변경`}
-                    style={{ background: 'none', border: 0, padding: 0 }}
-                    onPointerDown={(event) => handlePointerDown(event, pin.id)}
+                    className="danger-link"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setConfirmDeletePin(pin);
+                    }}
+                    aria-label="핀 삭제"
+                    title="핀 삭제"
                   >
-                    <Icon name="grip" size={18} />
+                    삭제
                   </button>
-                )}
-                <button
-                  type="button"
-                  className="danger-link"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setConfirmDeletePin(pin);
-                  }}
-                >
-                  삭제
-                </button>
-              </article>
-            );
-          })}
+                </article>
+              );
+            })}
 
-          {visiblePins.length === 0 && (
-            <div className="empty-state">
-              <span className="empty-icon"><Icon name="pin" size={24} /></span>
-              <strong>저장된 코스가 없어요</strong>
-              <p>마음에 드는 경로의 북마크 아이콘을 눌러<br />이 폴더에 저장해 보세요.</p>
+            {visiblePins.length === 0 && (
+              <div className="empty-box" style={{ padding: '24px 16px', textAlign: 'center' }}>
+                <span className="empty-icon">
+                  <Icon name="pin" size={24} />
+                </span>
+                <strong style={{ display: 'block', margin: '8px 0 4px', fontSize: '14px' }}>저장된 코스가 없어요</strong>
+                <p style={{ margin: 0, fontSize: '12px', color: 'var(--muted)' }}>
+                  마음에 드는 경로의 북마크 아이콘을 눌러
+                  <br />이 폴더에 저장해 보세요.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* 하단 경로 시작 버튼 */}
+          {visiblePins.length > 0 && (
+            <div style={{ marginTop: '10px', flexShrink: 0 }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={!selectedPinId}
+                onClick={() => {
+                  const targetPin = visiblePins.find((item) => item.id === selectedPinId) || previewPin;
+                  if (!targetPin) return;
+                  setConfirmPin(targetPin);
+                  setView('confirm');
+                }}
+                style={{ width: '100%', height: '46px', fontSize: '15px', fontWeight: 700 }}
+              >
+                {selectedPinId ? '경로 시작' : '코스를 선택해 주세요'}
+              </button>
             </div>
           )}
-        </div>
+        </section>
 
-        <p className="list-hint">저장 코스를 선택하면 산책을 시작할 수 있어요</p>
-
-        <div className="bottom-cta">
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={!selectedPinId}
-            onClick={() => {
-              const pin = visiblePins.find((item) => item.id === selectedPinId);
-              if (!pin) return;
-              setConfirmPin(pin);
-              setView('confirm');
-            }}
-          >
-            저장 코스 선택
-          </button>
-        </div>
-
+        {/* 코스 삭제 확인 다이얼로그 */}
         {confirmDeletePin && (
           <div className="pin-dialog-backdrop" role="presentation" onClick={() => setConfirmDeletePin(null)}>
             <section
@@ -552,19 +695,33 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
               onClick={(event) => event.stopPropagation()}
             >
               <h2 id="pin-delete-title">저장한 코스를 삭제할까요?</h2>
-              <strong>{formatPinTitle(confirmDeletePin.title, Number(confirmDeletePin.durationMin ?? confirmDeletePin.duration_minutes ?? confirmDeletePin.duration ?? 25))}</strong>
+              <strong>
+                {formatPinTitle(
+                  confirmDeletePin.title,
+                  Number(confirmDeletePin.durationMin ?? confirmDeletePin.duration_minutes ?? confirmDeletePin.duration ?? 25)
+                )}
+              </strong>
               <p>삭제한 코스는 폴더에서 사라져요.</p>
               <div className="pin-dialog-actions">
-                <button type="button" className="btn btn-ghost" onClick={() => setConfirmDeletePin(null)}>취소</button>
-                <button type="button" className="btn btn-primary" onClick={() => {
-                  deletePin(confirmDeletePin);
-                  setConfirmDeletePin(null);
-                }}>삭제</button>
+                <button type="button" className="btn btn-ghost" onClick={() => setConfirmDeletePin(null)}>
+                  취소
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    deletePin(confirmDeletePin);
+                    setConfirmDeletePin(null);
+                  }}
+                >
+                  삭제
+                </button>
               </div>
             </section>
           </div>
         )}
 
+        {/* 폴더 삭제 확인 다이얼로그 */}
         {confirmDeleteFolder && (
           <div className="pin-dialog-backdrop" role="presentation" onClick={() => setConfirmDeleteFolder(false)}>
             <section
@@ -582,8 +739,12 @@ export default function PinsPage({ isLoggedIn, userId, onRequireLogin, onStartRo
                   : '삭제한 폴더는 되돌릴 수 없어요.'}
               </p>
               <div className="pin-dialog-actions">
-                <button type="button" className="btn btn-ghost" onClick={() => setConfirmDeleteFolder(false)}>취소</button>
-                <button type="button" className="btn btn-primary" onClick={deleteFolder}>삭제</button>
+                <button type="button" className="btn btn-ghost" onClick={() => setConfirmDeleteFolder(false)}>
+                  취소
+                </button>
+                <button type="button" className="btn btn-primary" onClick={deleteFolder}>
+                  삭제
+                </button>
               </div>
             </section>
           </div>

@@ -1604,6 +1604,33 @@ input[type="checkbox"].soyo-check:checked::before {
   padding-bottom: 20px;
 }
 
+.pin-sheet--folder {
+  min-height: 52%;
+  max-height: 68%;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 20px max(20px, env(safe-area-inset-bottom, 0px));
+}
+
+.pin-folder-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.pin-list--scrollable {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  -webkit-overflow-scrolling: touch;
+}
+
 .pin-sheet--locked {
   min-height: 48%;
 }
